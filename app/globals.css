@@ -1,0 +1,79 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: #131210;
+}
+
+::selection {
+  background: rgba(212, 149, 107, 0.3);
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+@keyframes fu {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes rm {
+  from {
+    opacity: 1;
+    max-height: 80px;
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.fu {
+  animation: fu 0.35s ease-out forwards;
+  opacity: 0;
+}
+
+.dt {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 2px;
+  animation: pulse 1.2s infinite;
+  background: #6B6258;
+}
+
+.rm {
+  animation: rm 0.3s ease-out forwards;
+  overflow: hidden;
+}
