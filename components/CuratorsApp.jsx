@@ -1565,7 +1565,7 @@ export default function CuratorsV2() {
                         {selectedItem.links.map((link, i) => (
                           <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
                             display: "flex", alignItems: "center", gap: 10,
-                            padding: "12px 14px", background: T.s, borderRadius: 12, border: \`1px solid ${T.bdr}\`,
+                            padding: "12px 14px", background: T.s, borderRadius: 12, border: \`1px solid ${T.bdr}`,
                             textDecoration: "none", color: T.ink, transition: "background .15s"
                           }}>
                             <span style={{ fontSize: 16 }}>
