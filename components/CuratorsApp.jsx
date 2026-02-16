@@ -489,7 +489,7 @@ export default function CuratorsV2() {
             {mode === "visitor" && (
               <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: S, fontSize: 15, color: T.ink3 }}>curators</span>
-                <button onClick={() => switchMode("curator")} style={{ background: "none", border: `1px solid ${T.bdr}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
+                <button onClick={() => switchMode("curator")} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
               </div>
             )}
 
@@ -536,7 +536,7 @@ export default function CuratorsV2() {
 
             {/* Subscribe */}
             <div style={{ padding: "24px 20px 0" }}>
-              <div style={{ background: T.s, border: `1px solid ${T.bdr}`, borderRadius: 18, padding: "24px 20px" }}>
+              <div style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 18, padding: "24px 20px" }}>
                 {!subscribed ? (
                   <>
                     <div style={{ fontFamily: S, fontSize: 20, color: T.ink, lineHeight: 1.2, marginBottom: 6 }}>
@@ -572,7 +572,7 @@ export default function CuratorsV2() {
             <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
               {profile.aiEnabled && (
                 <button onClick={openVisitorAI} style={{
-                  flex: 1, padding: "22px 16px", borderRadius: 18, border: `1px solid ${T.bdr}`, cursor: "pointer", textAlign: "left",
+                  flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr, cursor: "pointer", textAlign: "left",
                   background: `linear-gradient(160deg, ${T.s2}, ${T.s})`, position: "relative", overflow: "hidden",
                 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
@@ -588,7 +588,7 @@ export default function CuratorsV2() {
                 </button>
               )}
               <button onClick={() => { setSubScreen("request"); setRequestSent(false); setRequestText(""); setRequestCat(null); }} style={{
-                flex: 1, padding: "22px 16px", borderRadius: 18, border: `1px solid ${T.bdr}`,
+                flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
                 background: T.s, cursor: "pointer", textAlign: "left",
               }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
@@ -625,7 +625,7 @@ export default function CuratorsV2() {
                     return (
                       <div key={item.id} className="fu" onClick={() => { setSelectedItem(item); setSubScreen("visitorItem"); }} style={{
                         display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
-                        background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, animationDelay: `${i * .05}s`,
+                        background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .05}s`,
                         cursor: "pointer", transition: "border-color .15s",
                       }}>
                         <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
@@ -651,7 +651,7 @@ export default function CuratorsV2() {
                     const c = CAT[cat] || CAT.other;
                     const ci = items.filter(x => x.category === cat);
                     return (
-                      <div key={cat} className="fu" style={{ padding: "16px", background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, animationDelay: `${i * .06}s` }}>
+                      <div key={cat} className="fu" style={{ padding: "16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .06}s` }}>
                         <div style={{ fontSize: 22, marginBottom: 8 }}>{c.emoji}</div>
                         <div style={{ fontFamily: F, fontSize: 14, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{c.label}</div>
                         <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginBottom: 8 }}>{cc[cat]} rec{cc[cat] !== 1 ? "s" : ""}</div>
@@ -990,7 +990,7 @@ export default function CuratorsV2() {
               {/* ── Section: Subscriptions ── */}
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, marginTop: 8, fontFamily: F }}>Subscriptions</div>
 
-              <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Accept subscribers</div>
@@ -1017,7 +1017,7 @@ export default function CuratorsV2() {
               {/* ── Section: Profile display ── */}
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Profile Display</div>
 
-              <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Show recommendations</div>
@@ -1042,7 +1042,7 @@ export default function CuratorsV2() {
               {/* ── Section: Interactions ── */}
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Interactions</div>
 
-              <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", borderBottom: `1px solid ${T.bdr}` }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Public AI access</div>
@@ -1072,7 +1072,7 @@ export default function CuratorsV2() {
               {/* ── Section: Wallet & Crypto ── */}
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Wallet & Crypto</div>
 
-              <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Accept crypto</div>
@@ -1097,7 +1097,7 @@ export default function CuratorsV2() {
                     </p>
                     <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                       {["ETH", "USDC", "SOL"].map(chain => (
-                        <div key={chain} style={{ padding: "6px 12px", borderRadius: 8, background: T.bg, border: `1px solid ${T.bdr}`, fontFamily: MN, fontSize: 11, color: T.ink2, fontWeight: 600 }}>{chain}</div>
+                        <div key={chain} style={{ padding: "6px 12px", borderRadius: 8, background: T.bg, border: "1px solid " + T.bdr, fontFamily: MN, fontSize: 11, color: T.ink2, fontWeight: 600 }}>{chain}</div>
                       ))}
                       <div style={{ padding: "6px 12px", borderRadius: 8, background: T.bg, border: `1px dashed ${T.bdr}`, fontFamily: F, fontSize: 11, color: T.ink3, cursor: "pointer" }}>+ More</div>
                     </div>
@@ -1485,13 +1485,13 @@ export default function CuratorsV2() {
                 <button onClick={() => { setSubScreen("taste"); setShowHistory(false); setEditingItem(null); }} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
                 {!isEditing && (
                   <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])] })} style={{
-                    background: T.s, border: `1px solid ${T.bdr}`, borderRadius: 10, padding: "6px 14px",
+                    background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
                     cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
                   }}>Edit</button>
                 )}
                 {isEditing && (
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => setEditingItem(null)} style={{ background: "none", border: `1px solid ${T.bdr}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink3 }}>Cancel</button>
+                    <button onClick={() => setEditingItem(null)} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink3 }}>Cancel</button>
                     <button onClick={saveItemEdit} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText }}>Save</button>
                   </div>
                 )}
@@ -1523,14 +1523,14 @@ export default function CuratorsV2() {
                   <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginBottom: 6 }}>Added {fmtDateFull(selectedItem.date)}</div>
                   <button onClick={() => copyLink(slug)} style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8,
-                    background: T.s, border: `1px solid ${T.bdr}`, cursor: "pointer", marginBottom: 20,
+                    background: T.s, border: "1px solid " + T.bdr, cursor: "pointer", marginBottom: 20,
                   }}>
                     <span style={{ fontSize: 11, color: T.ink3, fontFamily: MN }}>{url}</span>
                     <span style={{ fontSize: 10, color: itemCopied ? "#6BAA8E" : T.acc, fontFamily: F, fontWeight: 600 }}>{itemCopied ? "✓ Copied" : "Copy"}</span>
                   </button>
 
                   {/* Your take */}
-                  <div style={{ padding: "16px 18px", background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 20 }}>
+                  <div style={{ padding: "16px 18px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 20 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Your take</div>
                     {isEditing ? (
                       <textarea value={editingItem.context} onChange={e => setEditingItem(p => ({ ...p, context: e.target.value }))} rows={3}
@@ -1544,7 +1544,7 @@ export default function CuratorsV2() {
                   {/* Tags */}
                   {!isEditing && selectedItem.tags?.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-                      {selectedItem.tags.map(tag => <span key={tag} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12, background: T.s, color: T.ink2, border: `1px solid ${T.bdr}`, fontFamily: F }}>{tag}</span>)}
+                      {selectedItem.tags.map(tag => <span key={tag} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>{tag}</span>)}
                     </div>
                   )}
                   {isEditing && (
@@ -1565,7 +1565,7 @@ export default function CuratorsV2() {
                         {selectedItem.links.map((link, i) => (
                           <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
                             display: "flex", alignItems: "center", gap: 10,
-                            padding: "12px 14px", background: T.s, borderRadius: 12, border: \`1px solid ${T.bdr}`,
+                            padding: "12px 14px", background: T.s, borderRadius: 12, border: "1px solid " + T.bdr,
                             textDecoration: "none", color: T.ink, transition: "background .15s"
                           }}>
                             <span style={{ fontSize: 16 }}>
@@ -1590,7 +1590,7 @@ export default function CuratorsV2() {
                       <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F, marginTop: 4 }}>Visibility</div>
                       <div style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "14px 16px", background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 16,
+                        padding: "14px 16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16,
                       }}>
                         <div>
                           <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{isPublic ? "Public" : "Private"}</div>
@@ -1851,7 +1851,7 @@ export default function CuratorsV2() {
                       {/* On-chain rec / wallet */}
                       <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>On-chain</div>
                       <div style={{
-                        background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`,
+                        background: T.s, borderRadius: 14, border: "1px solid " + T.bdr,
                         marginBottom: 16, overflow: "hidden",
                       }}>
                         <div style={{ padding: "16px", display: "flex", alignItems: "center", gap: 12, borderBottom: profile.cryptoEnabled ? `1px solid ${T.bdr}` : "none" }}>
@@ -1869,7 +1869,7 @@ export default function CuratorsV2() {
                         {profile.cryptoEnabled && (
                           <div style={{ padding: "12px 16px" }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Wallet receiving address</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: T.bg, borderRadius: 8, border: `1px solid ${T.bdr}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: T.bg, borderRadius: 8, border: "1px solid " + T.bdr }}>
                               <span style={{ fontSize: 12, color: T.ink2, fontFamily: MN, flex: 1 }}>{profile.wallet}</span>
                               <span style={{ fontSize: 10, color: T.ink3, fontFamily: F }}>From profile</span>
                             </div>
@@ -1882,7 +1882,7 @@ export default function CuratorsV2() {
 
                       {/* Version history */}
                       <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Version History</div>
-                      <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, overflow: "hidden", marginBottom: 20 }}>
+                      <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, overflow: "hidden", marginBottom: 20 }}>
                         <button onClick={() => setShowHistory(!showHistory)} style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
                           padding: "13px 16px", background: "transparent", border: "none", cursor: "pointer",
@@ -1939,7 +1939,7 @@ export default function CuratorsV2() {
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
               <div style={{ padding: "52px 20px 10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <button onClick={closeSubScreen} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
-                <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: `1px solid ${T.bdr}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
+                <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
                   Copy link
                 </button>
               </div>
@@ -1964,7 +1964,7 @@ export default function CuratorsV2() {
                   {/* Context — elevated card */}
                   <div style={{
                     padding: "20px 22px", background: T.s, borderRadius: 16,
-                    border: `1px solid ${T.bdr}`, marginBottom: 20,
+                    border: "1px solid " + T.bdr, marginBottom: 20,
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Why {profile.name} recommends this</div>
                     <p style={{ fontSize: 17, lineHeight: 1.6, color: T.ink, fontFamily: F, fontWeight: 500 }}>
@@ -1976,14 +1976,14 @@ export default function CuratorsV2() {
                   {selectedItem.tags?.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
                       {selectedItem.tags.map(tag => (
-                        <span key={tag} style={{ padding: "6px 14px", borderRadius: 10, fontSize: 12, background: T.s, color: T.ink2, border: `1px solid ${T.bdr}`, fontFamily: F }}>{tag}</span>
+                        <span key={tag} style={{ padding: "6px 14px", borderRadius: 10, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>{tag}</span>
                       ))}
                     </div>
                   )}
 
                   {/* Website + Phone (for restaurants/travel/products) */}
                   {(selectedItem.website || selectedItem.phone) && (
-                    <div style={{ background: T.s, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 24, overflow: "hidden" }}>
+                    <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 24, overflow: "hidden" }}>
                       {selectedItem.website && (
                         <a href={selectedItem.website} target="_blank" rel="noopener noreferrer" style={{
                           display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
@@ -2023,7 +2023,7 @@ export default function CuratorsV2() {
                       {recBundles.map(bundle => (
                         <div key={bundle.id} style={{
                           display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                          background: T.s, borderRadius: 12, border: `1px solid ${T.bdr}`, marginBottom: 6,
+                          background: T.s, borderRadius: 12, border: "1px solid " + T.bdr, marginBottom: 6,
                         }}>
                           <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 13 }}>📦</span>
@@ -2116,7 +2116,7 @@ export default function CuratorsV2() {
                       ) : (
                         <div className="fu" style={{
                           padding: "28px 22px", borderRadius: 20,
-                          background: T.s, border: `1px solid ${T.bdr}`,
+                          background: T.s, border: "1px solid " + T.bdr,
                         }}>
                           {/* Header */}
                           <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -2324,7 +2324,7 @@ export default function CuratorsV2() {
                       {tipMessage && (
                         <div style={{
                           marginTop: 12, padding: "12px 16px", borderRadius: 12,
-                          background: T.s, border: `1px solid ${T.bdr}`, textAlign: "left",
+                          background: T.s, border: "1px solid " + T.bdr, textAlign: "left",
                         }}>
                           <p style={{ fontFamily: F, fontSize: 13, color: T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>"{tipMessage}"</p>
                         </div>
@@ -2341,25 +2341,25 @@ export default function CuratorsV2() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                       <span style={{
                         padding: "4px 10px", borderRadius: 6, fontSize: 10, fontFamily: MN,
-                        background: T.s, border: `1px solid ${T.bdr}`, color: T.ink3,
+                        background: T.s, border: "1px solid " + T.bdr, color: T.ink3,
                       }}>Timestamped · Rev {selectedItem.revision || 1}</span>
                       {!!itemLicensable[selectedItem.id] && (
                         <span style={{
                           padding: "4px 10px", borderRadius: 6, fontSize: 10, fontFamily: MN,
-                          background: T.s, border: `1px solid ${T.bdr}`, color: T.ink3,
+                          background: T.s, border: "1px solid " + T.bdr, color: T.ink3,
                         }}>Licensable</span>
                       )}
                       {profile.cryptoEnabled && (
                         <span style={{
                           padding: "4px 10px", borderRadius: 6, fontSize: 10, fontFamily: MN,
-                          background: T.s, border: `1px solid ${T.bdr}`, color: T.ink3,
+                          background: T.s, border: "1px solid " + T.bdr, color: T.ink3,
                         }}>{profile.wallet}</span>
                       )}
                     </div>
                     {!!itemLicensable[selectedItem.id] && (() => {
                       const lic = itemLicense[selectedItem.id] || { types: [], floor: 100 };
                       return (
-                        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: T.s, border: `1px solid ${T.bdr}` }}>
+                        <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: T.s, border: "1px solid " + T.bdr }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <div>
                               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, fontFamily: F, textTransform: "uppercase", letterSpacing: ".06em" }}>License this recommendation</div>
@@ -2368,7 +2368,7 @@ export default function CuratorsV2() {
                               </div>
                             </div>
                             <button style={{
-                              padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.bdr}`,
+                              padding: "8px 14px", borderRadius: 8, border: "1px solid " + T.bdr,
                               background: T.s, fontSize: 11, fontWeight: 600, color: T.ink2,
                               cursor: "pointer", fontFamily: F,
                             }}>Inquire</button>
