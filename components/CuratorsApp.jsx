@@ -11,7 +11,7 @@ const REQUESTS_DATA = [
 const TASTE_DATA = [
   { id: 1, slug: "she-was-the-one-joe-higgs", title: "She Was the One — Joe Higgs", category: "music", context: "Beautiful soul lifting song that makes you smile, move, and sing along.", tags: ["Reggae", "Old School"], date: "2026-02-15", visibility: "public", revision: 1, earnableMode: "none",
     links: [
-      { type: "youtube", url: "https://www.youtube.com/watch?v=-lVBp8sulrk", label: "YouTube" }
+      { type: "youtube", url: "https://www.youtube.com/watch?v=-lVBp8sulrk", label: "She Was The One" }
     ],
     revisions: [{ rev: 1, date: "2026-02-15", change: "Created" }] },
   { id: 2, slug: "delfina", title: "Delfina", category: "restaurant", context: "Inventive, progressive minded food that brings tradition, classics, and novel approaches. It's a high-quality adventure for people who love food.", tags: ["Special Occasion", "Date Night"], date: "2026-02-15", visibility: "public", revision: 1, earnableMode: "none",
@@ -19,8 +19,8 @@ const TASTE_DATA = [
     revisions: [{ rev: 1, date: "2026-02-15", change: "Created" }] },
   { id: 3, slug: "emancipator", title: "Emancipator", category: "music", context: "A unique artist who creates lovely instrumentals with classical sounds mixed in beautiful, haunting, introspective, rhythmic songs that capture me.", tags: ["Instrumental", "Chill"], date: "2026-02-15", visibility: "public", revision: 1, earnableMode: "none",
     links: [
-      { type: "spotify", url: "https://open.spotify.com/track/7cHRys0Lhk9642dLaPUMkm?si=9f16a2b071484958", label: "Spotify - Track 1" },
-      { type: "spotify", url: "https://open.spotify.com/track/4qCYYhzI5bCz7JxV7VD4HH?si=d50e0285ec214655", label: "Spotify - Track 2" }
+      { type: "spotify", url: "https://open.spotify.com/track/7cHRys0Lhk9642dLaPUMkm?si=9f16a2b071484958", label: "Soon It Will Be Cold Enough to Build Fires" },
+      { type: "spotify", url: "https://open.spotify.com/track/4qCYYhzI5bCz7JxV7VD4HH?si=d50e0285ec214655", label: "First Snow" }
     ],
     revisions: [{ rev: 1, date: "2026-02-15", change: "Created" }] },
   { id: 4, slug: "when-breath-becomes-air", title: "When Breath Becomes Air — Paul Kalanithi", category: "book", context: "An incredible autobiography of a neurosurgeon who also had a masters in English Literature. He wrote masterfully about his life and his own mortality. It moved me deeply. Highly recommend.", tags: ["Autobiography", "Cancer"], date: "2026-02-15", visibility: "public", revision: 1, earnableMode: "none",
@@ -30,7 +30,7 @@ const TASTE_DATA = [
     revisions: [{ rev: 1, date: "2026-02-15", change: "Created" }] },
   { id: 5, slug: "michael-kiwanuka", title: "Michael Kiwanuka", category: "music", context: "A soulful artist and great performer. His song Father's Child off the album Love and Hate is one of my favorites.", tags: ["Soul", "Indie Rock", "Folk"], date: "2026-02-15", visibility: "public", revision: 1, earnableMode: "none",
     links: [
-      { type: "spotify", url: "https://open.spotify.com/track/4pjnTKFhJxQzyd90onjqQi?si=ecbe239cc5b14bef", label: "Spotify - Father's Child" }
+      { type: "spotify", url: "https://open.spotify.com/track/4pjnTKFhJxQzyd90onjqQi?si=ecbe239cc5b14bef", label: "Father's Child" }
     ],
     revisions: [{ rev: 1, date: "2026-02-15", change: "Created" }] },
 ];
