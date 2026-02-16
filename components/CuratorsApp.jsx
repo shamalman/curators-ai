@@ -1557,6 +1557,32 @@ export default function CuratorsV2() {
                     </div>
                   )}
 
+                  {/* Links */}
+                  {!isEditing && selectedItem.links?.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {selectedItem.links.map((link, i) => (
+                          <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "12px 14px", background: T.s, borderRadius: 12, border: \`1px solid ${T.bdr}\`,
+                            textDecoration: "none", color: T.ink, transition: "background .15s"
+                          }}>
+                            <span style={{ fontSize: 16 }}>
+                              {link.type === "spotify" ? "🎵" : 
+                               link.type === "youtube" ? "▶️" : 
+                               link.type === "wikipedia" ? "📖" :
+                               link.type === "google_maps" ? "📍" :
+                               link.type === "website" ? "🔗" : "🔗"}
+                            </span>
+                            <span style={{ fontFamily: F, fontSize: 13, fontWeight: 500 }}>{link.label || link.type}</span>
+                            <span style={{ marginLeft: "auto", fontSize: 12, color: T.ink3 }}>↗</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* ─── Settings section ─── */}
                   {!isEditing && (
                     <>
