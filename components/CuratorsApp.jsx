@@ -195,10 +195,9 @@ export default function CuratorsV2() {
     "What's something you keep telling people about?",
   ];
   
-  // Init curator chat once
+  // Init curator chat once - use messages.length to check if already initialized
   useEffect(() => {
-    if (mode === "curator" && curatorTab === "myai" && !chatInitd.current) {
-      chatInitd.current = true;
+    if (mode === "curator" && curatorTab === "myai" && messages.length === 0) {
       const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
       
       const openingMessage = n === 0 
