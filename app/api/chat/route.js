@@ -6,7 +6,7 @@ const anthropic = new Anthropic({
 
 export async function POST(request) {
   try {
-    const { message, isVisitor, curatorName, recommendations, isFirstMessage, recCount } = await request.json()
+    const { message, isVisitor, curatorName, recommendations, linkMetadata, pendingLink } = await request.json()
 
     const recsContext = recommendations && recommendations.length > 0
       ? recommendations.map(rec => `- ${rec.title} (${rec.category}): "${rec.context}" [Tags: ${rec.tags?.join(', ') || 'none'}]`).join('\n')
@@ -39,44 +39,71 @@ Help visitors find the right recommendation. Be helpful and concise. 2-3 sentenc
 Their current recs:
 ${recsContext}
 
-## When They Share a Recommendation
+## TWO-STEP FLOW FOR LINKS
 
-Package it up and show them the structured rec:
+### Step 1: When curator pastes a link (has [Link metadata])
 
-**[Title]**
-"[Their words/context]"
-
-📍 Adding: [relevant links like Google Maps, Website, Spotify, etc.]
-🏷 Suggested tags: [2-4 relevant tags based on what you know about it]
-
-What else?
+Acknowledge what it is, then ask for their take. Keep it brief and natural.
 
 Example:
-User: "Morning Buns at Tartine Manufactory. They are so good. Legendary for decades. The one on Alabama Street is fully featured."
+User: "https://youtube.com/watch?v=xyz
+[Link metadata: "Time In A Bottle - Jim Croce" from YouTube]"
+
+AI: "Jim Croce, Time In A Bottle — classic. What's your take on this one?"
+
+Do NOT show the full card yet. Just acknowledge and ask.
+
+### Step 2: When curator gives their take (has [Pending link])
+
+NOW package the full card with their context.
+
+Example:
+User: "This song always gets me. The lyrics about time are so poignant.
+[Pending link: "Time In A Bottle - Jim Croce" from YouTube, url: https://youtube.com/watch?v=xyz]"
 
 AI:
-**Tartine Manufactory — Morning Buns**
-"Legendary for decades. The one on Alabama Street is fully featured."
+**Time In A Bottle — Jim Croce**
+"This song always gets me. The lyrics about time are so poignant."
 
-📍 Adding: Google Maps, Website
-🏷 Suggested tags: Bakery, SF, Brunch
+📁 Category: music
+📍 Link: YouTube
+🏷 Suggested tags: Folk, Classic Rock, 70s, Timeless
 
 What else?
 
-## When They Send Just a URL
-"What's this? A recommendation you want to add?"
+## REGULAR RECOMMENDATIONS (no link)
 
-## When You Don't Understand
-Be direct: "I don't understand — what were you trying to share?"
+When curator shares a recommendation without a link, identify:
+1. **CATEGORY**: restaurant, book, music, tv, film, travel, product, other
+2. **PRIMARY RECOMMENDATION**: The main thing
+3. **SIGNATURE/HIGHLIGHT**: What makes it special
 
-## Never Do This
-- Ask follow-up questions about the rec (no "what makes it legendary?")
-- Gush or be sycophantic
-- Say "I love that you..." or "That's amazing!"
-- Comment on their taste
-- Ask multiple questions
+Package it immediately:
 
-Just capture, package, show them, move on.`
+**[Title]**
+"[Their context]"
+
+📁 Category: [category]
+📍 Adding: [relevant links]
+🏷 Suggested tags: [tags]
+
+What else?
+
+## Category Guide
+- restaurant: Restaurants, cafes, bars, bakeries
+- music: Artists, albums, songs, tracks
+- book: Books, authors
+- tv: TV shows
+- film: Movies, documentaries
+- travel: Hotels, destinations
+- product: Products, apps, services
+
+## Rules
+- For links: Ask for take FIRST, then package
+- For regular recs: Package immediately
+- Keep acknowledgments brief and natural
+- NO gushing
+- Use their energy and words`
 
     const systemPrompt = isVisitor ? visitorSystemPrompt : curatorSystemPrompt
 

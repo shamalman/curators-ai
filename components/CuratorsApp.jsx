@@ -137,6 +137,8 @@ export default function CuratorsV2() {
   const [tipExpanded, setTipExpanded] = useState(false);
   const [tipAmount, setTipAmount] = useState(null);
   const [tipSent, setTipSent] = useState(false);
+  const [editingCapture, setEditingCapture] = useState(null); // { title, context, tags, msgIndex }
+  const [pendingLink, setPendingLink] = useState(null); // { url, title, source } - waiting for user's take
   const [tipMessage, setTipMessage] = useState("");
   // Per-item earnings config — each is independent (keyed by item id)
   const [itemSubOnly, setItemSubOnly] = useState({ 10: true, 5: true }); // Flour+Water, Hotel
@@ -246,6 +248,36 @@ export default function CuratorsV2() {
     
     const isVis = subScreen === "ai";
     
+    // Check if the message is a URL and fetch metadata
+    const urlMatch = msg.match(/https?:\/\/[^\s]+/);
+    let enrichedMsg = msg;
+    let linkMetadata = null;
+    
+    // If there's a pending link and user is giving their take
+    if (pendingLink && !urlMatch && !isVis) {
+      enrichedMsg = `${msg}\n[Pending link: "${pendingLink.title}" from ${pendingLink.source}, url: ${pendingLink.url}]`;
+      linkMetadata = pendingLink;
+    }
+    // If user pastes a new link
+    else if (urlMatch && !isVis) {
+      try {
+        const metaRes = await fetch('/api/link-metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: urlMatch[0] })
+        });
+        const meta = await metaRes.json();
+        if (meta.title) {
+          linkMetadata = { url: urlMatch[0], title: meta.title, source: meta.source };
+          enrichedMsg = `${msg}\n[Link metadata: "${meta.title}" from ${meta.source}]`;
+          // Store as pending link for next message
+          setPendingLink(linkMetadata);
+        }
+      } catch (e) {
+        console.log('Could not fetch link metadata');
+      }
+    }
+    
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -253,7 +285,7 @@ export default function CuratorsV2() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: msg,
+          message: enrichedMsg,
           isVisitor: isVis,
           curatorName: profile.name,
           recommendations: items.map(item => ({
@@ -261,13 +293,37 @@ export default function CuratorsV2() {
             category: item.category,
             context: item.context,
             tags: item.tags
-          }))
+          })),
+          linkMetadata
         }),
       });
       
       const data = await response.json();
       setTyping(false);
-      setMessages(m => [...m, { role: "ai", text: data.message }]);
+      
+      // Check if AI response contains a captured recommendation
+      const text = data.message;
+      const isCapturedRec = text.includes('📍 Adding:') || text.includes('🏷 Suggested tags:');
+      
+      // Try to parse the captured rec
+      let capturedRec = null;
+      if (isCapturedRec) {
+        const titleMatch = text.match(/\*\*([^*]+)\*\*/);
+        const contextMatch = text.match(/"([^"]+)"/);
+        const tagsMatch = text.match(/🏷 Suggested tags?:?\s*([^\n]+)/i);
+        const categoryMatch = text.match(/📁 Category:\s*(\w+)/i);
+        
+        if (titleMatch) {
+          capturedRec = {
+            title: titleMatch[1].replace(' — ', ' - '),
+            context: contextMatch ? contextMatch[1] : '',
+            tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
+            category: categoryMatch ? categoryMatch[1].toLowerCase() : 'other',
+          };
+        }
+      }
+      
+      setMessages(m => [...m, { role: "ai", text: data.message, capturedRec }]);
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
@@ -322,7 +378,7 @@ export default function CuratorsV2() {
       { rev: newRev, date: new Date().toISOString().split("T")[0], change: "Updated context and tags" },
       ...(selectedItem.revisions || []),
     ];
-    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, revision: newRev, revisions: newRevisions };
+    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, revision: newRev, revisions: newRevisions };
     setTasteItems(items => items.map(i => i.id === updated.id ? updated : i));
     setSelectedItem(updated);
     setEditingItem(null);
@@ -790,7 +846,111 @@ export default function CuratorsV2() {
                           <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
                         </div>
                       )}
-                      <div style={curatorBubble(msg)}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
+                      <div style={{ maxWidth: "82%" }}>
+                        <div style={curatorBubble(msg)}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
+                        {msg.capturedRec && !msg.saved && !editingCapture && (
+                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <button onClick={() => {
+                              const newItem = {
+                                id: Date.now(),
+                                slug: msg.capturedRec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                                title: msg.capturedRec.title,
+                                category: msg.capturedRec.category || "other",
+                                context: msg.capturedRec.context,
+                                tags: msg.capturedRec.tags,
+                                date: new Date().toISOString().split("T")[0],
+                                visibility: "public",
+                                revision: 1,
+                                earnableMode: "none",
+                                links: pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : [],
+                                revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
+                              };
+                              setTasteItems(prev => [newItem, ...prev]);
+                              setMessages(prev => [...prev.map((m, idx) => idx === i ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
+                              setPendingLink(null);
+                            }} style={{
+                              padding: "8px 16px", borderRadius: 10, border: "none",
+                              background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
+                              cursor: "pointer", fontFamily: F
+                            }}>Save</button>
+                            <button onClick={() => setEditingCapture({ ...msg.capturedRec, msgIndex: i })} style={{
+                              padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
+                              background: T.s, color: T.ink, fontSize: 13, fontWeight: 500,
+                              cursor: "pointer", fontFamily: F
+                            }}>Edit</button>
+                          </div>
+                        )}
+                        {editingCapture && editingCapture.msgIndex === i && (
+                          <div style={{ marginTop: 12, padding: 16, background: T.s, borderRadius: 14, border: "1px solid " + T.bdr }}>
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title</div>
+                              <input value={editingCapture.title} onChange={e => setEditingCapture(p => ({ ...p, title: e.target.value }))}
+                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none" }}
+                              />
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Context</div>
+                              <textarea value={editingCapture.context} onChange={e => setEditingCapture(p => ({ ...p, context: e.target.value }))} rows={2}
+                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none", resize: "none" }}
+                              />
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Category</div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {["restaurant", "book", "music", "tv", "film", "travel", "product", "other"].map(cat => (
+                                  <button key={cat} onClick={() => setEditingCapture(p => ({ ...p, category: cat }))}
+                                    style={{
+                                      padding: "6px 12px", borderRadius: 8, border: editingCapture.category === cat ? "none" : "1px solid " + T.bdr,
+                                      background: editingCapture.category === cat ? T.acc : T.bg, color: editingCapture.category === cat ? "#fff" : T.ink2,
+                                      fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, textTransform: "capitalize"
+                                    }}>{cat}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Tags</div>
+                              <input value={editingCapture.tags?.join(", ") || ""} onChange={e => setEditingCapture(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
+                                placeholder="Comma separated"
+                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none" }}
+                              />
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button onClick={() => {
+                                const newItem = {
+                                  id: Date.now(),
+                                  slug: editingCapture.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                                  title: editingCapture.title,
+                                  category: editingCapture.category || "other",
+                                  context: editingCapture.context,
+                                  tags: editingCapture.tags || [],
+                                  date: new Date().toISOString().split("T")[0],
+                                  visibility: "public",
+                                  revision: 1,
+                                  earnableMode: "none",
+                                  links: pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : [],
+                                  revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
+                                };
+                                setTasteItems(prev => [newItem, ...prev]);
+                                setMessages(prev => [...prev.map((m, idx) => idx === editingCapture.msgIndex ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
+                                setEditingCapture(null);
+                                setPendingLink(null);
+                              }} style={{
+                                padding: "8px 16px", borderRadius: 10, border: "none",
+                                background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
+                                cursor: "pointer", fontFamily: F
+                              }}>Save</button>
+                              <button onClick={() => setEditingCapture(null)} style={{
+                                padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
+                                background: T.bg, color: T.ink2, fontSize: 13, fontWeight: 500,
+                                cursor: "pointer", fontFamily: F
+                              }}>Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                        {msg.saved && false && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>✓ Saved to your recommendations</div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1484,7 +1644,7 @@ export default function CuratorsV2() {
               <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                 <button onClick={() => { setSubScreen("taste"); setShowHistory(false); setEditingItem(null); }} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
                 {!isEditing && (
-                  <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])] })} style={{
+                  <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category })} style={{
                     background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
                     cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
                   }}>Edit</button>
@@ -1545,6 +1705,21 @@ export default function CuratorsV2() {
                   {!isEditing && selectedItem.tags?.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
                       {selectedItem.tags.map(tag => <span key={tag} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>{tag}</span>)}
+                    </div>
+                  )}
+                  {isEditing && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {["restaurant", "book", "music", "tv", "film", "travel", "product", "other"].map(cat => (
+                          <button key={cat} onClick={() => setEditingItem(p => ({ ...p, category: cat }))}
+                            style={{
+                              padding: "8px 14px", borderRadius: 10, border: editingItem.category === cat ? "none" : "1px solid " + T.bdr,
+                              background: editingItem.category === cat ? T.acc : T.s, color: editingItem.category === cat ? "#fff" : T.ink2,
+                              fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, textTransform: "capitalize"
+                            }}>{cat}</button>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {isEditing && (
@@ -2102,58 +2277,6 @@ export default function CuratorsV2() {
                     </div>
                   )}
 
-                  {/* Action cards — side by side */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
-                    {/* AI card — instant */}
-                    <button onClick={() => {
-                      setSubScreen("ai");
-                      setMessages([
-                        { role: "ai", text: `I'm ${profile.name}'s taste AI — trained on ${n} personal recommendations.\n\nI know what ${profile.name} loves, why they love it, and who it's for. Ask me anything.` },
-                        { role: "user", text: `Tell me more about ${selectedItem.title}` },
-                      ]);
-                      setTyping(true);
-                      setTimeout(() => {
-                        const c2 = CAT[selectedItem.category] || CAT.other;
-                        setTyping(false);
-                        setMessages(m => [...m, { role: "ai", text: `**${selectedItem.title}**\n\n${profile.name}'s take: ${selectedItem.context}\n\nCategory: ${c2.label}\nTags: ${(selectedItem.tags || []).join(", ")}\n\nWant similar recommendations, or something specific about this one?` }]);
-                      }, 800);
-                    }} style={{
-                      padding: "20px 16px", borderRadius: 16,
-                      border: `1.5px solid ${T.bdr}`, background: T.s,
-                      cursor: "pointer", textAlign: "left",
-                      display: "flex", flexDirection: "column", gap: 10,
-                    }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: 18 }}>✦</span>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, fontFamily: F, lineHeight: 1.2 }}>Ask AI</div>
-                        <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Instant answers about this rec</div>
-                      </div>
-                    </button>
-
-                    {/* Request card — personal, secondary */}
-                    <button onClick={() => {
-                      setSubScreen("request");
-                      setRequestCat(selectedItem.category);
-                      setRequestText(`Loved your ${selectedItem.title} rec — `);
-                    }} style={{
-                      padding: "20px 16px", borderRadius: 16,
-                      border: `1.5px solid ${T.bdr}`, background: T.s,
-                      cursor: "pointer", textAlign: "left",
-                      display: "flex", flexDirection: "column", gap: 10,
-                    }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.s2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: 18 }}>🙏</span>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, fontFamily: F, lineHeight: 1.2 }}>Request a Curation</div>
-                        <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>{profile.name} responds personally</div>
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* ── Layer 2: Gratitude prompt ── */}
                   {!!itemTipEnabled[selectedItem.id] && !tipSent && (
                     <div style={{ marginTop: 20, marginBottom: 8 }}>
                       {!tipExpanded ? (
