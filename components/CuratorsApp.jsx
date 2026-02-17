@@ -704,11 +704,6 @@ export default function CuratorsV2() {
               </div>
             </div>
 
-            {/* Footer */}
-            <div style={{ textAlign: "center", padding: `16px 20px ${mode === "curator" ? "100px" : "44px"}`, borderTop: `1px solid ${T.bdr}` }}>
-              <span style={{ fontFamily: S, fontSize: 14, color: T.ink3 }}>curators</span>
-              <p style={{ fontSize: 10, color: T.ink3, fontFamily: F, marginTop: 4 }}>Taste you can trust.</p>
-            </div>
           </div>
         )}
 
