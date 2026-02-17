@@ -187,17 +187,18 @@ export default function CuratorsV2() {
     }
   }, [messages, typing]);
 
+  // Opening prompts for curator chat
+  const openingPrompts = [
+    "What's something you're enjoying that you want to capture and share?",
+    "What have you been recommending to people lately?",
+    "Anything new you've discovered that deserves a spot in your collection?",
+    "What's something you keep telling people about?",
+  ];
+  
   // Init curator chat once
   useEffect(() => {
     if (mode === "curator" && curatorTab === "myai" && !chatInitd.current) {
       chatInitd.current = true;
-      // Different opening based on how many recs they have
-      const openingPrompts = [
-        "What's something you're enjoying that you want to capture and share?",
-        "What have you been recommending to people lately?",
-        "Anything new you've discovered that deserves a spot in your collection?",
-        "What's something you keep telling people about?",
-      ];
       const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
       
       const openingMessage = n === 0 
