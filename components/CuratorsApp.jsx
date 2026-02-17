@@ -569,7 +569,7 @@ export default function CuratorsV2() {
               </div>
               <h1 style={{ fontFamily: S, fontSize: 34, color: T.ink, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}>{profile.name}</h1>
               <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, marginBottom: 14 }}>
-                {profile.handle} · {profile.subscribers} subscribers
+                {profile.handle}
               </p>
               <p style={{ fontFamily: F, fontSize: 14, color: T.ink2, lineHeight: 1.65, maxWidth: 300, margin: "0 auto" }}>
                 {profile.bio}
@@ -594,40 +594,6 @@ export default function CuratorsV2() {
                     </span>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Subscribe */}
-            <div style={{ padding: "24px 20px 0" }}>
-              <div style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 18, padding: "24px 20px" }}>
-                {!subscribed ? (
-                  <>
-                    <div style={{ fontFamily: S, fontSize: 20, color: T.ink, lineHeight: 1.2, marginBottom: 6 }}>
-                      Get {profile.name}'s recommendations delivered
-                    </div>
-                    <p style={{ fontSize: 13, color: T.ink2, fontFamily: F, lineHeight: 1.5, marginBottom: 16 }}>
-                      Curated recs straight to your inbox. Only things worth your time.
-                    </p>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input value={subEmail} onChange={e => setSubEmail(e.target.value)} placeholder="you@email.com" type="email"
-                        style={{ flex: 1, padding: "13px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 14, fontFamily: F, outline: "none", background: T.bg2, color: T.ink }}
-                      />
-                      <button onClick={() => { if (subEmail.includes("@")) setSubscribed(true) }} style={{
-                        padding: "13px 22px", borderRadius: 12, border: "none", background: T.acc, color: T.accText,
-                        fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap",
-                      }}>Subscribe</button>
-                    </div>
-                    <p style={{ fontSize: 10, color: T.ink3, fontFamily: F, marginTop: 10, textAlign: "center" }}>Free tier available · Premium coming soon</p>
-                  </>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "6px 0" }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 18, background: T.accSoft, margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ color: T.acc, fontSize: 18, fontWeight: 700 }}>✓</span>
-                    </div>
-                    <div style={{ fontFamily: S, fontSize: 17, color: T.ink, marginBottom: 4 }}>You're in</div>
-                    <p style={{ fontSize: 12, color: T.ink2, fontFamily: F }}>{profile.name}'s picks → {subEmail}</p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -759,7 +725,7 @@ export default function CuratorsV2() {
                 </div>
                 <div>
                   <div style={{ fontFamily: F, fontSize: 16, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>My AI</div>
-                  <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs · {cats.length} categories · {profile.subscribers} subs</div>
+                  <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs · {cats.length} categories</div>
                 </div>
               </div>
               <button onClick={() => { setSubScreen("taste"); setFilterCat(null); }} style={{
@@ -1169,33 +1135,6 @@ export default function CuratorsV2() {
                   style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 14, fontFamily: F, outline: "none", resize: "none", background: T.s, color: T.ink, lineHeight: 1.6 }}
                 />
                 <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{profile.bio.length}/160</p>
-              </div>
-
-              {/* ── Section: Subscriptions ── */}
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, marginTop: 8, fontFamily: F }}>Subscriptions</div>
-
-              <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Accept subscribers</div>
-                    <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>Weekly email digest of your new recs</div>
-                  </div>
-                  <button onClick={() => setProfile(p => ({ ...p, subsEnabled: !p.subsEnabled }))} style={{
-                    width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
-                    background: profile.subsEnabled ? T.acc : T.bdr, transition: "background .2s",
-                  }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: profile.subsEnabled ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                  </button>
-                </div>
-                {profile.subsEnabled && (
-                  <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${T.bdr}` }}>
-                    <label style={{ fontFamily: F, fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 8, marginTop: 12 }}>Subscription box text</label>
-                    <textarea value={profile.subsText} onChange={e => setProfile(p => ({ ...p, subsText: e.target.value }))} rows={2}
-                      style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, fontSize: 13, fontFamily: F, outline: "none", resize: "none", background: T.bg, color: T.ink, lineHeight: 1.5 }}
-                    />
-                    <p style={{ fontSize: 10, color: T.ink3, fontFamily: F, marginTop: 6 }}>This text appears in the subscribe box on your profile</p>
-                  </div>
-                )}
               </div>
 
               {/* ── Section: Profile display ── */}
