@@ -106,7 +106,7 @@ const EARNINGS = {
 
 export default function CuratorsV2() {
   // mode: "curator" (logged-in owner) or "visitor" (public viewer)
-  const [mode, setMode] = useState("visitor");
+  const [mode, setMode] = useState("curator");
   // curator tabs: "myai" | "profile"
   const [curatorTab, setCuratorTab] = useState("myai");
   // sub-screens that overlay on top
@@ -192,12 +192,19 @@ export default function CuratorsV2() {
     if (mode === "curator" && curatorTab === "myai" && !chatInitd.current) {
       chatInitd.current = true;
       // Different opening based on how many recs they have
-      const openingMessage = n === 0 
-        ? `Hey! I'm here to help you capture the stuff you love — the songs, spots, books, whatever you find yourself telling people about.\n\nWhat's something you've been into lately?`
-        : n < 10
-        ? `Hey! You've got ${n} recommendations so far. Let's keep building.\n\nWhat's something you've been into lately that you haven't captured yet?`
-        : `What's good? You've got ${n} recs now — ${cc["restaurant"] || 0} restaurants, ${cc["music"] || 0} music picks${cc["book"] ? `, ${cc["book"]} books` : ""}.\n\nAnything new you've been wanting to add?`;
+      const openingPrompts = [
+        "What's something you're enjoying that you want to capture and share?",
+        "What have you been recommending to people lately?",
+        "Anything new you've discovered that deserves a spot in your collection?",
+        "What's something you keep telling people about?",
+      ];
+      const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
       
+      const openingMessage = n === 0 
+        ? `Hey! I'm here to help you capture the stuff you love — the songs, spots, books, whatever you find yourself telling people about.\n\n${randomPrompt}`
+        : n < 10
+        ? `You've got ${n} recommendations so far.\n\n${randomPrompt}`
+        : `${n} recs and counting.\n\n${randomPrompt}`;
       setMessages([
         { role: "ai", text: openingMessage },
       ]);
@@ -862,7 +869,7 @@ export default function CuratorsV2() {
                                 visibility: "public",
                                 revision: 1,
                                 earnableMode: "none",
-                                links: editingCapture.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
+                                links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                 revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                               };
                               setTasteItems(prev => [newItem, ...prev]);
@@ -965,7 +972,7 @@ export default function CuratorsV2() {
                                   visibility: "public",
                                   revision: 1,
                                   earnableMode: "none",
-                                  links: editingCapture.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
+                                  links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                   revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                                 };
                                 setTasteItems(prev => [newItem, ...prev]);
@@ -999,27 +1006,6 @@ export default function CuratorsV2() {
                   <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
                 </div>}
                 <div ref={chatEnd} />
-              </div>
-              <div style={{ padding: "4px 16px 6px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
-                {[
-                  { label: "🎧 Recents Radio", prompt: "Create a radio station from my recent music." },
-                  { label: "📤 Share Recs", prompt: "Share recommendations with my subscribers." },
-                  { label: "🏷 Deals", prompt: "Any deals on things I've recommended?" },
-                  { label: "📰 News", prompt: "News about things I've recommended?" },
-                ].map(chip => (
-                  <button key={chip.label} onClick={() => setInput(chip.prompt)} style={{
-                    padding: "8px 14px", borderRadius: 20, border: `1px solid ${W.chipBdr}`, background: W.chip,
-                    fontSize: 12, color: T.ink2, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap", flexShrink: 0, fontWeight: 500,
-                  }}>{chip.label}</button>
-                ))}
-                <button onClick={() => setSubScreen("requests")} style={{
-                  padding: "8px 14px", borderRadius: 20, border: `1px solid ${W.chipBdr}`, background: W.chip,
-                  fontSize: 12, color: T.ink2, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap", flexShrink: 0, fontWeight: 500,
-                  display: "flex", alignItems: "center", gap: 6, position: "relative",
-                }}>
-                  📩 Requests
-                  {newRequests.length > 0 && <span style={{ minWidth: 16, height: 16, borderRadius: 8, background: "#EF4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{newRequests.length}</span>}
-                </button>
               </div>
               <div style={{ padding: "10px 16px 28px", flexShrink: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
