@@ -378,7 +378,7 @@ export default function CuratorsV2() {
       { rev: newRev, date: new Date().toISOString().split("T")[0], change: "Updated context and tags" },
       ...(selectedItem.revisions || []),
     ];
-    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, revision: newRev, revisions: newRevisions };
+    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, links: editingItem.links || [], revision: newRev, revisions: newRevisions };
     setTasteItems(items => items.map(i => i.id === updated.id ? updated : i));
     setSelectedItem(updated);
     setEditingItem(null);
@@ -862,7 +862,7 @@ export default function CuratorsV2() {
                                 visibility: "public",
                                 revision: 1,
                                 earnableMode: "none",
-                                links: pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : [],
+                                links: editingCapture.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                 revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                               };
                               setTasteItems(prev => [newItem, ...prev]);
@@ -914,6 +914,44 @@ export default function CuratorsV2() {
                                 style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none" }}
                               />
                             </div>
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Links</div>
+                              {(editingCapture.links || (pendingLink ? [pendingLink] : [])).map((link, i) => (
+                                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                                  <input value={link.label || link.title || link.url} readOnly
+                                    style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.bdr, fontSize: 12, fontFamily: F, background: T.s, color: T.ink, outline: "none" }}
+                                  />
+                                  <button onClick={() => {
+                                    const links = editingCapture.links || [];
+                                    setEditingCapture(p => ({ ...p, links: links.filter((_, idx) => idx !== i) }));
+                                    if (pendingLink && i === 0 && links.length === 0) setPendingLink(null);
+                                  }} style={{
+                                    padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.bdr,
+                                    background: T.s, color: T.ink3, fontSize: 10, cursor: "pointer"
+                                  }}>✕</button>
+                                </div>
+                              ))}
+                              <button onClick={async () => {
+                                const url = prompt("Paste a link:");
+                                if (!url) return;
+                                try {
+                                  const res = await fetch("/api/link-metadata", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ url })
+                                  });
+                                  const meta = await res.json();
+                                  const newLink = { type: meta.source?.toLowerCase() || "website", url, label: meta.title || url };
+                                  setEditingCapture(p => ({ ...p, links: [...(p.links || []), newLink] }));
+                                } catch (e) {
+                                  setEditingCapture(p => ({ ...p, links: [...(p.links || []), { type: "website", url, label: url }] }));
+                                }
+                              }} style={{
+                                padding: "8px 10px", borderRadius: 6, border: "1px dashed " + T.bdr,
+                                background: "transparent", color: T.ink3, fontSize: 11, cursor: "pointer", fontFamily: F,
+                                width: "100%", textAlign: "center"
+                              }}>+ Add link</button>
+                            </div>
                             <div style={{ display: "flex", gap: 8 }}>
                               <button onClick={() => {
                                 const newItem = {
@@ -927,7 +965,7 @@ export default function CuratorsV2() {
                                   visibility: "public",
                                   revision: 1,
                                   earnableMode: "none",
-                                  links: pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : [],
+                                  links: editingCapture.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                   revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                                 };
                                 setTasteItems(prev => [newItem, ...prev]);
@@ -1644,7 +1682,7 @@ export default function CuratorsV2() {
               <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                 <button onClick={() => { setSubScreen("taste"); setShowHistory(false); setEditingItem(null); }} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
                 {!isEditing && (
-                  <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category })} style={{
+                  <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category, links: [...(selectedItem.links || [])] })} style={{
                     background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
                     cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
                   }}>Edit</button>
@@ -1729,6 +1767,51 @@ export default function CuratorsV2() {
                         placeholder="Comma separated tags"
                         style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, fontSize: 13, fontFamily: F, outline: "none", background: T.s, color: T.ink }}
                       />
+                    </div>
+                  )}
+                  {isEditing && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Links</div>
+                      {editingItem.links?.map((link, i) => (
+                        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                          <input value={link.url} onChange={e => {
+                            const newLinks = [...editingItem.links];
+                            newLinks[i] = { ...newLinks[i], url: e.target.value };
+                            setEditingItem(p => ({ ...p, links: newLinks }));
+                          }}
+                            placeholder="URL"
+                            style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1.5px solid " + T.bdr, fontSize: 13, fontFamily: F, outline: "none", background: T.s, color: T.ink }}
+                          />
+                          <button onClick={() => {
+                            const newLinks = editingItem.links.filter((_, idx) => idx !== i);
+                            setEditingItem(p => ({ ...p, links: newLinks }));
+                          }} style={{
+                            padding: "10px 12px", borderRadius: 10, border: "1px solid " + T.bdr,
+                            background: T.s, color: T.ink3, fontSize: 12, cursor: "pointer", fontFamily: F
+                          }}>✕</button>
+                        </div>
+                      ))}
+                      <button onClick={async () => {
+                        const url = prompt("Paste a link:");
+                        if (!url) return;
+                        try {
+                          const res = await fetch("/api/link-metadata", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url })
+                          });
+                          const meta = await res.json();
+                          const newLink = { type: meta.source?.toLowerCase() || "website", url, label: meta.title || url };
+                          setEditingItem(p => ({ ...p, links: [...(p.links || []), newLink] }));
+                        } catch (e) {
+                          const newLink = { type: "website", url, label: url };
+                          setEditingItem(p => ({ ...p, links: [...(p.links || []), newLink] }));
+                        }
+                      }} style={{
+                        padding: "10px 14px", borderRadius: 10, border: "1.5px dashed " + T.bdr,
+                        background: "transparent", color: T.ink2, fontSize: 13, cursor: "pointer", fontFamily: F,
+                        width: "100%", textAlign: "center"
+                      }}>+ Add link</button>
                     </div>
                   )}
 
