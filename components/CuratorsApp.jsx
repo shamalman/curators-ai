@@ -377,13 +377,14 @@ export default function CuratorsV2() {
         const contextMatch = text.match(/"([^"]+)"/);
         const tagsMatch = text.match(/🏷 Suggested tags?:?\s*([^\n]+)/i);
         const categoryMatch = text.match(/📁 Category:\s*(\w+)/i);
-        
+        const linkMatch = text.match(/🔗 Link:\s*(https?:\/\/[^\s]+)/i);        
         if (titleMatch) {
           capturedRec = {
             title: titleMatch[1].replace(' — ', ' - '),
             context: contextMatch ? contextMatch[1] : '',
             tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
             category: categoryMatch ? categoryMatch[1].toLowerCase() : 'other',
+            links: linkMatch ? [{ url: linkMatch[1], title: 'Suggested link' }] : [],
           };
         }
       }
