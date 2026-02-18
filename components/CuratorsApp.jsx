@@ -130,6 +130,7 @@ export default function CuratorsV2() {
   const [showHistory, setShowHistory] = useState(false);
   const [editingItem, setEditingItem] = useState(null); // holds editable copy
   const [itemCopied, setItemCopied] = useState(false);
+  const [profileCopied, setProfileCopied] = useState(false);
   const [requests, setRequests] = useState(REQUESTS_DATA);
   const [activeRequest, setActiveRequest] = useState(null);
   const [requestFilter, setRequestFilter] = useState("all");
@@ -398,6 +399,17 @@ export default function CuratorsV2() {
     setTimeout(() => setItemCopied(false), 2000);
   };
 
+  const shareProfile = () => {
+    const url = `curators.com/${profile.handle.replace("@", "")}`;
+    if (navigator.share) {
+      navigator.share({ title: `${profile.name} on Curators`, url: `https://${url}` }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`https://${url}`);
+    }
+    setProfileCopied(true);
+    setTimeout(() => setProfileCopied(false), 2200);
+  };
+
   const toggleItemTier = (itemId, tierId) => {
     setItemTiers(prev => {
       const current = prev[itemId] || [];
@@ -541,10 +553,17 @@ export default function CuratorsV2() {
                 <span style={{ fontFamily: F, fontSize: 13, color: T.acc, fontWeight: 500 }}>
                   This is your public profile
                 </span>
-                <button onClick={() => setSubScreen("editProfile")} style={{
-                  background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
-                  cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
-                }}>Edit</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={shareProfile} style={{
+                    background: "none", border: `1px solid ${T.acc}50`, borderRadius: 8, padding: "6px 14px",
+                    cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.acc,
+                    display: "flex", alignItems: "center", gap: 5,
+                  }}>{profileCopied ? "Copied ✓" : "Share ↗"}</button>
+                  <button onClick={() => setSubScreen("editProfile")} style={{
+                    background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
+                    cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
+                  }}>Edit</button>
+                </div>
               </div>
             )}
 
