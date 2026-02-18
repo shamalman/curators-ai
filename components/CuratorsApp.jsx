@@ -475,7 +475,7 @@ export default function CuratorsV2() {
     if (navigator.share) {
       navigator.share({ title: `${profile.name} on Curators`, url: `https://${url}` }).catch(() => {});
     } else if (navigator.clipboard) {
-      navigator.clipboard.writeText((`https://${url}`);
+      navigator.clipboard.writeText(`https://${url}`);
     }
     setProfileCopied(true);
     setTimeout(() => setProfileCopied(false), 2200);
