@@ -462,7 +462,6 @@ export default function CuratorsV2() {
       } catch (err) { console.error("Failed to update rec:", err); }
     }
   };
-  };
 
   const copyLink = (slug) => {
     const url = `curators.com/${profile.handle.replace("@", "")}/${slug}`;
