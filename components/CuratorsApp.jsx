@@ -332,7 +332,8 @@ export default function CuratorsV2() {
         });
         const meta = await metaRes.json();
         if (meta.title) {
-          linkMetadata = { url: urlMatch[0], title: meta.title, source: meta.source };
+          linkMetadata,
+          history: messages.slice(-10), = { url: urlMatch[0], title: meta.title, source: meta.source };
           enrichedMsg = `${msg}\n[Link metadata: "${meta.title}" from ${meta.source}]`;
           // Store as pending link for next message
           setPendingLink(linkMetadata);
@@ -358,7 +359,8 @@ export default function CuratorsV2() {
             context: item.context,
             tags: item.tags
           })),
-          linkMetadata
+          linkMetadata,
+          history: messages.slice(-10),
         }),
       });
       
