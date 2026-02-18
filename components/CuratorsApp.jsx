@@ -465,7 +465,7 @@ export default function CuratorsV2() {
 
   const copyLink = (slug) => {
     const url = `curators.com/${profile.handle.replace("@", "")}/${slug}`;
-    if (navigator.clipboard) navigator.clipboard.(url);
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
     setItemCopied(true);
     setTimeout(() => setItemCopied(false), 2000);
   };
