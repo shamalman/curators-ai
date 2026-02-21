@@ -164,7 +164,8 @@ export default function CuratorsV2() {
     wallet: "0x1a2B...9fE3", walletFull: "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9fE3", cryptoEnabled: true,
   });
   const chatEnd = useRef(null);
-  const chatInitd = useRef(false);
+  const chatScrollRef = useRef(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);  const chatInitd = useRef(false);
   const shouldScroll = useRef(false);
   const prevMsgCount = useRef(0);
   const [profileId, setProfileId] = useState(null);
@@ -1094,6 +1095,7 @@ export default function CuratorsV2() {
                   <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
                 </div>}
                 <div ref={chatEnd} />
+                {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>↓</button>}
               </div>
               <div style={{ padding: "10px 16px 28px", flexShrink: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
