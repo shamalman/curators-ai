@@ -210,10 +210,10 @@ export default function CuratorsV2() {
             .from("chat_messages")
             .select("*")
             .eq("profile_id", prof.id)
-            .order("created_at", { ascending: true })
+            .order("created_at", { ascending: false })
             .limit(50);
           if (msgs && msgs.length > 0) {
-            setMessages(msgs.map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
+            setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
             prevMsgCount.current = msgs.length;
           }
         }
@@ -246,6 +246,14 @@ export default function CuratorsV2() {
       shouldScroll.current = false;
     }
   }, [messages, typing]);
+
+
+  // Auto-scroll to bottom when chat first loads
+  useEffect(() => {
+    if (dbLoaded && messages.length > 0) {
+      setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "instant" }), 100);
+    }
+  }, [dbLoaded]);
 
   // Opening prompts for curator chat
   const openingPrompts = [
