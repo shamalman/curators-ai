@@ -1781,10 +1781,10 @@ export default function CuratorsV2() {
                     <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Your take</div>
                     {isEditing ? (
                       <textarea value={editingItem.context} onChange={e => setEditingItem(p => ({ ...p, context: e.target.value }))} rows={3}
-                        style={{ fontFamily: S, fontSize: 16, lineHeight: 1.6, color: T.ink, width: "100%", background: T.bg, border: `1.5px solid ${T.bdr}`, borderRadius: 10, padding: "10px 14px", outline: "none", resize: "none" }}
+                        style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, width: "100%", background: T.bg, border: `1.5px solid ${T.bdr}`, borderRadius: 10, padding: "10px 14px", outline: "none", resize: "none" }}
                       />
                     ) : (
-                      <p style={{ fontFamily: S, fontSize: 17, lineHeight: 1.6, color: T.ink }}>"{selectedItem.context}"</p>
+                      <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink }}>"{selectedItem.context}"</p>
                     )}
                   </div>
 
