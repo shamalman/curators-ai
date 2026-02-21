@@ -1882,7 +1882,7 @@ export default function CuratorsV2() {
                                link.type === "google_maps" ? "📍" :
                                link.type === "website" ? "🔗" : "🔗"}
                             </span>
-                            <span style={{ fontFamily: F, fontSize: 13, fontWeight: 500 }}>{link.label || link.type}</span>
+                            <div style={{ flex: 1, overflow: "hidden" }}><div style={{ fontFamily: F, fontSize: 13, fontWeight: 500 }}>{(() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "") : (link.label || link.type); } catch(e) { return link.label || link.type; }})()}</div><div style={{ fontFamily: F, fontSize: 11, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{link.url || ""}</div></div>
                             <span style={{ marginLeft: "auto", fontSize: 12, color: T.ink3 }}>↗</span>
                           </a>
                         ))}
