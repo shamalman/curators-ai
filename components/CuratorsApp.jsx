@@ -419,20 +419,22 @@ export default function CuratorsV2() {
     }
   };
 
-  const removeItem = (id) => {
+  const removeItem = async (id) => {
+    if (!window.confirm("Delete this recommendation?")) return;
     setRemoving(id);
-    setTimeout(() => {
-      setArchived(prev => ({ ...prev, [id]: true }));
-      setRemoving(null);
+    try {
+      const { error: recErr } = await supabase.from("recommendations").delete().eq("id", id);
+      if (recErr) throw recErr;
+      const { error: revErr } = await supabase.from("revisions").delete().eq("rec_id", id);
+      if (revErr) throw revErr;
+      setTasteItems(items => items.filter(i => i.id !== id));
+      setArchived(prev => { const next = { ...prev }; delete next[id]; return next; });
       if (selectedItem?.id === id) { setSelectedItem(null); setSubScreen("taste"); }
-      const item = tasteItems.find(i => i.id === id);
-      setUndoItem(item);
-      if (undoTimer.current) clearTimeout(undoTimer.current);
-      undoTimer.current = setTimeout(() => setUndoItem(null), 4000);
-      if (profileId) {
-        supabase.from("recommendations").update({ status: "archived" }).eq("id", id).catch(console.error);
-      }
-    }, 300);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete recommendation. Please try again.");
+    }
+    setRemoving(null);
   };
 
   const undoArchive = () => {
