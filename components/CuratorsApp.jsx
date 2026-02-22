@@ -2394,7 +2394,7 @@ export default function CuratorsV2() {
                             </div>
                           );
                           
-                          const sourceName = isSpotify ? "Spotify" : isYouTube ? "YouTube" : isWikipedia ? "Wikipedia" : isGoogleMaps ? "Google Maps" : isAppleMusic ? "Apple Music" : isSoundCloud ? "SoundCloud" : "Link";
+                          const sourceName = isSpotify ? "Spotify" : isYouTube ? "YouTube" : isWikipedia ? "Wikipedia" : isGoogleMaps ? "Google Maps" : isAppleMusic ? "Apple Music" : isSoundCloud ? "SoundCloud" : (() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "").split(".")[0].charAt(0).toUpperCase() + new URL(link.url).hostname.replace("www.", "").split(".")[0].slice(1) : "Link"; } catch(e) { return "Link"; } })();
                           
                           return (
                             <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
