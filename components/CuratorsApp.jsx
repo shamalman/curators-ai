@@ -2405,7 +2405,7 @@ export default function CuratorsV2() {
                               {icon}
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontFamily: F, fontSize: 13, fontWeight: 600 }}>{link.label || sourceName}</div>
-                                <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginTop: 2 }}>{sourceName}</div>
+                                <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginTop: 2 }}>{(() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "") : sourceName; } catch(e) { return sourceName; } })()}</div>
                               </div>
                               <span style={{ fontSize: 12, color: T.ink3 }}>↗</span>
                             </a>
