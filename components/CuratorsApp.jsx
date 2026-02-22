@@ -2336,7 +2336,7 @@ export default function CuratorsV2() {
                     border: "1px solid " + T.bdr, marginBottom: 20,
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Why {profile.name} recommends this</div>
-                    <p style={{ fontSize: 17, lineHeight: 1.6, color: T.ink, fontFamily: F, fontWeight: 500 }}>
+                    <p style={{ fontSize: 17, lineHeight: 1.6, color: T.ink, fontFamily: F, fontWeight: 500, whiteSpace: "pre-line" }}>
                       <Linkify text={selectedItem.context} style={{ fontSize: 17, fontFamily: F }} />
                     </p>
                   </div>
