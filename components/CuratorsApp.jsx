@@ -3,6 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
+// Helper to auto-linkify URLs in text
+function Linkify({ text, style }) {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => 
+    urlRegex.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ ...style, color: "#6BAA8E", textDecoration: "underline" }}>{part}</a>
+    ) : <span key={i}>{part}</span>
+  );
+}
 const REQUESTS_DATA = [
   { id: "r1", from: "Maria", handle: "@maria", text: "Looking for music that's soulful but also good for working?", category: "music", date: "2026-02-14T10:30:00", status: "new", aiDraft: "Based on your taste, I'd suggest **Emancipator** — beautiful instrumentals that are introspective but have great rhythm. Perfect for focus. **Michael Kiwanuka** is another option if you want something with vocals." },
   { id: "r2", from: "David", handle: "@david", text: "A book that will really move me emotionally?", category: "book", date: "2026-02-13T16:00:00", status: "new", aiDraft: "**When Breath Becomes Air** by Paul Kalanithi is exactly what you're looking for. A neurosurgeon writing about his own mortality with incredible prose. It will stay with you." },
@@ -365,7 +376,8 @@ export default function CuratorsV2() {
             title: item.title,
             category: item.category,
             context: item.context,
-            tags: item.tags
+            tags: item.tags,
+            date: item.date
           })),
           linkMetadata,
           history: messages.slice(-10),
@@ -1792,7 +1804,7 @@ export default function CuratorsV2() {
                         style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, width: "100%", background: T.bg, border: `1.5px solid ${T.bdr}`, borderRadius: 10, padding: "10px 14px", outline: "none", resize: "none" }}
                       />
                     ) : (
-                      <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, whiteSpace: "pre-line" }}>"{selectedItem.context}"</p>
+                      <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, whiteSpace: "pre-line" }}>"<Linkify text={selectedItem.context} style={{ fontFamily: F, fontSize: 15 }} />"</p>
                     )}
                   </div>
 
@@ -2283,7 +2295,7 @@ export default function CuratorsV2() {
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Why {profile.name} recommends this</div>
                     <p style={{ fontSize: 17, lineHeight: 1.6, color: T.ink, fontFamily: F, fontWeight: 500 }}>
-                      {selectedItem.context}
+                      <Linkify text={selectedItem.context} style={{ fontSize: 17, fontFamily: F }} />
                     </p>
                   </div>
 

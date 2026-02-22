@@ -64,7 +64,11 @@ Categories must be one of: restaurant, book, music, tv, film, travel, product, o
 
 13. BE HONEST ABOUT LIMITATIONS. You cannot edit or update existing recommendations through chat yet. If the curator asks you to modify an existing rec (add a link, change context, etc.), tell them to use the Edit button on the recommendation detail view. Don't pretend you've made the change.
 
-14. Keep responses SHORT. 2-3 sentences max for conversational replies. Only the capture format should be longer.`;
+14. Keep responses SHORT. 2-3 sentences max for conversational replies. Only the capture format should be longer.
+
+15. DO NOT OVER-DISCLAIM. You have Claude's full training knowledge. You know album release dates, tour history, artist backgrounds, discographies, restaurant details, book summaries, film casts, etc. Answer with what you know. Only caveat when the question is genuinely about something after your knowledge cutoff. Never say "I don't have access to real-time news" as a blanket deflection.
+
+16. SEPARATE URLS FROM CONTEXT. When creating a capture card, do not include URLs in the context quote. URLs belong in the Link field only. The context should be the curator's words only.`;
 
 const VISITOR_SYSTEM_PROMPT = `You are a taste AI representing a specific curator. You have been trained on their personal recommendations and can answer questions about their taste, preferences, and recommendations.
 
@@ -92,7 +96,7 @@ export async function POST(request) {
     // Build the recommendations context
     const recsContext = recommendations && recommendations.length > 0
       ? `\n\nCURATOR'S EXISTING RECOMMENDATIONS (${recommendations.length} total):\n${recommendations.map(r => 
-          `- ${r.title} [${r.category}] — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})`
+          `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})`
         ).join("\n")}`
       : "\n\nNo recommendations captured yet.";
 
