@@ -420,7 +420,7 @@ export default function CuratorsV2() {
   };
 
   const removeItem = async (id) => {
-    if (!window.confirm("Delete this recommendation?")) return;
+    if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
     setRemoving(id);
     try {
       const { data, error } = await supabase.from("recommendations").delete().eq("id", id);
@@ -2287,7 +2287,7 @@ export default function CuratorsV2() {
                       {!!archived[selectedItem.id] ? (
                         <button onClick={() => { restoreItem(selectedItem.id); setSubScreen("taste"); }} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #6BAA8E30", background: "#6BAA8E10", color: "#6BAA8E", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Restore to taste</button>
                       ) : (
-                        <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #D4956B30", background: "none", color: T.acc, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F, opacity: 0.7 }}>Archive from taste</button>
+                        <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
                       )}
                     </>
                   )}
