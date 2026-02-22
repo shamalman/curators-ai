@@ -423,8 +423,7 @@ export default function CuratorsV2() {
     if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
     setRemoving(id);
     try {
-      const { data, error } = await supabase.from("recommendations").delete().eq("id", id);
-      console.log("Delete result:", { recId: id, data, error });
+      const { error } = await supabase.from("recommendations").delete().eq("id", id);
       if (error) throw error;
       const { error: revErr } = await supabase.from("revisions").delete().eq("rec_id", id);
       if (revErr) throw revErr;
