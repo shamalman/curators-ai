@@ -423,8 +423,9 @@ export default function CuratorsV2() {
     if (!window.confirm("Delete this recommendation?")) return;
     setRemoving(id);
     try {
-      const { error: recErr } = await supabase.from("recommendations").delete().eq("id", id);
-      if (recErr) throw recErr;
+      const { data, error } = await supabase.from("recommendations").delete().eq("id", id);
+      console.log("Delete result:", { recId: id, data, error });
+      if (error) throw error;
       const { error: revErr } = await supabase.from("revisions").delete().eq("rec_id", id);
       if (revErr) throw revErr;
       setTasteItems(items => items.filter(i => i.id !== id));
