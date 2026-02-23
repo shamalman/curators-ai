@@ -210,9 +210,10 @@ export default function ChatView({ variant }) {
   if (isCurator) {
     const newRequests = []; // placeholder for requests integration
     return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, width: "100%" }}>
         {/* Workspace header */}
-        <div style={{ padding: "48px 20px 14px", background: W.bg, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, borderBottom: `1px solid ${W.bdr}` }}>
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${W.bdr}`, background: W.bg }}>
+        <div style={{ padding: "48px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 700, margin: "0 auto", width: "100%" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${W.accent}30` }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
@@ -224,8 +225,10 @@ export default function ChatView({ variant }) {
           </div>
           <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN }}>{n} recs</div>
         </div>
+        </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: W.bg }}>
-          <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
+          <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
+            <div style={{ maxWidth: 700, margin: "0 auto", padding: "12px 16px" }}>
             {messages.map((msg, i) => {
               // Request alert card
               if (msg.type === "requestAlert") {
@@ -346,8 +349,9 @@ export default function ChatView({ variant }) {
             </div>}
             <div ref={chatEnd} />
             {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>{"\u2193"}</button>}
+            </div>
           </div>
-          <div style={{ padding: "10px 16px 28px", flexShrink: 0 }}>
+          <div style={{ padding: "10px 16px 28px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
                 placeholder="Drop a rec, paste a link, or ask anything..."
