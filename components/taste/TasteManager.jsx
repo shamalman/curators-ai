@@ -140,7 +140,7 @@ export default function TasteManager() {
         {filtered.map(function(item, i) { var ct = CAT[item.category] || CAT.other; var isArch = !!archived[item.id]; return (
           <div key={item.id} className={removing === item.id ? "rm" : "fu"} style={{ animationDelay: removing === item.id ? "0s" : (i * .03) + "s" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px", borderBottom: "1px solid " + T.bdr, opacity: isArch ? 0.6 : 1 }}>
-              <div onClick={function() { router.push('/recommendations/' + item.id); }} style={{ flex: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+              <div onClick={function() { router.push('/recommendations/' + (item.slug || item.id)); }} style={{ flex: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: ct.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{ct.emoji}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>

@@ -21,11 +21,11 @@ function Linkify({ text, style }) {
 const fmtDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /* ── Curator Item Detail ── */
-export function CuratorRecDetail({ itemId }) {
+export function CuratorRecDetail({ slug }) {
   const router = useRouter();
   const { profile, tasteItems, updateRec, archived, removeItem, restoreItem, toggleVisibility } = useCurator();
 
-  const selectedItem = tasteItems.find(i => String(i.id) === String(itemId));
+  const selectedItem = tasteItems.find(i => i.slug === slug);
 
   // Local state for editing
   const [editingItem, setEditingItem] = useState(null);
@@ -44,7 +44,13 @@ export function CuratorRecDetail({ itemId }) {
   const [bundles, setBundles] = useState(DEFAULT_BUNDLES);
   const [newBundleName, setNewBundleName] = useState("");
 
-  if (!selectedItem) return null;
+  if (!selectedItem) return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+      <div style={{ fontSize: 28, opacity: 0.3 }}>🔍</div>
+      <div style={{ fontFamily: F, fontSize: 15, color: T.ink3 }}>Rec not found</div>
+      <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer" }}>← Go back</button>
+    </div>
+  );
 
   const c = CAT[selectedItem.category] || CAT.other;
   const isPublic = selectedItem.visibility === "public";

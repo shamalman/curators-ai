@@ -84,11 +84,15 @@ export function CuratorProvider({ children }) {
   }, []);
 
   const addRec = async (item) => {
+    if (!item.slug) {
+      item = { ...item, slug: item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') };
+    }
     if (!profileId) {
       setTasteItems(prev => [item, ...prev]);
       return item;
     }
     try {
+      const slug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const { data, error } = await supabase.from("recommendations").insert({
         profile_id: profileId,
         title: item.title,
@@ -96,7 +100,7 @@ export function CuratorProvider({ children }) {
         context: item.context,
         tags: item.tags || [],
         links: item.links || [],
-        slug: item.slug,
+        slug,
         visibility: item.visibility || "public",
         status: "approved",
         revision: 1,
