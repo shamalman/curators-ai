@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { T, F, S, MN, CAT, EARNINGS } from "@/lib/constants";
+import { useCurator } from "@/context/CuratorContext";
 import CategoryPill from "@/components/shared/CategoryPill";
 import Toast from "@/components/shared/Toast";
 
-export default function TasteManager({
-  items, archived, filterCat, setFilterCat, removing,
-  onClose, onSelectItem, onRemoveItem, onRestoreItem,
-  undoItem, onUndoArchive,
-}) {
+export default function TasteManager() {
+  const router = useRouter();
+  const { tasteItems: items, archived, filterCat, setFilterCat, removing, removeItem, restoreItem, undoItem, undoArchive } = useCurator();
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earningsDrill, setEarningsDrill] = useState(null);
 
@@ -25,7 +25,7 @@ export default function TasteManager({
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, position: "relative" }}>
       <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
       </div>
       <div style={{ padding: "4px 20px 12px" }}>
         <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Your Taste</h2>
@@ -140,7 +140,7 @@ export default function TasteManager({
         {filtered.map(function(item, i) { var ct = CAT[item.category] || CAT.other; var isArch = !!archived[item.id]; return (
           <div key={item.id} className={removing === item.id ? "rm" : "fu"} style={{ animationDelay: removing === item.id ? "0s" : (i * .03) + "s" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px", borderBottom: "1px solid " + T.bdr, opacity: isArch ? 0.6 : 1 }}>
-              <div onClick={function() { onSelectItem(item); }} style={{ flex: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+              <div onClick={function() { router.push('/recs/' + item.id); }} style={{ flex: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: ct.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{ct.emoji}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
@@ -148,9 +148,9 @@ export default function TasteManager({
                 </div>
               </div>
               {isArch ? (
-                <button onClick={function() { onRestoreItem(item.id); }} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid #6BAA8E40", background: "#6BAA8E15", color: "#6BAA8E", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: F, flexShrink: 0 }}>Restore</button>
+                <button onClick={function() { restoreItem(item.id); }} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid #6BAA8E40", background: "#6BAA8E15", color: "#6BAA8E", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: F, flexShrink: 0 }}>Restore</button>
               ) : (
-                <button onClick={function() { onRemoveItem(item.id); }} style={{ width: 28, height: 28, borderRadius: 14, border: "1px solid " + T.bdr, background: "none", color: T.ink3, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{"\u2715"}</button>
+                <button onClick={function() { removeItem(item.id); }} style={{ width: 28, height: 28, borderRadius: 14, border: "1px solid " + T.bdr, background: "none", color: T.ink3, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{"\u2715"}</button>
               )}
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function TasteManager({
 
       {/* Undo toast */}
       {undoItem && (
-        <Toast message={<>Archived <strong>{undoItem.title}</strong></>} onAction={onUndoArchive} actionLabel="Undo" />
+        <Toast message={<>Archived <strong>{undoItem.title}</strong></>} onAction={undoArchive} actionLabel="Undo" />
       )}
     </div>
   );

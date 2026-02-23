@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { T, W, V, F, S, MN, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import MessageBubble from "./MessageBubble";
@@ -11,7 +12,8 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
   return <div key={i} dangerouslySetInnerHTML={{ __html: b }} style={{ marginBottom: line === "" ? 8 : 2 }} />;
 });
 
-export default function ChatView({ variant, onClose, onOpenTaste, onOpenRequests }) {
+export default function ChatView({ variant }) {
+  const router = useRouter();
   const { profile, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb } = useCurator();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -26,6 +28,13 @@ export default function ChatView({ variant, onClose, onOpenTaste, onOpenRequests
   const items = tasteItems;
   const n = items.length;
   const cats = [...new Set(items.map(i => i.category))];
+
+  // Visitor opening message
+  useEffect(() => {
+    if (!isCurator && profile && dbLoaded && messages.length === 0) {
+      setMessages([{ role: "ai", text: `I'm ${profile.name}'s taste AI \u2014 trained on ${n} personal recommendations.\n\nI know what ${profile.name} loves, why they love it, and who it's for. Ask me anything.` }]);
+    }
+  }, [isCurator, profile, dbLoaded]);
 
   // Auto-scroll
   useEffect(() => {
@@ -213,7 +222,7 @@ export default function ChatView({ variant, onClose, onOpenTaste, onOpenRequests
               <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
             </div>
           </div>
-          <button onClick={onOpenTaste} style={{
+          <button onClick={() => router.push('/taste')} style={{
             background: W.s, border: `1px solid ${W.bdr}`, borderRadius: 10, width: 36, height: 36,
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative",
           }}>
@@ -228,7 +237,7 @@ export default function ChatView({ variant, onClose, onOpenTaste, onOpenRequests
               if (msg.type === "requestAlert") {
                 return (
                   <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                    <button onClick={onOpenRequests} style={{
+                    <button onClick={() => router.push('/recs/review')} style={{
                       width: "100%", padding: "16px", borderRadius: 16, border: `1px solid ${W.bdr}`,
                       background: W.s, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
                     }}>
@@ -360,12 +369,13 @@ export default function ChatView({ variant, onClose, onOpenTaste, onOpenRequests
   }
 
   // ── VISITOR CHAT ──
+  if (!profile) return null;
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: V.bg }}>
       {/* Branded header with curator identity */}
       <div style={{ padding: "48px 20px 12px", background: V.bg, flexShrink: 0, borderBottom: `1px solid ${V.bdr}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>{"\u2190"} Profile</button>
+          <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>{"\u2190"} Profile</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, border: `1.5px solid ${V.bdr}`, display: "flex", alignItems: "center", justifyContent: "center" }}>

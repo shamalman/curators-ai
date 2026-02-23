@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import LinkDisplay from "@/components/shared/LinkDisplay";
@@ -20,18 +21,30 @@ function Linkify({ text, style }) {
 const fmtDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /* ── Curator Item Detail ── */
-export function CuratorRecDetail({
-  selectedItem, onBack, onRemoveItem, onRestoreItem, archived,
-  editingItem, setEditingItem, onSaveEdit, onToggleVisibility, onCopyLink, itemCopied,
-  // Earnings config
-  itemSubOnly, setItemSubOnly, itemTiers, setItemTiers,
-  itemInBundle, setItemInBundle, itemBundles, setItemBundles,
-  itemLicensable, setItemLicensable, itemLicense, setItemLicense,
-  itemTipEnabled, setItemTipEnabled, itemTipConfig, setItemTipConfig,
-  bundles, setBundles, newBundleName, setNewBundleName,
-}) {
-  const { profile, updateRec } = useCurator();
+export function CuratorRecDetail({ itemId }) {
+  const router = useRouter();
+  const { profile, tasteItems, updateRec, archived, removeItem, restoreItem, toggleVisibility } = useCurator();
+
+  const selectedItem = tasteItems.find(i => String(i.id) === String(itemId));
+
+  // Local state for editing
+  const [editingItem, setEditingItem] = useState(null);
+  const [itemCopied, setItemCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Local earnings config (defaults)
+  const [itemSubOnly, setItemSubOnly] = useState({ 10: true, 5: true });
+  const [itemTiers, setItemTiers] = useState({ 10: ["plus", "pro"], 5: ["pro"] });
+  const [itemInBundle, setItemInBundle] = useState({ 1: true, 3: true, 6: true });
+  const [itemBundles, setItemBundles] = useState({ 1: ["b1"], 3: ["b1"], 6: ["b1"] });
+  const [itemLicensable, setItemLicensable] = useState({ 2: true, 3: true, 11: true });
+  const [itemLicense, setItemLicense] = useState({ 2: { types: ["digital", "social"], floor: 150 }, 3: { types: ["social"], floor: 250 }, 11: { types: ["digital"], floor: 100 } });
+  const [itemTipEnabled, setItemTipEnabled] = useState({ 1: true, 2: true, 4: true });
+  const [itemTipConfig, setItemTipConfig] = useState({ 1: { suggested: 5, min: 1, max: 100 }, 2: { suggested: 3, min: 1, max: 50 }, 4: { suggested: 3, min: 1, max: 100 } });
+  const [bundles, setBundles] = useState(DEFAULT_BUNDLES);
+  const [newBundleName, setNewBundleName] = useState("");
+
+  if (!selectedItem) return null;
 
   const c = CAT[selectedItem.category] || CAT.other;
   const isPublic = selectedItem.visibility === "public";
@@ -48,17 +61,36 @@ export function CuratorRecDetail({
   const hasAnyEarning = isSubOnly || isInBundle || isLicensable || isTipEnabled;
   const isEditing = !!editingItem;
 
-  const toggleItemTier = (itemId, tierId) => {
+  const saveItemEdit = async () => {
+    if (!editingItem) return;
+    const newRev = (selectedItem.revision || 1) + 1;
+    const newRevisions = [
+      { rev: newRev, date: new Date().toISOString().split("T")[0], change: "Updated context and tags" },
+      ...(selectedItem.revisions || []),
+    ];
+    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, links: editingItem.links || [], revision: newRev, revisions: newRevisions };
+    setEditingItem(null);
+    await updateRec(updated);
+  };
+
+  const copyLink = (s) => {
+    const copyUrl = `curators.com/${profile.handle.replace("@", "")}/${s}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(copyUrl);
+    setItemCopied(true);
+    setTimeout(() => setItemCopied(false), 2000);
+  };
+
+  const toggleItemTier = (id, tierId) => {
     setItemTiers(prev => {
-      const current = prev[itemId] || [];
-      return { ...prev, [itemId]: current.includes(tierId) ? current.filter(t => t !== tierId) : [...current, tierId] };
+      const current = prev[id] || [];
+      return { ...prev, [id]: current.includes(tierId) ? current.filter(t => t !== tierId) : [...current, tierId] };
     });
   };
 
-  const toggleItemBundle = (itemId, bundleId) => {
+  const toggleItemBundle = (id, bundleId) => {
     setItemBundles(prev => {
-      const current = prev[itemId] || [];
-      return { ...prev, [itemId]: current.includes(bundleId) ? current.filter(b => b !== bundleId) : [...current, bundleId] };
+      const current = prev[id] || [];
+      return { ...prev, [id]: current.includes(bundleId) ? current.filter(b => b !== bundleId) : [...current, bundleId] };
     });
   };
 
@@ -69,25 +101,25 @@ export function CuratorRecDetail({
     setNewBundleName("");
   };
 
-  const toggleLicenseType = (itemId, typeId) => {
+  const toggleLicenseType = (id, typeId) => {
     setItemLicense(prev => {
-      const current = prev[itemId] || { types: [], floor: 100 };
+      const current = prev[id] || { types: [], floor: 100 };
       const types = current.types.includes(typeId) ? current.types.filter(t => t !== typeId) : [...current.types, typeId];
-      return { ...prev, [itemId]: { ...current, types } };
+      return { ...prev, [id]: { ...current, types } };
     });
   };
 
-  const setLicenseFloor = (itemId, floor) => {
+  const setLicenseFloor = (id, floor) => {
     setItemLicense(prev => {
-      const current = prev[itemId] || { types: [], floor: 100 };
-      return { ...prev, [itemId]: { ...current, floor: parseInt(floor) || 0 } };
+      const current = prev[id] || { types: [], floor: 100 };
+      return { ...prev, [id]: { ...current, floor: parseInt(floor) || 0 } };
     });
   };
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
         {!isEditing && (
           <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category, links: [...(selectedItem.links || [])] })} style={{
             background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
@@ -97,7 +129,7 @@ export function CuratorRecDetail({
         {isEditing && (
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setEditingItem(null)} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink3 }}>Cancel</button>
-            <button onClick={onSaveEdit} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText }}>Save</button>
+            <button onClick={saveItemEdit} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText }}>Save</button>
           </div>
         )}
       </div>
@@ -126,7 +158,7 @@ export function CuratorRecDetail({
 
           {/* Date + URL */}
           <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginBottom: 6 }}>Added {fmtDateFull(selectedItem.date)}</div>
-          <button onClick={() => onCopyLink(slug)} style={{
+          <button onClick={() => copyLink(slug)} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8,
             background: T.s, border: "1px solid " + T.bdr, cursor: "pointer", marginBottom: 20,
           }}>
@@ -245,7 +277,7 @@ export function CuratorRecDetail({
                     {isPublic ? "Visible on your profile and via link" : "Only you can see this"}
                   </div>
                 </div>
-                <button onClick={() => onToggleVisibility(selectedItem.id)} style={{
+                <button onClick={() => toggleVisibility(selectedItem.id)} style={{
                   width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
                   background: isPublic ? "#6BAA8E" : T.bdr, transition: "background .2s",
                 }}>
@@ -560,9 +592,9 @@ export function CuratorRecDetail({
 
               {/* Remove */}
               {!!archived[selectedItem.id] ? (
-                <button onClick={() => { onRestoreItem(selectedItem.id); }} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #6BAA8E30", background: "#6BAA8E10", color: "#6BAA8E", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Restore to taste</button>
+                <button onClick={() => restoreItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #6BAA8E30", background: "#6BAA8E10", color: "#6BAA8E", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Restore to taste</button>
               ) : (
-                <button onClick={() => onRemoveItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
+                <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
               )}
             </>
           )}
@@ -573,16 +605,30 @@ export function CuratorRecDetail({
 }
 
 /* ── Visitor Item Detail ── */
-export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLicense, itemTipEnabled, itemTipConfig, itemBundles: itemBundlesMap, bundles }) {
-  const { profile } = useCurator();
+export function VisitorRecDetail({ slug }) {
+  const router = useRouter();
+  const { profile, tasteItems } = useCurator();
+
+  const selectedItem = tasteItems.find(i => i.slug === slug);
+
   const [tipExpanded, setTipExpanded] = useState(false);
   const [tipAmount, setTipAmount] = useState(null);
   const [tipSent, setTipSent] = useState(false);
   const [tipMessage, setTipMessage] = useState("");
 
+  // Local earnings config defaults (mock data)
+  const [itemLicensable] = useState({ 2: true, 3: true, 11: true });
+  const [itemLicense] = useState({ 2: { types: ["digital", "social"], floor: 150 }, 3: { types: ["social"], floor: 250 }, 11: { types: ["digital"], floor: 100 } });
+  const [itemTipEnabled] = useState({ 1: true, 2: true, 4: true });
+  const [itemTipConfig] = useState({ 1: { suggested: 5, min: 1, max: 100 }, 2: { suggested: 3, min: 1, max: 50 }, 4: { suggested: 3, min: 1, max: 100 } });
+  const [itemBundlesMap] = useState({ 1: ["b1"], 3: ["b1"], 6: ["b1"] });
+  const [bundles] = useState(DEFAULT_BUNDLES);
+
+  if (!selectedItem || !profile) return null;
+
   const c = CAT[selectedItem.category] || CAT.other;
-  const slug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const url = `curators.com/${profile.handle.replace("@", "")}/${slug}`;
+  const itemSlug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const url = `curators.com/${profile.handle.replace("@", "")}/${itemSlug}`;
   const bndls = itemBundlesMap[selectedItem.id] || [];
   const recBundles = bundles.filter(b => bndls.includes(b.id));
   const fmtPhone = (p) => p ? p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3") : "";
@@ -590,7 +636,7 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
         <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
           Copy link
         </button>
@@ -660,10 +706,7 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
                 </a>
               )}
               {selectedItem.phone && (
-                <a href={`tel:${selectedItem.phone}`} style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
-                  textDecoration: "none",
-                }}>
+                <a href={`tel:${selectedItem.phone}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", textDecoration: "none" }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: T.s2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <span style={{ fontSize: 14 }}>📞</span>
                   </div>
@@ -697,7 +740,7 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
             </div>
           )}
 
-          {/* Tip section */}
+          {/* Tip section — simplified, uses local state */}
           {!!itemTipEnabled[selectedItem.id] && !tipSent && (
             <div style={{ marginTop: 20, marginBottom: 8 }}>
               {!tipExpanded ? (
@@ -723,19 +766,13 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
                   <span style={{ fontSize: 16, color: T.acc, fontWeight: 600 }}>→</span>
                 </button>
               ) : (
-                <div className="fu" style={{
-                  padding: "28px 22px", borderRadius: 20,
-                  background: T.s, border: "1px solid " + T.bdr,
-                }}>
-                  {/* Header */}
+                <div className="fu" style={{ padding: "28px 22px", borderRadius: 20, background: T.s, border: "1px solid " + T.bdr }}>
                   <div style={{ textAlign: "center", marginBottom: 20 }}>
                     <div style={{ fontSize: 28, marginBottom: 6 }}>☕</div>
                     <div style={{ fontFamily: F, fontSize: 16, fontWeight: 700, color: T.ink, lineHeight: 1.3 }}>
                       Thank {profile.name} for this rec
                     </div>
                   </div>
-
-                  {/* Personal message */}
                   <div style={{ marginBottom: 24 }}>
                     <textarea value={tipMessage} onChange={e => setTipMessage(e.target.value)}
                       placeholder="What did you like about this recommendation?"
@@ -753,131 +790,28 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
                       {profile.name} will see your note with this rec
                     </div>
                   </div>
-
-                  {/* Amount section */}
                   <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, fontFamily: F, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 12 }}>
                     Attach a tip
                   </div>
-
-                  {/* Amount display + exponential slider */}
-                  {(() => {
-                    const tipMax = itemTipConfig[selectedItem.id]?.max || 100;
-                    const EXP = 2.5;
-                    const range = tipMax - 1;
-                    const posToAmt = (p) => Math.max(1, Math.round(1 + range * Math.pow(p / 100, EXP)));
-                    const amtToPos = (a) => Math.pow(Math.max(0, (a - 1)) / range, 1 / EXP) * 100;
-                    const pos = amtToPos(tipAmount);
-                    const t = pos / 100;
-
-                    const ballSize = 16 + t * t * 40;
-                    const coolR = 140, coolG = 155, coolB = 175;
-                    const warmR = 195, warmG = 120, warmB = 80;
-                    const r = Math.round(coolR + (warmR - coolR) * t);
-                    const g = Math.round(coolG + (warmG - coolG) * t);
-                    const b = Math.round(coolB + (warmB - coolB) * t);
-                    const ballColor = `rgb(${r},${g},${b})`;
-                    const r2 = Math.round(coolR + (107 - coolR) * t);
-                    const g2 = Math.round(coolG + (170 - coolG) * t);
-                    const b2 = Math.round(coolB + (142 - coolB) * t);
-                    const ballColor2 = `rgb(${r2},${g2},${b2})`;
-                    const glowSpread = t * 20;
-                    const glowAlpha = Math.round(t * 0.6 * 255).toString(16).padStart(2, "0");
-                    const presets = tipMax >= 50 ? [3, 5, 10, 25] : tipMax >= 25 ? [2, 5, 10, 20] : [1, 3, 5, 10];
-                    const scalePoints = tipMax >= 50
-                      ? [1, 5, 10, 25, tipMax]
-                      : tipMax >= 25
-                        ? [1, 5, 10, tipMax]
-                        : [1, 3, 5, tipMax];
-
-                    return (
-                      <>
-                        <div style={{ textAlign: "center", marginBottom: 4 }}>
-                          <div style={{
-                            fontFamily: MN, fontSize: 32 + t * 28, fontWeight: 700, color: T.ink,
-                            lineHeight: 1, letterSpacing: "-0.03em",
-                            transition: "font-size .12s",
-                          }}>
-                            {"$"}{tipAmount}
-                          </div>
-                        </div>
-
-                        {/* Slider */}
-                        <div style={{ padding: "26px 6px 10px" }}>
-                          <div style={{ position: "relative", height: 60, display: "flex", alignItems: "center" }}>
-                            <div style={{
-                              position: "absolute", left: 0, right: 0, height: 18,
-                              background: T.bdr,
-                              clipPath: "polygon(0% 45%, 100% 0%, 100% 100%, 0% 55%)",
-                              borderRadius: 2,
-                            }} />
-                            <div style={{
-                              position: "absolute", left: 0, height: 18,
-                              background: `linear-gradient(90deg, rgb(${coolR},${coolG},${coolB}), ${ballColor})`,
-                              width: `${pos}%`,
-                              clipPath: "polygon(0% 45%, 100% 0%, 100% 100%, 0% 55%)",
-                              borderRadius: 2,
-                              transition: "width .05s",
-                            }} />
-                            {t > 0.2 && <div style={{
-                              position: "absolute",
-                              left: `calc(${pos}% - ${ballSize}px)`,
-                              width: ballSize * 2, height: ballSize * 2,
-                              borderRadius: "50%",
-                              background: `radial-gradient(circle, ${ballColor}${glowAlpha} 0%, transparent 70%)`,
-                              pointerEvents: "none", transition: "left .05s",
-                              top: "50%", transform: "translateY(-50%)",
-                            }} />}
-                            <div style={{
-                              position: "absolute",
-                              left: `calc(${pos}% - ${ballSize / 2}px)`,
-                              width: ballSize, height: ballSize,
-                              borderRadius: "50%",
-                              background: `linear-gradient(135deg, ${ballColor}, ${ballColor2})`,
-                              boxShadow: t > 0.15
-                                ? `0 2px ${4 + glowSpread}px ${ballColor}${glowAlpha}`
-                                : `0 1px 4px rgba(0,0,0,0.25)`,
-                              transition: "left .05s, width .12s, height .12s, background .12s, box-shadow .12s",
-                              animation: t > 0.1 ? "thumbBreathe 2.5s ease-in-out infinite" : "none",
-                              pointerEvents: "none",
-                            }} />
-                            <input type="range" min="0" max="100" value={Math.round(pos)}
-                              onChange={e => setTipAmount(posToAmt(parseInt(e.target.value)))}
-                              style={{ position: "absolute", width: "100%", height: 60, opacity: 0, cursor: "grab", margin: 0, zIndex: 2 }}
-                            />
-                          </div>
-                          <div style={{ position: "relative", height: 16, marginTop: 6, padding: "0 2px" }}>
-                            {scalePoints.map(v => (
-                              <span key={v} style={{
-                                position: "absolute",
-                                left: `${amtToPos(v)}%`, transform: "translateX(-50%)",
-                                fontSize: 10, color: tipAmount >= v ? T.ink2 : T.ink3,
-                                fontFamily: MN, fontWeight: tipAmount === v ? 700 : 400,
-                                transition: "color .15s",
-                              }}>{"$"}{v}</span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Quick presets */}
-                        <div style={{ display: "flex", gap: 8, marginBottom: 24, marginTop: 12 }}>
-                          {presets.map(amt => (
-                            <button key={amt} onClick={() => setTipAmount(amt)} style={{
-                              flex: 1, padding: "10px 0", borderRadius: 12, textAlign: "center",
-                              border: tipAmount === amt ? `2px solid ${T.acc}` : `1.5px solid ${T.bdr}`,
-                              background: tipAmount === amt ? T.accSoft : "transparent",
-                              color: tipAmount === amt ? T.acc : T.ink3,
-                              fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: MN,
-                              transition: "all .12s",
-                            }}>
-                              {"$"}{amt}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    );
-                  })()}
-
-                  {/* Send button */}
+                  <div style={{ textAlign: "center", marginBottom: 4 }}>
+                    <div style={{ fontFamily: MN, fontSize: 40, fontWeight: 700, color: T.ink, lineHeight: 1, letterSpacing: "-0.03em" }}>
+                      {"$"}{tipAmount}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 24, marginTop: 12 }}>
+                    {[3, 5, 10, 25].map(amt => (
+                      <button key={amt} onClick={() => setTipAmount(amt)} style={{
+                        flex: 1, padding: "10px 0", borderRadius: 12, textAlign: "center",
+                        border: tipAmount === amt ? `2px solid ${T.acc}` : `1.5px solid ${T.bdr}`,
+                        background: tipAmount === amt ? T.accSoft : "transparent",
+                        color: tipAmount === amt ? T.acc : T.ink3,
+                        fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: MN,
+                        transition: "all .12s",
+                      }}>
+                        {"$"}{amt}
+                      </button>
+                    ))}
+                  </div>
                   <button onClick={() => setTipSent(true)} style={{
                     width: "100%", padding: "16px", borderRadius: 14, border: "none",
                     background: T.acc, color: T.accText,
@@ -886,13 +820,6 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
                   }}>
                     Send {"$"}{tipAmount} ☕
                   </button>
-
-                  {/* Payment methods */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 14 }}>
-                    <span style={{ fontSize: 10, color: T.ink3, fontFamily: F }}>💳 Card</span>
-                    {profile.cryptoEnabled && <span style={{ fontSize: 10, color: T.ink3, fontFamily: F }}>⛓ Crypto</span>}
-                  </div>
-
                   <button onClick={() => { setTipExpanded(false); setTipAmount(null); }} style={{
                     width: "100%", background: "none", border: "none", padding: "10px 0 0",
                     cursor: "pointer", fontSize: 12, color: T.ink3, fontFamily: F,
@@ -912,14 +839,6 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
               <div style={{ fontSize: 24, marginBottom: 6 }}>🎉</div>
               <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: "#6BAA8E" }}>{"$"}{tipAmount} sent!</div>
               <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 4 }}>{profile.name} will see your message with this rec</div>
-              {tipMessage && (
-                <div style={{
-                  marginTop: 12, padding: "12px 16px", borderRadius: 12,
-                  background: T.s, border: "1px solid " + T.bdr, textAlign: "left",
-                }}>
-                  <p style={{ fontFamily: F, fontSize: 13, color: T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>"{tipMessage}"</p>
-                </div>
-              )}
             </div>
           )}
 
@@ -947,26 +866,6 @@ export function VisitorRecDetail({ selectedItem, onClose, itemLicensable, itemLi
                 }}>{profile.wallet}</span>
               )}
             </div>
-            {!!itemLicensable[selectedItem.id] && (() => {
-              const lic = itemLicense[selectedItem.id] || { types: [], floor: 100 };
-              return (
-                <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: T.s, border: "1px solid " + T.bdr }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, fontFamily: F, textTransform: "uppercase", letterSpacing: ".06em" }}>License this recommendation</div>
-                      <div style={{ fontSize: 11, color: T.ink2, fontFamily: F, marginTop: 3 }}>
-                        {lic.types.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ") || "Custom"} use · from {"$"}{lic.floor}
-                      </div>
-                    </div>
-                    <button style={{
-                      padding: "8px 14px", borderRadius: 8, border: "1px solid " + T.bdr,
-                      background: T.s, fontSize: 11, fontWeight: 600, color: T.ink2,
-                      cursor: "pointer", fontFamily: F,
-                    }}>Inquire</button>
-                  </div>
-                </div>
-              );
-            })()}
             <div style={{ height: 20 }} />
           </div>
         </div>

@@ -1,12 +1,2 @@
-'use client'
-
-import { CuratorProvider } from '@/context/CuratorContext'
-import CuratorsApp from '@/components/CuratorsApp'
-
-export default function Home() {
-  return (
-    <CuratorProvider>
-      <CuratorsApp />
-    </CuratorProvider>
-  )
-}
+import { redirect } from 'next/navigation'
+export default function Home() { redirect('/ask') }

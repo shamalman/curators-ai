@@ -1,22 +1,55 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
-export default function VisitorProfile({ mode, onSwitchMode, onOpenAI, onOpenRequest, onOpenEdit, onShareProfile, profileCopied, onSelectItem }) {
+export default function VisitorProfile({ mode }) {
+  const router = useRouter();
   const { profile, profileId, tasteItems } = useCurator();
   const [subscribed, setSubscribed] = useState(false);
   const [subEmail, setSubEmail] = useState("");
   const [profileTab, setProfileTab] = useState("recent");
+  const [profileCopied, setProfileCopied] = useState(false);
 
+  if (!profile) return null;
+
+  const handle = profile.handle.replace("@", "");
   const items = tasteItems;
   const n = items.length;
   const activeItems = items;
   const cats = [...new Set(activeItems.map(i => i.category))];
   const cc = {}; cats.forEach(c => { cc[c] = activeItems.filter(i => i.category === c).length; });
   const topCats = [...cats].sort((a, b) => (cc[b] || 0) - (cc[a] || 0));
+
+  const shareProfile = () => {
+    const url = `curators.com/${handle}`;
+    if (navigator.share) {
+      navigator.share({ title: `${profile.name} on Curators`, url: `https://${url}` }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`https://${url}`);
+    }
+    setProfileCopied(true);
+    setTimeout(() => setProfileCopied(false), 2200);
+  };
+
+  const onSelectItem = (item) => {
+    if (mode === "curator") {
+      router.push(`/recs/${item.id}`);
+    } else {
+      router.push(`/${handle}/${item.slug}`);
+    }
+  };
+
+  const onOpenAI = () => {
+    if (mode === "curator") {
+      router.push('/ask');
+    } else {
+      router.push(`/${handle}/ask`);
+    }
+  };
 
   return (
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
@@ -32,12 +65,12 @@ export default function VisitorProfile({ mode, onSwitchMode, onOpenAI, onOpenReq
             This is your public profile
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onShareProfile} style={{
+            <button onClick={shareProfile} style={{
               background: "none", border: `1px solid ${T.acc}50`, borderRadius: 8, padding: "6px 14px",
               cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.acc,
               display: "flex", alignItems: "center", gap: 5,
             }}>{profileCopied ? "Copied \u2713" : "Share \u2197"}</button>
-            <button onClick={onOpenEdit} style={{
+            <button onClick={() => router.push('/settings')} style={{
               background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
               cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
             }}>Edit</button>
@@ -49,7 +82,7 @@ export default function VisitorProfile({ mode, onSwitchMode, onOpenAI, onOpenReq
       {mode === "visitor" && (
         <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontFamily: S, fontSize: 15, color: T.ink3 }}>curators</span>
-          <button onClick={() => onSwitchMode("curator")} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
+          <button onClick={() => router.push('/ask')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
         </div>
       )}
 
@@ -156,7 +189,7 @@ export default function VisitorProfile({ mode, onSwitchMode, onOpenAI, onOpenReq
             <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
           </button>
         )}
-        <button onClick={onOpenRequest} style={{
+        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recs/review'); }} style={{
           flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
           background: T.s, cursor: "pointer", textAlign: "left",
         }}>
@@ -235,14 +268,16 @@ export default function VisitorProfile({ mode, onSwitchMode, onOpenAI, onOpenReq
       </div>
 
       {/* Pull quote */}
-      <div style={{ padding: "28px 20px 20px" }}>
-        <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
-          <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
-            "{items[3]?.context}"
+      {items[3] && (
+        <div style={{ padding: "28px 20px 20px" }}>
+          <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
+            <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
+              "{items[3]?.context}"
+            </div>
+            <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
           </div>
-          <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
         </div>
-      </div>
+      )}
 
     </div>
   );

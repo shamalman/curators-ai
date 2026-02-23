@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import { VisitorContext } from "./VisitorContext";
 
-const CuratorContext = createContext(null);
+export const CuratorContext = createContext(null);
 
 export function CuratorProvider({ children }) {
   const [profile, setProfile] = useState({
@@ -19,6 +20,13 @@ export function CuratorProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const prevMsgCount = useRef(0);
+
+  // Archive/remove state (moved from CuratorsApp)
+  const [archived, setArchived] = useState({});
+  const [removing, setRemoving] = useState(null);
+  const [filterCat, setFilterCat] = useState(null);
+  const [undoItem, setUndoItem] = useState(null);
+  const undoTimer = useRef(null);
 
   // Load profile + recs + messages from Supabase on mount
   useEffect(() => {
@@ -138,6 +146,43 @@ export function CuratorProvider({ children }) {
     } catch (err) { console.error("Failed to save message:", err); }
   };
 
+  const removeItem = async (id) => {
+    if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
+    setRemoving(id);
+    try {
+      await deleteRec(id);
+      setArchived(prev => { const next = { ...prev }; delete next[id]; return next; });
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete recommendation. Please try again.");
+    }
+    setRemoving(null);
+  };
+
+  const undoArchive = () => {
+    if (undoItem) {
+      setArchived(prev => { const next = { ...prev }; delete next[undoItem.id]; return next; });
+      setUndoItem(null);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    }
+  };
+
+  const restoreItem = (id) => {
+    setArchived(prev => { const next = { ...prev }; delete next[id]; return next; });
+    if (filterCat === "archived") {
+      if (Object.keys(archived).length <= 1) setFilterCat(null);
+    }
+    if (profileId) {
+      supabase.from("recommendations").update({ status: "approved" }).eq("id", id).catch(console.error);
+    }
+  };
+
+  const toggleVisibility = (id) => {
+    setTasteItems(items => items.map(i =>
+      i.id === id ? { ...i, visibility: i.visibility === "public" ? "private" : "public" } : i
+    ));
+  };
+
   return (
     <CuratorContext.Provider value={{
       profile, setProfile,
@@ -150,6 +195,14 @@ export function CuratorProvider({ children }) {
       deleteRec,
       updateRec,
       saveMsgToDb,
+      archived, setArchived,
+      removing, setRemoving,
+      filterCat, setFilterCat,
+      undoItem, setUndoItem,
+      removeItem,
+      restoreItem,
+      undoArchive,
+      toggleVisibility,
     }}>
       {children}
     </CuratorContext.Provider>
@@ -157,7 +210,10 @@ export function CuratorProvider({ children }) {
 }
 
 export function useCurator() {
-  const ctx = useContext(CuratorContext);
-  if (!ctx) throw new Error("useCurator must be used within CuratorProvider");
+  // Both contexts are always called (rules of hooks) — one will be null
+  const curator = useContext(CuratorContext);
+  const visitor = useContext(VisitorContext);
+  const ctx = curator || visitor;
+  if (!ctx) throw new Error("useCurator must be used within CuratorProvider or VisitorProvider");
   return ctx;
 }

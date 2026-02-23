@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { T, W, F, S, MN, CAT, REQUESTS_DATA } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
@@ -10,7 +11,10 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
 });
 
 /* ── Request Form (visitor) ── */
-export function RequestScreen({ onClose, profileName }) {
+export function RequestScreen() {
+  const router = useRouter();
+  const { profile } = useCurator();
+  const profileName = profile?.name || "";
   const [requestText, setRequestText] = useState("");
   const [requestCat, setRequestCat] = useState(null);
   const [requestSent, setRequestSent] = useState(false);
@@ -18,7 +22,7 @@ export function RequestScreen({ onClose, profileName }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
       </div>
       <div style={{ flex: 1, padding: "0 24px", overflowY: "auto", overscrollBehavior: "contain", minHeight: 0 }}>
         {!requestSent ? (
@@ -46,7 +50,7 @@ export function RequestScreen({ onClose, profileName }) {
             <div style={{ width: 52, height: 52, borderRadius: 26, background: T.accSoft, margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: T.acc, fontSize: 24 }}>✓</span></div>
             <h2 style={{ fontFamily: S, fontSize: 22, color: T.ink, fontWeight: 400, marginBottom: 8 }}>Request sent</h2>
             <p style={{ fontSize: 14, color: T.ink2, fontFamily: F, lineHeight: 1.6, maxWidth: 260, margin: "0 auto 28px" }}>{profileName} will send a personal recommendation.</p>
-            <button onClick={onClose} style={{ padding: "14px 32px", borderRadius: 14, border: "none", background: T.acc, color: T.accText, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: F }}>Back to profile</button>
+            <button onClick={() => router.back()} style={{ padding: "14px 32px", borderRadius: 14, border: "none", background: T.acc, color: T.accText, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: F }}>Back to profile</button>
           </div>
         )}
       </div>
