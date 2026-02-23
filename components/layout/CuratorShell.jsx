@@ -28,14 +28,17 @@ export default function CuratorShell({ children }) {
     return (
       <>
         <Sidebar />
-        <div style={{
-          marginLeft: 220, background: T.bg,
-          ...(isChat ? {
-            height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden",
-          } : {
-            minHeight: "100vh",
-          }),
-        }}>
+        <div
+          className={isChat ? undefined : "desktop-scroll"}
+          style={{
+            marginLeft: 220, background: T.bg,
+            ...(isChat ? {
+              height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden",
+            } : {
+              minHeight: "100vh",
+            }),
+          }}
+        >
           {children}
         </div>
       </>

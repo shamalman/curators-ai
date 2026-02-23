@@ -83,6 +83,20 @@ body {
   overflow: hidden;
 }
 
+/* Desktop: break mobile scroll containers so page scrolls naturally */
+.desktop-scroll > div {
+  display: block !important;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
+  flex: unset !important;
+}
+.desktop-scroll > div > div {
+  overflow: visible !important;
+  height: auto !important;
+  flex: unset !important;
+}
+
 @keyframes thumbBreathe {
   0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
   50% { transform: scale(1.12); box-shadow: 0 2px 16px rgba(0,0,0,0.4); }
