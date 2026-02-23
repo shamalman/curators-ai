@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T, W, V, F, S, MN, CAT, EARNINGS, REQUESTS_DATA, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "../lib/constants";
+import { useCurator } from "../context/CuratorContext";
 
 // Helper to auto-linkify URLs in text
 function Linkify({ text, style }) {
@@ -43,16 +44,16 @@ const TASTE_DATA = [
 ];
 
 export default function CuratorsV2() {
+  const { profile, setProfile, profileId, tasteItems, setTasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, deleteRec, updateRec, saveMsgToDb } = useCurator();
+
   // mode: "curator" (logged-in owner) or "visitor" (public viewer)
   const [mode, setMode] = useState("curator");
   // curator tabs: "myai" | "profile"
   const [curatorTab, setCuratorTab] = useState("myai");
   // sub-screens that overlay on top
   const [subScreen, setSubScreen] = useState(null); // null | "ai" | "request" | "editProfile" | "taste" | "item" | "requests" | "requestThread"
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [tasteItems, setTasteItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filterCat, setFilterCat] = useState(null);
   const [removing, setRemoving] = useState(null);
@@ -92,76 +93,10 @@ export default function CuratorsV2() {
   const [newBundleName, setNewBundleName] = useState("");
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earningsDrill, setEarningsDrill] = useState(null);
-  const [profile, setProfile] = useState({
-    name: "Shamal", handle: "@shamal",
-    bio: "SF food obsessive. Deep house collector. Sci-fi reader. I only recommend things I'd stake my reputation on.",
-    aiEnabled: true, acceptRequests: true, subscribers: 847,
-    subsEnabled: true, subsText: "Curated recs straight to your inbox. Only things worth your time.",
-    showRecs: true,
-    wallet: "0x1a2B...9fE3", walletFull: "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9fE3", cryptoEnabled: true,
-  });
   const chatEnd = useRef(null);
   const chatScrollRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);  const chatInitd = useRef(false);
   const shouldScroll = useRef(false);
-  const prevMsgCount = useRef(0);
-  const [profileId, setProfileId] = useState(null);
-  const [dbLoaded, setDbLoaded] = useState(false);
-
-  // Load profile + recs from Supabase on mount
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("handle", "shamal")
-          .single();
-        if (prof) {
-          setProfileId(prof.id);
-          setProfile({
-            name: prof.name, handle: "@" + prof.handle,
-            bio: prof.bio, aiEnabled: prof.ai_enabled,
-            acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
-            cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
-            walletFull: "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9fE3",
-            subscribers: 847, subsEnabled: true,
-            subsText: "Curated recs straight to your inbox. Only things worth your time.",
-          });
-          const { data: recs } = await supabase
-            .from("recommendations")
-            .select("*")
-            .eq("profile_id", prof.id)
-            .order("created_at", { ascending: false });
-          if (recs && recs.length > 0) {
-            setTasteItems(recs.map(r => ({
-              id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-              title: r.title, category: r.category, context: r.context,
-              tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
-              visibility: r.visibility || "public", revision: r.revision || 1,
-              earnableMode: r.earnable_mode || "none",
-              revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-            })));
-          }
-          const { data: msgs } = await supabase
-            .from("chat_messages")
-            .select("*")
-            .eq("profile_id", prof.id)
-            .order("created_at", { ascending: false })
-            .limit(50);
-          if (msgs && msgs.length > 0) {
-            setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
-            prevMsgCount.current = msgs.length;
-          }
-        }
-        setDbLoaded(true);
-      } catch (err) {
-        console.error("Failed to load from Supabase:", err);
-        setDbLoaded(true);
-      }
-    }
-    loadData();
-  }, []);
 
   const items = tasteItems;
   const n = items.length;
@@ -349,11 +284,7 @@ export default function CuratorsV2() {
     if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
     setRemoving(id);
     try {
-      const { error } = await supabase.from("recommendations").delete().eq("id", id);
-      if (error) throw error;
-      const { error: revErr } = await supabase.from("revisions").delete().eq("rec_id", id);
-      if (revErr) throw revErr;
-      setTasteItems(items => items.filter(i => i.id !== id));
+      await deleteRec(id);
       setArchived(prev => { const next = { ...prev }; delete next[id]; return next; });
       if (selectedItem?.id === id) { setSelectedItem(null); setSubScreen("taste"); }
     } catch (err) {
@@ -400,18 +331,9 @@ export default function CuratorsV2() {
       ...(selectedItem.revisions || []),
     ];
     const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, links: editingItem.links || [], revision: newRev, revisions: newRevisions };
-    setTasteItems(items => items.map(i => i.id === updated.id ? updated : i));
     setSelectedItem(updated);
     setEditingItem(null);
-    if (profileId) {
-      try {
-        await supabase.from("recommendations").update({
-          title: updated.title, context: updated.context,
-          tags: updated.tags, category: updated.category,
-          links: updated.links, revision: newRev,
-        }).eq("id", updated.id);
-      } catch (err) { console.error("Failed to update rec:", err); }
-    }
+    await updateRec(updated);
   };
 
   const copyLink = (slug) => {
@@ -430,39 +352,6 @@ export default function CuratorsV2() {
     }
     setProfileCopied(true);
     setTimeout(() => setProfileCopied(false), 2200);
-  };
-
-  const saveRecToDb = async (item) => {
-    if (!profileId) return item;
-    try {
-      const { data, error } = await supabase.from("recommendations").insert({
-        profile_id: profileId,
-        title: item.title,
-        category: item.category,
-        context: item.context,
-        tags: item.tags || [],
-        links: item.links || [],
-        slug: item.slug,
-        visibility: item.visibility || "public",
-        status: "approved",
-        revision: 1,
-        earnable_mode: "none",
-      }).select().single();
-      if (data) return { ...item, id: data.id };
-    } catch (err) { console.error("Failed to save rec:", err); }
-    return item;
-  };
-
-  const saveMsgToDb = async (role, text, capturedRec) => {
-    if (!profileId) return;
-    try {
-      await supabase.from("chat_messages").insert({
-        profile_id: profileId,
-        role: role === "ai" ? "assistant" : role,
-        text,
-        captured_rec: capturedRec || null,
-      });
-    } catch (err) { console.error("Failed to save message:", err); }
   };
 
   const toggleItemTier = (itemId, tierId) => {
@@ -920,7 +809,7 @@ export default function CuratorsV2() {
                                 links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                 revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                               };
-                              saveRecToDb(newItem).then(saved => setTasteItems(prev => [saved, ...prev]));
+                              addRec(newItem);
                               setMessages(prev => [...prev.map((m, idx) => idx === i ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
                               saveMsgToDb("ai", "✓ Saved. What else?");
                               setPendingLink(null);
@@ -1024,7 +913,7 @@ export default function CuratorsV2() {
                                   links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
                                   revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
                                 };
-                                saveRecToDb(newItem).then(saved => setTasteItems(prev => [saved, ...prev]));
+                                addRec(newItem);
                                 setMessages(prev => [...prev.map((m, idx) => idx === editingCapture.msgIndex ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
                                 saveMsgToDb("ai", "✓ Saved. What else?");
                                 setEditingCapture(null);

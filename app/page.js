@@ -1,7 +1,12 @@
 'use client'
 
+import { CuratorProvider } from '@/context/CuratorContext'
 import CuratorsApp from '@/components/CuratorsApp'
 
 export default function Home() {
-  return <CuratorsApp />
+  return (
+    <CuratorProvider>
+      <CuratorsApp />
+    </CuratorProvider>
+  )
 }
