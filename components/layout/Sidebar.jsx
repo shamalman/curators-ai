@@ -13,7 +13,7 @@ export default function Sidebar() {
 
   const nav = [
     { id: "ask", icon: "\u25C8", label: "Ask", path: "/ask" },
-    { id: "recs", icon: "\u25C6", label: "Recs", path: "/recommendations", children: [
+    { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations", children: [
       { id: "review", label: "Review", path: "/recommendations/review" },
     ]},
     { id: "fans", icon: "\u2661", label: "Fans", path: "/recommendations" },

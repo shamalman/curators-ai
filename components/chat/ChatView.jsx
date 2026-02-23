@@ -210,7 +210,7 @@ export default function ChatView({ variant }) {
   if (isCurator) {
     const newRequests = []; // placeholder for requests integration
     return (
-      <>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
         {/* Workspace header */}
         <div style={{ padding: "48px 20px 14px", background: W.bg, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, borderBottom: `1px solid ${W.bdr}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -222,13 +222,7 @@ export default function ChatView({ variant }) {
               <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
             </div>
           </div>
-          <button onClick={() => router.push('/recommendations')} style={{
-            background: W.s, border: `1px solid ${W.bdr}`, borderRadius: 10, width: 36, height: 36,
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative",
-          }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="9" y="1" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="1" y="9" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="9" y="9" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /></svg>
-            <div style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: 7, background: W.accent, color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
-          </button>
+          <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN }}>{n} recs</div>
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: W.bg }}>
           <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
@@ -364,7 +358,7 @@ export default function ChatView({ variant }) {
             </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 

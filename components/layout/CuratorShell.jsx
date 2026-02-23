@@ -23,7 +23,6 @@ export default function CuratorShell({ children }) {
 
   // Desktop layout: sidebar + content
   if (isDesktop) {
-    const isChat = pathname.startsWith("/ask");
     return (
       <div style={{ display: "flex", height: "100vh", background: T.bg }}>
         <Sidebar />
@@ -31,14 +30,7 @@ export default function CuratorShell({ children }) {
           flex: 1, marginLeft: 220, height: "100vh",
           display: "flex", flexDirection: "column", overflow: "hidden",
         }}>
-          <div style={{
-            flex: 1, display: "flex", flexDirection: "column", overflow: "hidden",
-            maxWidth: isChat ? 700 : undefined,
-            margin: isChat ? "0 auto" : undefined,
-            width: "100%",
-          }}>
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     );
