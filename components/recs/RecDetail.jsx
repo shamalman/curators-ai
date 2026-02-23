@@ -54,8 +54,8 @@ export function CuratorRecDetail({ slug }) {
 
   const c = CAT[selectedItem.category] || CAT.other;
   const isPublic = selectedItem.visibility === "public";
-  const slug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const url = `curators.com/${profile.handle.replace("@", "")}/${slug}`;
+  const itemSlug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const url = `curators.com/${profile.handle.replace("@", "")}/${itemSlug}`;
   const isSubOnly = !!itemSubOnly[selectedItem.id];
   const isInBundle = !!itemInBundle[selectedItem.id];
   const isLicensable = !!itemLicensable[selectedItem.id];
