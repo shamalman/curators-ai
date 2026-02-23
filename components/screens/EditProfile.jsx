@@ -8,6 +8,8 @@ export default function EditProfile() {
   const router = useRouter();
   const { profile, setProfile } = useCurator();
 
+  if (!profile) return null;
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
