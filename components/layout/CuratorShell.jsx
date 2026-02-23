@@ -21,18 +21,24 @@ export default function CuratorShell({ children }) {
   const tabPaths = ["/ask", "/recommendations"];
   const shouldShowTabs = tabPaths.includes(pathname);
 
-  // Desktop layout: sidebar + content
+  // Desktop layout: fixed sidebar + natural document scroll
+  // Exception: chat (/ask) keeps its own scroll container
   if (isDesktop) {
+    const isChat = pathname.startsWith("/ask");
     return (
-      <div style={{ display: "flex", height: "100vh", background: T.bg }}>
+      <>
         <Sidebar />
         <div style={{
-          flex: 1, marginLeft: 220, height: "100vh",
-          display: "flex", flexDirection: "column", overflow: "hidden",
+          marginLeft: 220, background: T.bg,
+          ...(isChat ? {
+            height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden",
+          } : {
+            minHeight: "100vh",
+          }),
         }}>
           {children}
         </div>
-      </div>
+      </>
     );
   }
 
