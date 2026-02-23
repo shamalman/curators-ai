@@ -53,6 +53,7 @@ export default function VisitorProfile({ mode }) {
 
   return (
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
 
       {/* Curator edit banner */}
       {mode === "curator" && (
@@ -279,6 +280,7 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
+      </div>
     </div>
   );
 }
