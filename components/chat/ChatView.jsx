@@ -222,7 +222,7 @@ export default function ChatView({ variant }) {
               <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
             </div>
           </div>
-          <button onClick={() => router.push('/taste')} style={{
+          <button onClick={() => router.push('/recommendations')} style={{
             background: W.s, border: `1px solid ${W.bdr}`, borderRadius: 10, width: 36, height: 36,
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative",
           }}>
@@ -237,7 +237,7 @@ export default function ChatView({ variant }) {
               if (msg.type === "requestAlert") {
                 return (
                   <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                    <button onClick={() => router.push('/recs/review')} style={{
+                    <button onClick={() => router.push('/recommendations/review')} style={{
                       width: "100%", padding: "16px", borderRadius: 16, border: `1px solid ${W.bdr}`,
                       background: W.s, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
                     }}>

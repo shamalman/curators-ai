@@ -37,7 +37,7 @@ export default function VisitorProfile({ mode }) {
 
   const onSelectItem = (item) => {
     if (mode === "curator") {
-      router.push(`/recs/${item.id}`);
+      router.push(`/recommendations/${item.id}`);
     } else {
       router.push(`/${handle}/${item.slug}`);
     }
@@ -70,7 +70,7 @@ export default function VisitorProfile({ mode }) {
               cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.acc,
               display: "flex", alignItems: "center", gap: 5,
             }}>{profileCopied ? "Copied \u2713" : "Share \u2197"}</button>
-            <button onClick={() => router.push('/settings')} style={{
+            <button onClick={() => router.push(`/${handle}/edit`)} style={{
               background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
               cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
             }}>Edit</button>
@@ -189,7 +189,7 @@ export default function VisitorProfile({ mode }) {
             <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
           </button>
         )}
-        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recs/review'); }} style={{
+        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
           flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
           background: T.s, cursor: "pointer", textAlign: "left",
         }}>

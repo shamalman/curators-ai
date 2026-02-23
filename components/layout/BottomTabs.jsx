@@ -11,9 +11,8 @@ export default function BottomTabs() {
 
   const tabs = [
     { id: "ask", icon: "\u25C8", label: "Ask", path: "/ask", active: pathname.startsWith("/ask"), activeColor: W.accent },
-    { id: "recs", icon: "\u25C9", label: "Recs", path: "/recs", active: pathname.startsWith("/recs"), activeColor: T.acc },
-    { id: "fans", icon: "\u2661", label: "Fans", path: null, active: false, activeColor: T.acc, disabled: true },
-    { id: "taste", icon: "\u25C6", label: "Taste", path: "/taste", active: pathname.startsWith("/taste"), activeColor: T.acc },
+    { id: "recs", icon: "\u25C9", label: "Recs", path: "/recommendations", active: pathname.startsWith("/recommendations"), activeColor: T.acc },
+    { id: "fans", icon: "\u2661", label: "Fans", path: "/recommendations", active: false, activeColor: T.acc },
   ];
 
   return (
@@ -24,12 +23,11 @@ export default function BottomTabs() {
     }}>
       {tabs.map(tab => (
         <button key={tab.id}
-          onClick={() => { if (!tab.disabled && tab.path) router.push(tab.path); }}
+          onClick={() => { if (tab.path) router.push(tab.path); }}
           style={{
             flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-            border: "none", background: "transparent", cursor: tab.disabled ? "default" : "pointer", padding: "10px 0",
+            border: "none", background: "transparent", cursor: "pointer", padding: "10px 0",
             color: tab.active ? tab.activeColor : T.ink3,
-            opacity: tab.disabled ? 0.35 : 1,
           }}>
           <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
           <span style={{ fontSize: 11, fontFamily: F, fontWeight: tab.active ? 700 : 400 }}>{tab.label}</span>

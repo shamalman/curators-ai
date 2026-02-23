@@ -7,13 +7,7 @@ import BottomTabs from "./BottomTabs";
 export default function CuratorShell({ children }) {
   const pathname = usePathname();
 
-  // Show tabs on main pages only
-  const showTabs = ["/ask", "/recs", "/taste"].some(p =>
-    pathname === p || (p === "/recs" && pathname === "/recs")
-  ) && !["/recs/review", "/settings"].some(p => pathname.startsWith(p)) && !/^\/recs\/[^/]+$/.test(pathname.replace("/recs/review", ""));
-
-  // More precise: show tabs only on exact /ask, /recs, /taste
-  const tabPaths = ["/ask", "/recs", "/taste"];
+  const tabPaths = ["/ask", "/recommendations"];
   const shouldShowTabs = tabPaths.includes(pathname);
 
   return (
