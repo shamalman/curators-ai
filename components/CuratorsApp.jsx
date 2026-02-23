@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import { T, W, V, F, S, MN, CAT, EARNINGS, REQUESTS_DATA, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "../lib/constants";
+import { T, W, F, S, MN, CAT, EARNINGS, REQUESTS_DATA, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "../lib/constants";
 import { useCurator } from "../context/CuratorContext";
+import ChatView from "./chat/ChatView";
+import Toast from "./shared/Toast";
+import CategoryPill from "./shared/CategoryPill";
+import LinkDisplay from "./shared/LinkDisplay";
 
 // Helper to auto-linkify URLs in text
 function Linkify({ text, style }) {
@@ -52,8 +56,6 @@ export default function CuratorsV2() {
   const [curatorTab, setCuratorTab] = useState("myai");
   // sub-screens that overlay on top
   const [subScreen, setSubScreen] = useState(null); // null | "ai" | "request" | "editProfile" | "taste" | "item" | "requests" | "requestThread"
-  const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filterCat, setFilterCat] = useState(null);
   const [removing, setRemoving] = useState(null);
@@ -77,8 +79,6 @@ export default function CuratorsV2() {
   const [tipExpanded, setTipExpanded] = useState(false);
   const [tipAmount, setTipAmount] = useState(null);
   const [tipSent, setTipSent] = useState(false);
-  const [editingCapture, setEditingCapture] = useState(null); // { title, context, tags, msgIndex }
-  const [pendingLink, setPendingLink] = useState(null); // { url, title, source } - waiting for user's take
   const [tipMessage, setTipMessage] = useState("");
   // Per-item earnings config — each is independent (keyed by item id)
   const [itemSubOnly, setItemSubOnly] = useState({ 10: true, 5: true }); // Flour+Water, Hotel
@@ -93,10 +93,6 @@ export default function CuratorsV2() {
   const [newBundleName, setNewBundleName] = useState("");
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earningsDrill, setEarningsDrill] = useState(null);
-  const chatEnd = useRef(null);
-  const chatScrollRef = useRef(null);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);  const chatInitd = useRef(false);
-  const shouldScroll = useRef(false);
 
   const items = tasteItems;
   const n = items.length;
@@ -107,47 +103,6 @@ export default function CuratorsV2() {
   const activeN = activeItems.length;
   const topCats = [...cats].sort((a, b) => (cc[b] || 0) - (cc[a] || 0));
 
-  // Only auto-scroll when new messages arrive or typing starts — not on every render
-  useEffect(() => {
-    if (messages.length > prevMsgCount.current || typing) {
-      shouldScroll.current = true;
-      prevMsgCount.current = messages.length;
-    }
-    if (shouldScroll.current) {
-      chatEnd.current?.scrollIntoView({ behavior: "smooth" });
-      shouldScroll.current = false;
-    }
-  }, [messages, typing]);
-
-
-  // Auto-scroll to bottom when chat first loads
-  useEffect(() => {
-    if (dbLoaded && messages.length > 0) {
-      setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "instant" }), 100);
-    }
-  }, [dbLoaded]);
-
-  // Opening prompts for curator chat
-  const openingPrompts = [
-    "What's something you're enjoying that you want to capture and share?",
-    "What have you been recommending to people lately?",
-    "Anything new you've discovered that deserves a spot in your collection?",
-    "What's something you keep telling people about?",
-  ];
-  
-  // Init curator chat once - only after DB loads, and only if no messages from DB
-  useEffect(() => {
-    if (!dbLoaded) return;
-    if (mode === "curator" && curatorTab === "myai" && messages.length === 0) {
-      const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
-      const openingMessage = n === 0
-        ? `Hey! I'm here to help you capture the stuff you love — the songs, spots, books, whatever you find yourself telling people about.\n\n${randomPrompt}`
-        : n < 10
-        ? `You've got ${n} recommendations so far.\n\n${randomPrompt}`
-        : `${n} recs and counting.\n\n${randomPrompt}`;
-      setMessages([{ role: "ai", text: openingMessage }]);
-    }
-  }, [mode, curatorTab, dbLoaded]);
   const switchMode = (m) => {
     setMode(m);
     setCuratorTab("myai");
@@ -159,7 +114,6 @@ export default function CuratorsV2() {
     setRequestSent(false);
     setRequestText("");
     setRequestCat(null);
-    chatInitd.current = false;
   };
 
   const openVisitorAI = () => {
@@ -182,103 +136,6 @@ export default function CuratorsV2() {
     setTipExpanded(false); setTipAmount(null); setTipSent(false); setTipMessage("");
   };
 
-  const send = async () => {
-    if (!input.trim()) return;
-    const msg = input.trim();
-    shouldScroll.current = true;
-    setMessages(m => [...m, { role: "user", text: msg }]);
-    saveMsgToDb("user", msg);
-    setInput(""); 
-    setTyping(true);
-    
-    const isVis = subScreen === "ai";
-    
-    // Check if the message is a URL and fetch metadata
-    const urlMatch = msg.match(/https?:\/\/[^\s]+/);
-    let enrichedMsg = msg;
-    let linkMetadata = null;
-    
-    // If there's a pending link and user is giving their take
-    if (pendingLink && !urlMatch && !isVis) {
-      enrichedMsg = `${msg}\n[Pending link: "${pendingLink.title}" from ${pendingLink.source}, url: ${pendingLink.url}]`;
-      linkMetadata = pendingLink;
-    }
-    // If user pastes a new link
-    else if (urlMatch && !isVis) {
-      try {
-        const metaRes = await fetch('/api/link-metadata', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urlMatch[0] })
-        });
-        const meta = await metaRes.json();
-        if (meta.title) {
-          linkMetadata = { url: urlMatch[0], title: meta.title, source: meta.source };
-          enrichedMsg = `${msg}\n[Link metadata: "${meta.title}" from ${meta.source}]`;
-          // Store as pending link for next message
-          setPendingLink(linkMetadata);
-        }
-      } catch (e) {
-        console.log('Could not fetch link metadata');
-      }
-    }
-    
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: enrichedMsg,
-          isVisitor: isVis,
-          curatorName: profile.name,
-          recommendations: items.map(item => ({
-            title: item.title,
-            category: item.category,
-            context: item.context,
-            tags: item.tags,
-            date: item.date
-          })),
-          linkMetadata,
-          history: messages.slice(-10),
-        }),
-      });
-      
-      const data = await response.json();
-      setTyping(false);
-      
-      // Check if AI response contains a captured recommendation
-      const text = data.message;
-      const isCapturedRec = text.includes('📍 Adding:') || text.includes('🏷 Suggested tags:');
-      
-      // Try to parse the captured rec
-      let capturedRec = null;
-      if (isCapturedRec) {
-        const titleMatch = text.match(/\*\*([^*]+)\*\*/);
-        const contextMatch = text.match(/"([^"]+)"/);
-        const tagsMatch = text.match(/🏷 Suggested tags?:?\s*([^\n]+)/i);
-        const categoryMatch = text.match(/📁 Category:\s*(\w+)/i);
-        const linkMatch = text.match(/🔗 Link:\s*(https?:\/\/[^\s]+)/i);        
-        if (titleMatch) {
-          capturedRec = {
-            title: titleMatch[1].replace(' — ', ' - '),
-            context: contextMatch ? contextMatch[1] : '',
-            tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
-            category: categoryMatch ? categoryMatch[1].toLowerCase() : 'other',
-            links: linkMatch ? [{ url: linkMatch[1], title: 'Suggested link' }] : [],
-          };
-        }
-      }
-      
-      setMessages(m => [...m, { role: "ai", text: data.message, capturedRec }]);
-      saveMsgToDb("ai", data.message, capturedRec);
-    } catch (error) {
-      console.error('Chat error:', error);
-      setTyping(false);
-      setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
-    }
-  };
 
   const removeItem = async (id) => {
     if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
@@ -392,27 +249,6 @@ export default function CuratorsV2() {
   const renderMd = (text) => text.split("\n").map((line, i) => {
     const b = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     return <div key={i} dangerouslySetInnerHTML={{ __html: b }} style={{ marginBottom: line === "" ? 8 : 2 }} />;
-  });
-
-  const curatorBubble = (msg) => ({
-    maxWidth: "82%", padding: msg.role === "user" ? "12px 16px" : "14px 18px",
-    borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
-    background: msg.role === "user" ? W.userBub : W.aiBub,
-    color: msg.role === "user" ? W.userTxt : T.ink,
-    fontSize: 14, lineHeight: 1.55, fontFamily: F,
-    fontWeight: msg.role === "user" ? 500 : 400,
-    border: msg.role === "user" ? "none" : `1px solid ${W.bdr}`,
-  });
-
-  const visitorBubble = (msg) => ({
-    maxWidth: "82%", padding: msg.role === "user" ? "12px 16px" : "14px 18px",
-    borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
-    background: msg.role === "user" ? V.userBub : V.aiBub,
-    color: msg.role === "user" ? V.userTxt : T.ink,
-    fontSize: 14, lineHeight: 1.55, fontFamily: F,
-    fontWeight: msg.role === "user" ? 500 : 400,
-    border: "none",
-    boxShadow: msg.role === "user" ? "none" : `inset 0 0 0 1px ${V.bdr}`,
   });
 
   // What screen to show?
@@ -687,350 +523,14 @@ export default function CuratorsV2() {
         {/* ════════ CURATOR: MY AI CHAT ═════════════ */}
         {/* ══════════════════════════════════════════ */}
         {showingCuratorChat && (
-          <>
-            {/* Workspace header */}
-            <div style={{ padding: "48px 20px 14px", background: W.bg, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, borderBottom: `1px solid ${W.bdr}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${W.accent}30` }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
-                </div>
-                <div>
-                  <div style={{ fontFamily: F, fontSize: 16, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>My AI</div>
-                  <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs · {cats.length} categories</div>
-                </div>
-              </div>
-              <button onClick={() => { setSubScreen("taste"); setFilterCat(null); }} style={{
-                background: W.s, border: `1px solid ${W.bdr}`, borderRadius: 10, width: 36, height: 36,
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative",
-              }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="9" y="1" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="1" y="9" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /><rect x="9" y="9" width="6" height="6" rx="1.5" stroke={T.ink3} strokeWidth="1.5" /></svg>
-                <div style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: 7, background: W.accent, color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
-              </button>
-            </div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: W.bg }}>
-              <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
-                {messages.map((msg, i) => {
-                  // Request alert card
-                  if (msg.type === "requestAlert") {
-                    return (
-                      <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                        <button onClick={() => setSubScreen("requests")} style={{
-                          width: "100%", padding: "16px", borderRadius: 16, border: `1px solid ${W.bdr}`,
-                          background: W.s, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
-                        }}>
-                          <div style={{ width: 40, height: 40, borderRadius: 12, background: "#EF444418", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            <span style={{ fontSize: 18 }}>📩</span>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontFamily: F, fontSize: 14, fontWeight: 700, color: T.ink }}>{msg.count} new request{msg.count !== 1 ? "s" : ""}</div>
-                            <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>
-                              {newRequests.slice(0, 2).map(r => r.from).join(", ")}{newRequests.length > 2 ? ` +${newRequests.length - 2} more` : ""} — tap to review
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>{msg.count}</span>
-                            <span style={{ color: T.ink3, fontSize: 14 }}>›</span>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  }
-                  // Gratuity card
-                  if (msg.type === "gratuity") {
-                    const gc = CAT[msg.recCategory] || CAT.other;
-                    return (
-                      <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                        <div style={{
-                          padding: "18px", borderRadius: 16,
-                          background: `linear-gradient(135deg, #6BAA8E10, ${W.s})`,
-                          border: `1px solid #6BAA8E30`,
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div style={{
-                                width: 36, height: 36, borderRadius: 10,
-                                background: "#6BAA8E18",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                              }}>
-                                <span style={{ fontSize: 16 }}>☕</span>
-                              </div>
-                              <div>
-                                <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, color: T.ink }}>{msg.from}</div>
-                                <div style={{ fontFamily: F, fontSize: 10, color: T.ink3, marginTop: 1 }}>{msg.time}</div>
-                              </div>
-                            </div>
-                            <div style={{
-                              padding: "6px 14px", borderRadius: 10,
-                              background: "#6BAA8E20", border: `1px solid #6BAA8E30`,
-                            }}>
-                              <span style={{ fontFamily: MN, fontSize: 16, fontWeight: 700, color: "#6BAA8E" }}>{"$"}{msg.amount}</span>
-                            </div>
-                          </div>
-                          {msg.message && (
-                            <div style={{
-                              padding: "12px 16px", borderRadius: 12,
-                              background: W.s, border: `1px solid ${W.bdr}`,
-                              marginBottom: 10,
-                            }}>
-                              <p style={{ fontFamily: F, fontSize: 13, color: T.ink, lineHeight: 1.55, fontStyle: "italic" }}>"{msg.message}"</p>
-                            </div>
-                          )}
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 12 }}>{gc.emoji}</span>
-                            <span style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>For <span style={{ fontWeight: 600, color: T.ink2 }}>{msg.recTitle}</span></span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={i} className="fu" style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                      {msg.role === "ai" && (
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0, border: `1px solid ${W.accent}25` }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
-                        </div>
-                      )}
-                      <div style={{ maxWidth: "82%" }}>
-                        <div style={curatorBubble(msg)}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
-                        {msg.capturedRec && !msg.saved && !editingCapture && (
-                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                            <button onClick={() => {
-                              const newItem = {
-                                id: Date.now(),
-                                slug: msg.capturedRec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                                title: msg.capturedRec.title,
-                                category: msg.capturedRec.category || "other",
-                                context: msg.capturedRec.context,
-                                tags: msg.capturedRec.tags,
-                                date: new Date().toISOString().split("T")[0],
-                                visibility: "public",
-                                revision: 1,
-                                earnableMode: "none",
-                                links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
-                                revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
-                              };
-                              addRec(newItem);
-                              setMessages(prev => [...prev.map((m, idx) => idx === i ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
-                              saveMsgToDb("ai", "✓ Saved. What else?");
-                              setPendingLink(null);
-                            }} style={{
-                              padding: "8px 16px", borderRadius: 10, border: "none",
-                              background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
-                              cursor: "pointer", fontFamily: F
-                            }}>Save</button>
-                            <button onClick={() => setEditingCapture({ ...msg.capturedRec, msgIndex: i })} style={{
-                              padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
-                              background: T.s, color: T.ink, fontSize: 13, fontWeight: 500,
-                              cursor: "pointer", fontFamily: F
-                            }}>Edit</button>
-                          </div>
-                        )}
-                        {editingCapture && editingCapture.msgIndex === i && (
-                          <div style={{ marginTop: 12, padding: 16, background: T.s, borderRadius: 14, border: "1px solid " + T.bdr }}>
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title</div>
-                              <input value={editingCapture.title} onChange={e => setEditingCapture(p => ({ ...p, title: e.target.value }))}
-                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none" }}
-                              />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Context</div>
-                              <textarea value={editingCapture.context} onChange={e => setEditingCapture(p => ({ ...p, context: e.target.value }))} rows={2}
-                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none", resize: "none" }}
-                              />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Category</div>
-                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                {["restaurant", "book", "music", "tv", "film", "travel", "product", "other"].map(cat => (
-                                  <button key={cat} onClick={() => setEditingCapture(p => ({ ...p, category: cat }))}
-                                    style={{
-                                      padding: "6px 12px", borderRadius: 8, border: editingCapture.category === cat ? "none" : "1px solid " + T.bdr,
-                                      background: editingCapture.category === cat ? T.acc : T.bg, color: editingCapture.category === cat ? "#fff" : T.ink2,
-                                      fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: F, textTransform: "capitalize"
-                                    }}>{cat}</button>
-                                ))}
-                              </div>
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Tags</div>
-                              <input value={editingCapture.tags?.join(", ") || ""} onChange={e => setEditingCapture(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
-                                placeholder="Comma separated"
-                                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.bdr, fontSize: 14, fontFamily: F, background: T.bg, color: T.ink, outline: "none" }}
-                              />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Links</div>
-                              {(editingCapture.links || (pendingLink ? [pendingLink] : [])).map((link, i) => (
-                                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                                  <input value={link.label || link.title || link.url} readOnly
-                                    style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.bdr, fontSize: 12, fontFamily: F, background: T.s, color: T.ink, outline: "none" }}
-                                  />
-                                  <button onClick={() => {
-                                    const links = editingCapture.links || [];
-                                    setEditingCapture(p => ({ ...p, links: links.filter((_, idx) => idx !== i) }));
-                                    if (pendingLink && i === 0 && links.length === 0) setPendingLink(null);
-                                  }} style={{
-                                    padding: "8px 10px", borderRadius: 6, border: "1px solid " + T.bdr,
-                                    background: T.s, color: T.ink3, fontSize: 10, cursor: "pointer"
-                                  }}>✕</button>
-                                </div>
-                              ))}
-                              <button onClick={async () => {
-                                const url = prompt("Paste a link:");
-                                if (!url) return;
-                                try {
-                                  const res = await fetch("/api/link-metadata", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ url })
-                                  });
-                                  const meta = await res.json();
-                                  const newLink = { type: meta.source?.toLowerCase() || "website", url, label: meta.title || url };
-                                  setEditingCapture(p => ({ ...p, links: [...(p.links || []), newLink] }));
-                                } catch (e) {
-                                  setEditingCapture(p => ({ ...p, links: [...(p.links || []), { type: "website", url, label: url }] }));
-                                }
-                              }} style={{
-                                padding: "8px 10px", borderRadius: 6, border: "1px dashed " + T.bdr,
-                                background: "transparent", color: T.ink3, fontSize: 11, cursor: "pointer", fontFamily: F,
-                                width: "100%", textAlign: "center"
-                              }}>+ Add link</button>
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <button onClick={() => {
-                                const newItem = {
-                                  id: Date.now(),
-                                  slug: editingCapture.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                                  title: editingCapture.title,
-                                  category: editingCapture.category || "other",
-                                  context: editingCapture.context,
-                                  tags: editingCapture.tags || [],
-                                  date: new Date().toISOString().split("T")[0],
-                                  visibility: "public",
-                                  revision: 1,
-                                  earnableMode: "none",
-                                  links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : []),
-                                  revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
-                                };
-                                addRec(newItem);
-                                setMessages(prev => [...prev.map((m, idx) => idx === editingCapture.msgIndex ? { ...m, saved: true } : m), { role: "ai", text: "✓ Saved. What else?" }]);
-                                saveMsgToDb("ai", "✓ Saved. What else?");
-                                setEditingCapture(null);
-                                setPendingLink(null);
-                              }} style={{
-                                padding: "8px 16px", borderRadius: 10, border: "none",
-                                background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
-                                cursor: "pointer", fontFamily: F
-                              }}>Save</button>
-                              <button onClick={() => setEditingCapture(null)} style={{
-                                padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
-                                background: T.bg, color: T.ink2, fontSize: 13, fontWeight: 500,
-                                cursor: "pointer", fontFamily: F
-                              }}>Cancel</button>
-                            </div>
-                          </div>
-                        )}
-                        {msg.saved && false && (
-                          <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>✓ Saved to your recommendations</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {typing && <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 12 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 7, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0, border: `1px solid ${W.accent}25` }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
-                  </div>
-                  <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
-                </div>}
-                <div ref={chatEnd} />
-                {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>↓</button>}
-              </div>
-              <div style={{ padding: "10px 16px 28px", flexShrink: 0 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
-                    placeholder="Drop a rec, paste a link, or ask anything..."
-                    style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink }}
-                    onFocus={e => e.target.style.borderColor = W.accent} onBlur={e => e.target.style.borderColor = W.inputBdr}
-                  />
-                  <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : W.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>↑</button>
-                </div>
-              </div>
-            </div>
-          </>
+          <ChatView variant="curator" onOpenTaste={() => { setSubScreen("taste"); setFilterCat(null); }} onOpenRequests={() => setSubScreen("requests")} />
         )}
-
         {/* ══════════════════════════════════════════ */}
         {/* ════════ VISITOR AI CHAT ═════════════════ */}
         {/* ══════════════════════════════════════════ */}
         {showingVisitorAI && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: V.bg }}>
-            {/* Branded header with curator identity */}
-            <div style={{ padding: "48px 20px 12px", background: V.bg, flexShrink: 0, borderBottom: `1px solid ${V.bdr}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <button onClick={closeSubScreen} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Profile</button>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, border: `1.5px solid ${V.bdr}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontFamily: S, fontSize: 20, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400, lineHeight: 1 }}>{profile.name}'s AI</div>
-                  <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: 3, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
-                    Trained on {n} personal recs
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
-              {messages.map((msg, i) => (
-                <div key={i} className="fu" style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 14, animationDelay: `${i * .03}s` }}>
-                  {msg.role === "ai" && (
-                    <div style={{ width: 26, height: 26, borderRadius: 9, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0 }}>
-                      <span style={{ fontFamily: S, fontSize: 13, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
-                    </div>
-                  )}
-                  <div style={visitorBubble(msg)}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
-                </div>
-              ))}
-              {typing && <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 14 }}>
-                <div style={{ width: 26, height: 26, borderRadius: 9, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0 }}>
-                  <span style={{ fontFamily: S, fontSize: 13, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
-                </div>
-                <div style={{ padding: "14px 18px", background: V.aiBub, borderRadius: "20px 20px 20px 6px", boxShadow: `inset 0 0 0 1px ${V.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
-              </div>}
-              <div ref={chatEnd} />
-            </div>
-            <div style={{ padding: "4px 16px 6px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
-              {[
-                { label: "🎧 Radio", prompt: "Play me a radio station from the music recs" },
-                { label: "✨ Newest", prompt: "What are the newest recommendations?" },
-                { label: "🔥 Most Popular", prompt: "What are the most popular picks?" },
-                { label: "📖 Books", prompt: "Show me book recommendations" },
-                { label: "🎵 Music", prompt: "What music do you recommend?" },
-                { label: "🍽 Restaurants", prompt: "What are the restaurant recommendations?" },
-              ].map(chip => (
-                <button key={chip.label} onClick={() => setInput(chip.prompt)} style={{
-                  padding: "8px 14px", borderRadius: 20, border: `1px solid ${V.chipBdr}`, background: V.chip,
-                  fontSize: 12, color: T.ink2, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap", flexShrink: 0, fontWeight: 500,
-                }}>{chip.label}</button>
-              ))}
-            </div>
-            <div style={{ padding: "10px 16px 28px", flexShrink: 0, background: V.bg }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
-                  placeholder={`Ask ${profile.name} anything...`}
-                  style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${V.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: V.inputBg, color: T.ink }}
-                  onFocus={e => e.target.style.borderColor = T.acc} onBlur={e => e.target.style.borderColor = V.inputBdr}
-                />
-                <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : V.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>↑</button>
-              </div>
-            </div>
-          </div>
+          <ChatView variant="visitor" onClose={closeSubScreen} />
         )}
-
         {/* ══════════════════════════════════════════ */}
         {/* ════════ REQUEST SCREEN ══════════════════ */}
         {/* ══════════════════════════════════════════ */}
@@ -1420,9 +920,7 @@ export default function CuratorsV2() {
               <p style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
             </div>
             <div style={{ padding: "0 20px 12px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
-              <button onClick={() => setFilterCat(null)} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: !filterCat ? T.acc : T.s, color: !filterCat ? T.accText : T.ink2, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>All ({activeN})</button>
-              {cats.map(cat => { const ct = CAT[cat]; return <button key={cat} onClick={() => setFilterCat(filterCat === cat ? null : cat)} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === cat ? T.acc : T.s, color: filterCat === cat ? T.accText : T.ink2, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{ct.emoji} ({cc[cat]})</button>; })}
-              {archivedItems.length > 0 && (
+              <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />              {archivedItems.length > 0 && (
                 <button onClick={() => setFilterCat(filterCat === "archived" ? null : "archived")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === "archived" ? T.ink3 : T.s, color: filterCat === "archived" ? "#fff" : T.ink3, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{"🗄"} ({archivedItems.length})</button>
               )}
             </div>
@@ -1549,10 +1047,7 @@ export default function CuratorsV2() {
 
             {/* Undo toast */}
             {undoItem && (
-              <div style={{ position: "absolute", bottom: 90, left: "50%", transform: "translateX(-50%)", padding: "12px 20px", borderRadius: 14, background: T.ink, color: T.bg, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 30px rgba(0,0,0,0.4)", zIndex: 10, whiteSpace: "nowrap" }}>
-                <span style={{ fontSize: 13, fontFamily: F }}>Archived <strong>{undoItem.title}</strong></span>
-                <button onClick={undoArchive} style={{ background: "none", border: "1px solid " + T.bg + "40", borderRadius: 8, padding: "4px 12px", color: T.acc, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: F }}>Undo</button>
-              </div>
+              <Toast message={<>Archived <strong>{undoItem.title}</strong></>} onAction={undoArchive} actionLabel="Undo" />
             )}
           </div>
         )}
@@ -1718,28 +1213,9 @@ export default function CuratorsV2() {
                   {!isEditing && selectedItem.links?.length > 0 && (
                     <div style={{ marginBottom: 20 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {selectedItem.links.map((link, i) => (
-                          <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
-                            display: "flex", alignItems: "center", gap: 10,
-                            padding: "12px 14px", background: T.s, borderRadius: 12, border: "1px solid " + T.bdr,
-                            textDecoration: "none", color: T.ink, transition: "background .15s"
-                          }}>
-                            <span style={{ fontSize: 16 }}>
-                              {link.type === "spotify" ? "🎵" : 
-                               link.type === "youtube" ? "▶️" : 
-                               link.type === "wikipedia" ? "📖" :
-                               link.type === "google_maps" ? "📍" :
-                               link.type === "website" ? "🔗" : "🔗"}
-                            </span>
-                            <div style={{ flex: 1, overflow: "hidden" }}><div style={{ fontFamily: F, fontSize: 13, fontWeight: 500 }}>{(() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "") : (link.label || link.type); } catch(e) { return link.label || link.type; }})()}</div><div style={{ fontFamily: F, fontSize: 11, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{link.url || ""}</div></div>
-                            <span style={{ marginLeft: "auto", fontSize: 12, color: T.ink3 }}>↗</span>
-                          </a>
-                        ))}
-                      </div>
+                      <LinkDisplay links={selectedItem.links} />
                     </div>
                   )}
-
                   {/* ─── Settings section ─── */}
                   {!isEditing && (
                     <>
@@ -2142,64 +1618,7 @@ export default function CuratorsV2() {
                   {selectedItem.links?.length > 0 && (
                     <div style={{ marginBottom: 24 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {selectedItem.links.map((link, i) => {
-                          const isSpotify = link.url?.includes("spotify.com");
-                          const isYouTube = link.url?.includes("youtube.com") || link.url?.includes("youtu.be");
-                          const isWikipedia = link.url?.includes("wikipedia.org");
-                          const isGoogleMaps = link.url?.includes("google.com/maps") || link.url?.includes("goo.gl/maps");
-                          const isAppleMusic = link.url?.includes("music.apple.com");
-                          const isSoundCloud = link.url?.includes("soundcloud.com");
-                          
-                          const iconStyle = { width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
-                          const icon = isSpotify ? (
-                            <div style={{ ...iconStyle, background: "#1DB954" }}>
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-                            </div>
-                          ) : isYouTube ? (
-                            <div style={{ ...iconStyle, background: "#FF0000" }}>
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                            </div>
-                          ) : isWikipedia ? (
-                            <div style={{ ...iconStyle, background: "#fff", border: "1px solid " + T.bdr }}>
-                              <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "serif" }}>W</span>
-                            </div>
-                          ) : isGoogleMaps ? (
-                            <div style={{ ...iconStyle, background: "#4285F4" }}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                            </div>
-                          ) : isAppleMusic ? (
-                            <div style={{ ...iconStyle, background: "linear-gradient(135deg, #FA2D48, #A833B9)" }}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.455-2.105-1.392-.238-.693-.106-1.384.428-1.945.37-.39.833-.6 1.35-.7.351-.067.709-.103 1.063-.163.238-.04.388-.186.397-.437.003-.063.003-.125.003-.19V9.357a.472.472 0 00-.49-.503c-.67-.032-1.34-.062-2.007-.105a41.27 41.27 0 01-1.433-.123.46.46 0 00-.52.467V17.77c0 .41-.057.815-.242 1.188-.29.583-.76.955-1.38 1.128-.86.238-1.7.116-2.447-.474-.476-.376-.715-.873-.764-1.467-.052-.627.12-1.19.55-1.66.355-.39.8-.6 1.31-.7.512-.098 1.03-.16 1.546-.242.26-.04.397-.194.405-.457.002-.068 0-.136 0-.204V6.946c0-.083.007-.167.017-.25.043-.354.255-.57.607-.615.21-.027.424-.04.635-.054.946-.06 1.893-.105 2.838-.17 1.042-.07 2.082-.16 3.124-.234.17-.012.342-.016.51.006.347.046.563.263.607.61.02.158.024.318.024.477v3.35z"/></svg>
-                            </div>
-                          ) : isSoundCloud ? (
-                            <div style={{ ...iconStyle, background: "#FF5500" }}>
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.009-.06-.052-.1-.084-.1zm-.899 1.18c-.048 0-.091.037-.098.094l-.18 1.072.18 1.048c.007.057.05.092.098.092.046 0 .087-.035.094-.092l.21-1.048-.21-1.072c-.007-.057-.048-.094-.094-.094zm1.83-.091c-.06 0-.109.053-.116.112l-.216 1.266.216 1.225c.007.063.056.113.116.113.06 0 .107-.05.116-.113l.246-1.225-.246-1.266c-.009-.063-.056-.112-.116-.112zm.93-.478c-.066 0-.119.059-.127.126l-.195 1.741.195 1.64c.008.066.061.122.127.122.066 0 .119-.056.127-.122l.225-1.64-.225-1.741c-.008-.067-.061-.126-.127-.126z"/></svg>
-                            </div>
-                          ) : (
-                            <div style={{ ...iconStyle, background: T.s2 }}>
-                              <span style={{ fontSize: 14 }}>🔗</span>
-                            </div>
-                          );
-                          
-                          const sourceName = isSpotify ? "Spotify" : isYouTube ? "YouTube" : isWikipedia ? "Wikipedia" : isGoogleMaps ? "Google Maps" : isAppleMusic ? "Apple Music" : isSoundCloud ? "SoundCloud" : (() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "").split(".")[0].charAt(0).toUpperCase() + new URL(link.url).hostname.replace("www.", "").split(".")[0].slice(1) : "Link"; } catch(e) { return "Link"; } })();
-                          
-                          return (
-                            <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" style={{
-                              display: "flex", alignItems: "center", gap: 12,
-                              padding: "12px 14px", background: T.s, borderRadius: 12, border: "1px solid " + T.bdr,
-                              textDecoration: "none", color: T.ink, transition: "background .15s"
-                            }}>
-                              {icon}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontFamily: F, fontSize: 13, fontWeight: 600 }}>{link.label || (link.title !== "Suggested link" ? link.title : null) || sourceName}</div>
-                                <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginTop: 2 }}>{(() => { try { return link.url ? new URL(link.url).hostname.replace("www.", "") : sourceName; } catch(e) { return sourceName; } })()}</div>
-                              </div>
-                              <span style={{ fontSize: 12, color: T.ink3 }}>↗</span>
-                            </a>
-                          );
-                        })}
-                      </div>
+                      <LinkDisplay links={selectedItem.links} />
                     </div>
                   )}
 
