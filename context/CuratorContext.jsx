@@ -223,6 +223,7 @@ export function CuratorProvider({ children }) {
       undoArchive,
       toggleVisibility,
       logout,
+      isOwner: true,
     }}>
       {children}
     </CuratorContext.Provider>
