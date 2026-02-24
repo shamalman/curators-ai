@@ -23,23 +23,28 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
     try {
+      console.log("[login] signing in…")
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
       if (authErr) throw authErr
+      console.log("[login] auth success, user:", data.user.id)
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profErr } = await supabase
         .from("profiles")
         .select("onboarding_complete")
         .eq("auth_user_id", data.user.id)
         .single()
+      console.log("[login] profile query:", { profile, profErr })
 
       if (!profile || !profile.onboarding_complete) {
-        router.push("/onboarding")
+        console.log("[login] redirecting to /onboarding")
+        window.location.href = "/onboarding"
       } else {
-        router.push("/myai")
+        console.log("[login] redirecting to /myai")
+        window.location.href = "/myai"
       }
     } catch (err) {
+      console.error("[login] error:", err)
       setError(err.message || "Login failed")
-    } finally {
       setLoading(false)
     }
   }
