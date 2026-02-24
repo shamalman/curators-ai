@@ -27,7 +27,7 @@ export default function SignupPage() {
     if (!pwValid) { setError("Password must be at least 8 characters"); return }
     setLoading(true)
     try {
-      // Validate invite code
+      // Step 1: Validate invite code
       const code = inviteCode.trim().toUpperCase()
       const { data: invite, error: invErr } = await supabase
         .from("invite_codes")
@@ -35,19 +35,41 @@ export default function SignupPage() {
         .eq("code", code)
         .is("used_at", null)
         .single()
-      if (invErr || !invite) throw new Error("Invalid or already used invite code")
+      if (invErr || !invite) {
+        console.error("Invite code validation failed:", invErr)
+        throw new Error("Invalid or already used invite code")
+      }
 
-      // Sign up
-      const { data, error: authErr } = await supabase.auth.signUp({ email, password })
-      if (authErr) throw authErr
+      // Step 2: Sign up via server-side API route (avoids trigger issues)
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        console.error("Signup API error:", result)
+        throw new Error(result.error || "Signup failed")
+      }
 
-      // Mark invite code as used (no used_by — profile doesn't exist yet)
-      await supabase.from("invite_codes").update({
+      // Step 3: Sign in the newly created user on the client
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInErr) {
+        console.error("Auto sign-in failed:", signInErr)
+        // Don't throw — account was created, just redirect to login
+        router.push("/login")
+        return
+      }
+
+      // Step 4: Mark invite code as used
+      const { error: updateErr } = await supabase.from("invite_codes").update({
         used_at: new Date().toISOString(),
       }).eq("id", invite.id)
+      if (updateErr) console.error("Failed to mark invite as used:", updateErr)
 
       router.push("/onboarding")
     } catch (err) {
+      console.error("Signup flow error:", err)
       setError(err.message || "Signup failed")
     } finally {
       setLoading(false)
