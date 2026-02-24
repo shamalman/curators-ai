@@ -181,7 +181,7 @@ export function CuratorRecDetail({ slug }) {
                 style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, width: "100%", background: T.bg, border: `1.5px solid ${T.bdr}`, borderRadius: 10, padding: "10px 14px", outline: "none", resize: "none" }}
               />
             ) : (
-              <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, whiteSpace: "pre-line" }}>"<Linkify text={selectedItem.context} style={{ fontFamily: F, fontSize: 15 }} />"</p>
+              <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, whiteSpace: "pre-line" }}><Linkify text={selectedItem.context} style={{ fontFamily: F, fontSize: 15 }} /></p>
             )}
           </div>
 

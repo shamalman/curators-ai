@@ -280,7 +280,7 @@ export default function VisitorProfile({ mode }) {
         <div style={{ padding: "28px 20px 20px" }}>
           <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
             <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
-              "{items[3]?.context}"
+              {items[3]?.context}
             </div>
             <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
           </div>
