@@ -30,14 +30,15 @@ export default function CuratorShell({ children }) {
   // Exception: chat (/ask) keeps its own scroll container
   if (isDesktop) {
     const isChat = pathname.startsWith("/myai");
+    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/fans");
     return (
       <>
         <Sidebar />
         <div
-          className={isChat ? undefined : "desktop-scroll"}
+          className={needsFlexLayout ? undefined : "desktop-scroll"}
           style={{
             marginLeft: 220, background: T.bg,
-            ...(isChat ? {
+            ...(needsFlexLayout ? {
               height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden",
             } : {
               minHeight: "100vh",
