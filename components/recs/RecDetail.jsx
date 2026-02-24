@@ -124,6 +124,7 @@ export function CuratorRecDetail({ slug }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
         {!isEditing && (
@@ -291,7 +292,8 @@ export function CuratorRecDetail({ slug }) {
                 </button>
               </div>
 
-              {/* Earnings config */}
+              {/* TODO: Unhide when earnings features are real */}
+              {false && <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", fontFamily: F }}>Earnings</div>
                 {hasAnyEarning && (
@@ -564,6 +566,7 @@ export function CuratorRecDetail({ slug }) {
                   </div>
                 )}
               </div>
+              </>}
 
               {/* Version history */}
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Version History</div>
@@ -606,6 +609,7 @@ export function CuratorRecDetail({ slug }) {
           )}
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -641,6 +645,7 @@ export function VisitorRecDetail({ slug }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
         <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
@@ -725,8 +730,8 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* Also appears in (bundles) */}
-          {recBundles.length > 0 && (
+          {/* TODO: Unhide when earnings features are real */}
+          {false && recBundles.length > 0 && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Also in</div>
               {recBundles.map(bundle => (
@@ -746,8 +751,8 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* Tip section — simplified, uses local state */}
-          {!!itemTipEnabled[selectedItem.id] && !tipSent && (
+          {/* TODO: Unhide when earnings features are real */}
+          {false && !!itemTipEnabled[selectedItem.id] && !tipSent && (
             <div style={{ marginTop: 20, marginBottom: 8 }}>
               {!tipExpanded ? (
                 <button onClick={() => { setTipExpanded(true); setTipAmount(itemTipConfig[selectedItem.id]?.suggested || 5); }} style={{
@@ -835,8 +840,8 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* Tip sent confirmation */}
-          {tipSent && (
+          {/* TODO: Unhide when earnings features are real */}
+          {false && tipSent && (
             <div className="fu" style={{
               marginTop: 20, marginBottom: 8, padding: "22px 20px", borderRadius: 16,
               background: "#6BAA8E12", border: `1px solid #6BAA8E30`,
@@ -848,8 +853,8 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* On-chain footer */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${T.bdr}` }}>
+          {/* TODO: Unhide when earnings features are real */}
+          {false && <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${T.bdr}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 12, opacity: .4 }}>⛓</span>
               <span style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 500 }}>On-chain</span>
@@ -873,8 +878,9 @@ export function VisitorRecDetail({ slug }) {
               )}
             </div>
             <div style={{ height: 20 }} />
-          </div>
+          </div>}
         </div>
+      </div>
       </div>
     </div>
   );
