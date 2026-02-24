@@ -28,6 +28,10 @@ export default function LoginPage() {
       if (authErr) throw authErr
       console.log("[login] auth success, user:", data.user.id)
 
+      // Ensure session cookie is written before redirecting
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log("[login] session confirmed:", !!session)
+
       const { data: profile, error: profErr } = await supabase
         .from("profiles")
         .select("onboarding_complete")
