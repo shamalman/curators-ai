@@ -33,7 +33,7 @@ export default function SignupPage() {
         .from("invite_codes")
         .select("id")
         .eq("code", code)
-        .is("used_by", null)
+        .is("used_at", null)
         .single()
       if (invErr || !invite) throw new Error("Invalid or already used invite code")
 
@@ -41,9 +41,8 @@ export default function SignupPage() {
       const { data, error: authErr } = await supabase.auth.signUp({ email, password })
       if (authErr) throw authErr
 
-      // Mark invite code as used
+      // Mark invite code as used (no used_by — profile doesn't exist yet)
       await supabase.from("invite_codes").update({
-        used_by: data.user.id,
         used_at: new Date().toISOString(),
       }).eq("id", invite.id)
 
