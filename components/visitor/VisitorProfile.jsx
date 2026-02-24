@@ -130,7 +130,7 @@ export default function VisitorProfile({ mode }) {
               }}
               onKeyDown={e => e.key === "Enter" && subEmail.includes("@") && (async () => {
                 try {
-                  await supabase.from("subscribers").insert({ profile_id: profileId, email: subEmail });
+                  await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
                   setSubscribed(true);
                 } catch(err) { console.error(err); }
               })()}
@@ -139,7 +139,7 @@ export default function VisitorProfile({ mode }) {
               onClick={async () => {
                 if (!subEmail.includes("@")) return;
                 try {
-                  await supabase.from("subscribers").insert({ profile_id: profileId, email: subEmail });
+                  await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
                   setSubscribed(true);
                 } catch(err) { console.error(err); }
               }}
