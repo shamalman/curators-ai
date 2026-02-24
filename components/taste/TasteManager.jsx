@@ -39,8 +39,8 @@ export default function TasteManager() {
         )}
       </div>
 
-      {/* Earnings Card */}
-      {!earningsDrill && (
+      {/* TODO: Unhide when earnings are real */}
+      {false && !earningsDrill && (
         <div style={{ padding: "0 20px 12px", flexShrink: 0 }}>
           <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid " + T.bdr, background: T.s }}>
             <button onClick={() => setEarningsExpanded(!earningsExpanded)} style={{ width: "100%", padding: "14px 16px", border: "none", background: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
@@ -93,8 +93,8 @@ export default function TasteManager() {
         </div>
       )}
 
-      {/* Earnings drill-down */}
-      {earningsDrill && (
+      {/* TODO: Unhide when earnings are real */}
+      {false && earningsDrill && (
         <div style={{ padding: "0 20px 12px", flexShrink: 0 }}>
           <div style={{ borderRadius: 16, border: "1px solid " + T.bdr, background: T.s, overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid " + T.bdr }}>
