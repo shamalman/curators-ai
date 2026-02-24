@@ -48,9 +48,9 @@ export default function CuratorShell({ children }) {
   // Mobile layout: content + bottom tabs
   return (
     <div style={{
-      width: "100%", maxWidth: 430, margin: "0 auto", height: "100dvh",
+      width: "100%", maxWidth: 430, margin: "0 auto",
       display: "flex", flexDirection: "column", background: T.bg,
-      position: "relative", overflow: "hidden",
+      position: "fixed", inset: 0, overflow: "hidden",
     }}>
       {children}
       {shouldShowTabs && <BottomTabs />}
