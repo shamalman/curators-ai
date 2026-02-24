@@ -16,12 +16,13 @@ export default function Sidebar() {
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations", children: [
       { id: "review", label: "Review", path: "/recommendations/review" },
     ]},
-    { id: "fans", icon: "\u2661", label: "Fans", path: "/recommendations" },
+    { id: "fans", icon: "\u2661", label: "Fans", path: "/fans" },
   ];
 
   const isActive = (item) => {
     if (item.id === "recs") return pathname.startsWith("/recommendations");
     if (item.id === "ask") return pathname.startsWith("/myai");
+    if (item.id === "fans") return pathname.startsWith("/fans");
     return false;
   };
 
