@@ -67,7 +67,7 @@ export default function ChatView({ variant }) {
       ];
       const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
       const openingMessage = n === 0
-        ? `Hey! I'm here to help you capture the stuff you love — the songs, spots, books, whatever you find yourself telling people about.\n\n${randomPrompt}`
+        ? `Hey! I'm here to help you capture the stuff you love — the music, places, books, shows, whatever you find yourself telling people about.\n\nJust tell me about something you'd recommend and I'll save it to your profile. What have you been recommending to people lately?`
         : n < 10
         ? `You've got ${n} recommendations so far.\n\n${randomPrompt}`
         : `${n} recs and counting.\n\n${randomPrompt}`;
