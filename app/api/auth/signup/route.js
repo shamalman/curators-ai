@@ -32,19 +32,18 @@ export async function POST(req) {
     });
 
     if (error) {
-      console.error("Admin createUser error:", error);
-
-      // Surface user-friendly messages for common cases
-      if (error.message?.includes("already been registered") || error.message?.includes("already exists")) {
-        return Response.json({ error: "An account with this email already exists" }, { status: 409 });
-      }
-
-      return Response.json({ error: error.message || "Failed to create account" }, { status: 400 });
+      console.error("Admin createUser error:", JSON.stringify(error, null, 2));
+      return Response.json({
+        error: error.message || "Failed to create account",
+        status: error.status,
+        code: error.code,
+        details: JSON.stringify(error),
+      }, { status: error.status || 400 });
     }
 
     return Response.json({ user: { id: data.user.id, email: data.user.email } });
   } catch (err) {
     console.error("Signup route error:", err);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return Response.json({ error: err.message || "Internal server error", details: String(err) }, { status: 500 });
   }
 }

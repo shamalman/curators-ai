@@ -49,7 +49,8 @@ export default function SignupPage() {
       const result = await res.json()
       if (!res.ok) {
         console.error("Signup API error:", result)
-        throw new Error(result.error || "Signup failed")
+        const detail = result.details ? ` (${result.details})` : ""
+        throw new Error((result.error || "Signup failed") + detail)
       }
 
       // Step 3: Sign in the newly created user on the client
