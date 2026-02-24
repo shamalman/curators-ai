@@ -24,6 +24,7 @@ export default function TasteManager() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, position: "relative" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
       </div>
@@ -162,6 +163,7 @@ export default function TasteManager() {
       {undoItem && (
         <Toast message={<>Archived <strong>{undoItem.title}</strong></>} onAction={undoArchive} actionLabel="Undo" />
       )}
+      </div>
     </div>
   );
 }
