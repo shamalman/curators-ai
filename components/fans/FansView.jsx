@@ -19,9 +19,9 @@ export default function FansView() {
     async function load() {
       const { data, error } = await supabase
         .from("subscribers")
-        .select("email, created_at")
-        .eq("profile_id", profileId)
-        .order("created_at", { ascending: false })
+        .select("email, subscribed_at")
+        .eq("curator_id", profileId)
+        .order("subscribed_at", { ascending: false })
       if (error) console.error("Failed to load subscribers:", error)
       if (data) setSubscribers(data)
       setLoaded(true)
@@ -35,8 +35,8 @@ export default function FansView() {
   }
 
   const exportCSV = () => {
-    const rows = [["email", "created_at"]]
-    subscribers.forEach(s => rows.push([s.email, s.created_at || ""]))
+    const rows = [["email", "subscribed_at"]]
+    subscribers.forEach(s => rows.push([s.email, s.subscribed_at || ""]))
     const csv = rows.map(r => r.join(",")).join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -91,7 +91,7 @@ export default function FansView() {
               padding: "14px 4px", borderBottom: `1px solid ${T.bdr}`,
             }}>
               <span style={{ fontFamily: F, fontSize: 14, color: T.ink, fontWeight: 500 }}>{sub.email}</span>
-              <span style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>{fmtDate(sub.created_at)}</span>
+              <span style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>{fmtDate(sub.subscribed_at)}</span>
             </div>
           ))}
           <div style={{ height: 40 }} />

@@ -2,14 +2,20 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { T, F, S } from "@/lib/constants";
+import { supabase } from "@/lib/supabase";
 import { useCurator } from "@/context/CuratorContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, logout } = useCurator();
+  const { profile } = useCurator();
 
   const handle = profile?.handle?.replace("@", "") || "";
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
 
   const nav = [
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },

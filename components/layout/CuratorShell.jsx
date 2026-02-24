@@ -18,7 +18,7 @@ export default function CuratorShell({ children }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const tabPaths = ["/myai", "/recommendations"];
+  const tabPaths = ["/myai", "/recommendations", "/fans"];
   const shouldShowTabs = tabPaths.includes(pathname);
 
   // Desktop layout: fixed sidebar + natural document scroll
