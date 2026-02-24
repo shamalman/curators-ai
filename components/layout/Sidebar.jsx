@@ -12,11 +12,6 @@ export default function Sidebar() {
 
   const handle = profile?.handle?.replace("@", "") || "";
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  };
-
   const nav = [
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations" },
@@ -29,8 +24,6 @@ export default function Sidebar() {
     if (item.id === "fans") return pathname.startsWith("/fans");
     return false;
   };
-
-  const isChildActive = (child) => pathname === child.path;
 
   return (
     <div style={{
@@ -64,54 +57,28 @@ export default function Sidebar() {
               <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: "center" }}>{item.icon}</span>
               <span>{item.label}</span>
             </button>
-            {/* Sub-items */}
-            {item.children && isActive(item) && (
-              <div style={{ paddingLeft: 32, display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-                {item.children.map(child => (
-                  <button
-                    key={child.id}
-                    onClick={() => router.push(child.path)}
-                    style={{
-                      width: "100%", display: "flex", alignItems: "center", gap: 8,
-                      padding: "7px 12px", borderRadius: 6, border: "none",
-                      background: isChildActive(child) ? T.accSoft : "transparent",
-                      color: isChildActive(child) ? T.acc : T.ink3,
-                      fontFamily: F, fontSize: 13, fontWeight: 500,
-                      cursor: "pointer", textAlign: "left",
-                      transition: "background .15s",
-                    }}
-                    onMouseEnter={e => { if (!isChildActive(child)) e.currentTarget.style.background = T.s; }}
-                    onMouseLeave={e => { if (!isChildActive(child)) e.currentTarget.style.background = "transparent"; }}
-                  >
-                    <span>{child.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         ))}
       </nav>
 
       {/* Profile link + logout */}
       <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        {handle && (
-          <button
-            onClick={() => router.push(`/${handle}`)}
-            style={{
-              display: "flex", alignItems: "center", gap: 8, width: "100%",
-              background: "none", border: "none", cursor: "pointer",
-              fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
-              padding: 0,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = T.ink2; }}
-            onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
-          >
-            <span style={{ flex: 1 }}>@{handle}</span>
-            <span style={{ fontSize: 12 }}>{"\u2197"}</span>
-          </button>
-        )}
         <button
-          onClick={logout}
+          onClick={() => { if (handle) router.push(`/${handle}`); }}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            background: "none", border: "none", cursor: handle ? "pointer" : "default",
+            fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
+            padding: 0,
+          }}
+          onMouseEnter={e => { if (handle) e.currentTarget.style.color = T.ink2; }}
+          onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
+        >
+          <span style={{ flex: 1 }}>{handle ? `@${handle}` : "..."}</span>
+          {handle && <span style={{ fontSize: 12 }}>{"\u2197"}</span>}
+        </button>
+        <button
+          onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login'; }}
           style={{
             display: "flex", alignItems: "center", gap: 8, width: "100%",
             background: "none", border: "none", cursor: "pointer",
