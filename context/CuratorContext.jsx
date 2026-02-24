@@ -1,20 +1,13 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { VisitorContext } from "./VisitorContext";
 
 export const CuratorContext = createContext(null);
 
 export function CuratorProvider({ children }) {
-  const [profile, setProfile] = useState({
-    name: "Shamal", handle: "@shamal",
-    bio: "SF food obsessive. Deep house collector. Sci-fi reader. I only recommend things I'd stake my reputation on.",
-    aiEnabled: true, acceptRequests: true, subscribers: 847,
-    subsEnabled: true, subsText: "Curated recs straight to your inbox. Only things worth your time.",
-    showRecs: true,
-    wallet: "0x1a2B...9fE3", walletFull: "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9fE3", cryptoEnabled: true,
-  });
+  const [profile, setProfile] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [tasteItems, setTasteItems] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -28,60 +21,82 @@ export function CuratorProvider({ children }) {
   const [undoItem, setUndoItem] = useState(null);
   const undoTimer = useRef(null);
 
-  // Load profile + recs + messages from Supabase on mount
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("handle", "shamal")
-          .single();
-        if (prof) {
-          setProfileId(prof.id);
-          setProfile({
-            name: prof.name, handle: "@" + prof.handle,
-            bio: prof.bio, aiEnabled: prof.ai_enabled,
-            acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
-            cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
-            walletFull: "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9fE3",
-            subscribers: 847, subsEnabled: true,
-            subsText: "Curated recs straight to your inbox. Only things worth your time.",
-          });
-          const { data: recs } = await supabase
-            .from("recommendations")
-            .select("*")
-            .eq("profile_id", prof.id)
-            .order("created_at", { ascending: false });
-          if (recs && recs.length > 0) {
-            setTasteItems(recs.map(r => ({
-              id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-              title: r.title, category: r.category, context: r.context,
-              tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
-              visibility: r.visibility || "public", revision: r.revision || 1,
-              earnableMode: r.earnable_mode || "none",
-              revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-            })));
-          }
-          const { data: msgs } = await supabase
-            .from("chat_messages")
-            .select("*")
-            .eq("profile_id", prof.id)
-            .order("created_at", { ascending: false })
-            .limit(50);
-          if (msgs && msgs.length > 0) {
-            setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
-            prevMsgCount.current = msgs.length;
-          }
-        }
-        setDbLoaded(true);
-      } catch (err) {
-        console.error("Failed to load from Supabase:", err);
-        setDbLoaded(true);
+  // Load profile + recs + messages from Supabase
+  const loadData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setDbLoaded(true); return; }
+
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .single();
+      if (!prof) { setDbLoaded(true); return; }
+
+      setProfileId(prof.id);
+      setProfile({
+        name: prof.name, handle: "@" + prof.handle,
+        bio: prof.bio, aiEnabled: prof.ai_enabled,
+        acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
+        cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
+        walletFull: "",
+        subscribers: 0, subsEnabled: true,
+        subsText: "Curated recs straight to your inbox. Only things worth your time.",
+      });
+      const { data: recs } = await supabase
+        .from("recommendations")
+        .select("*")
+        .eq("profile_id", prof.id)
+        .order("created_at", { ascending: false });
+      if (recs && recs.length > 0) {
+        setTasteItems(recs.map(r => ({
+          id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          title: r.title, category: r.category, context: r.context,
+          tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
+          visibility: r.visibility || "public", revision: r.revision || 1,
+          earnableMode: r.earnable_mode || "none",
+          revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
+        })));
       }
+      const { data: msgs } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("profile_id", prof.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (msgs && msgs.length > 0) {
+        setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
+        prevMsgCount.current = msgs.length;
+      }
+      setDbLoaded(true);
+    } catch (err) {
+      console.error("Failed to load from Supabase:", err);
+      setDbLoaded(true);
     }
-    loadData();
   }, []);
+
+  // Load on mount
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') loadData();
+      if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        setProfileId(null);
+        setTasteItems([]);
+        setMessages([]);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [loadData]);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
 
   const addRec = async (item) => {
     if (!item.slug) {
@@ -207,6 +222,7 @@ export function CuratorProvider({ children }) {
       restoreItem,
       undoArchive,
       toggleVisibility,
+      logout,
     }}>
       {children}
     </CuratorContext.Provider>

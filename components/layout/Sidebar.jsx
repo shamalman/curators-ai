@@ -7,7 +7,7 @@ import { useCurator } from "@/context/CuratorContext";
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useCurator();
+  const { profile, logout } = useCurator();
 
   const handle = profile?.handle?.replace("@", "") || "";
 
@@ -87,9 +87,9 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Profile link */}
-      {handle && (
-        <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0 }}>
+      {/* Profile link + logout */}
+      <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        {handle && (
           <button
             onClick={() => router.push(`/${handle}`)}
             style={{
@@ -104,8 +104,21 @@ export default function Sidebar() {
             <span style={{ flex: 1 }}>@{handle}</span>
             <span style={{ fontSize: 12 }}>{"\u2197"}</span>
           </button>
-        </div>
-      )}
+        )}
+        <button
+          onClick={logout}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            background: "none", border: "none", cursor: "pointer",
+            fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
+            padding: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = T.ink2; }}
+          onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
+        >
+          Log out
+        </button>
+      </div>
     </div>
   );
 }
