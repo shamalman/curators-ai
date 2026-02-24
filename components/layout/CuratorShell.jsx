@@ -18,13 +18,13 @@ export default function CuratorShell({ children }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const tabPaths = ["/ask", "/recommendations"];
+  const tabPaths = ["/myai", "/recommendations"];
   const shouldShowTabs = tabPaths.includes(pathname);
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
   if (isDesktop) {
-    const isChat = pathname.startsWith("/ask");
+    const isChat = pathname.startsWith("/myai");
     return (
       <>
         <Sidebar />

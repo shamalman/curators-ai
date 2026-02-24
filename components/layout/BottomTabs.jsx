@@ -7,10 +7,10 @@ export default function BottomTabs() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isAsk = pathname.startsWith("/ask");
+  const isAsk = pathname.startsWith("/myai");
 
   const tabs = [
-    { id: "ask", icon: "\u25C8", label: "Ask", path: "/ask", active: pathname.startsWith("/ask"), activeColor: W.accent },
+    { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai", active: pathname.startsWith("/myai"), activeColor: W.accent },
     { id: "recs", icon: "\u25C9", label: "Recs", path: "/recommendations", active: pathname.startsWith("/recommendations"), activeColor: T.acc },
     { id: "fans", icon: "\u2661", label: "Fans", path: "/recommendations", active: false, activeColor: T.acc },
   ];

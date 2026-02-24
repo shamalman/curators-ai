@@ -45,7 +45,7 @@ export default function VisitorProfile({ mode }) {
 
   const onOpenAI = () => {
     if (mode === "curator") {
-      router.push('/ask');
+      router.push('/myai');
     } else {
       router.push(`/${handle}/ask`);
     }
@@ -83,7 +83,7 @@ export default function VisitorProfile({ mode }) {
       {mode === "visitor" && (
         <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontFamily: S, fontSize: 15, color: T.ink3 }}>curators</span>
-          <button onClick={() => router.push('/ask')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
+          <button onClick={() => router.push('/myai')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
         </div>
       )}
 

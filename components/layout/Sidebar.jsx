@@ -12,7 +12,7 @@ export default function Sidebar() {
   const handle = profile?.handle?.replace("@", "") || "";
 
   const nav = [
-    { id: "ask", icon: "\u25C8", label: "Ask", path: "/ask" },
+    { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations", children: [
       { id: "review", label: "Review", path: "/recommendations/review" },
     ]},
@@ -21,7 +21,7 @@ export default function Sidebar() {
 
   const isActive = (item) => {
     if (item.id === "recs") return pathname.startsWith("/recommendations");
-    if (item.id === "ask") return pathname.startsWith("/ask");
+    if (item.id === "ask") return pathname.startsWith("/myai");
     return false;
   };
 
