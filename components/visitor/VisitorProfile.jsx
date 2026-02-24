@@ -129,16 +129,18 @@ export default function VisitorProfile({ mode }) {
                 color: T.ink, outline: "none",
               }}
               onKeyDown={e => e.key === "Enter" && subEmail.includes("@") && (async () => {
+                console.log("Subscribing with curator_id:", profileId, "email:", subEmail);
                 const { error } = await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
-                if (error) { console.error("Subscribe failed:", error); return; }
+                if (error) { console.error("Subscribe failed:", error, "curator_id was:", profileId); return; }
                 setSubscribed(true);
               })()}
             />
             <button
               onClick={async () => {
                 if (!subEmail.includes("@")) return;
+                console.log("Subscribing with curator_id:", profileId, "email:", subEmail);
                 const { error } = await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
-                if (error) { console.error("Subscribe failed:", error); return; }
+                if (error) { console.error("Subscribe failed:", error, "curator_id was:", profileId); return; }
                 setSubscribed(true);
               }}
               style={{
