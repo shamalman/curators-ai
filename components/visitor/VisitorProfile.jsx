@@ -8,7 +8,7 @@ import { useCurator } from "@/context/CuratorContext";
 
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
-  const { profile, profileId, tasteItems } = useCurator();
+  const { profile, profileId, tasteItems, isOwner } = useCurator();
   const [subscribed, setSubscribed] = useState(false);
   const [subEmail, setSubEmail] = useState("");
   const [profileTab, setProfileTab] = useState("recent");
@@ -83,7 +83,14 @@ export default function VisitorProfile({ mode }) {
       {mode === "visitor" && (
         <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontFamily: S, fontSize: 15, color: T.ink3 }}>curators</span>
-          <button onClick={() => router.push('/myai')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
+          {isOwner ? (
+            <button onClick={() => router.push(`/${handle}/edit`)} style={{
+              background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
+              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.accText,
+            }}>Edit Profile</button>
+          ) : (
+            <button onClick={() => router.push('/login')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
+          )}
         </div>
       )}
 

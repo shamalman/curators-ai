@@ -11,6 +11,7 @@ export function VisitorProvider({ handle, children }) {
   const [tasteItems, setTasteItems] = useState([]);
   const [messages, setMessages] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const prevMsgCount = useRef(0);
 
   // Fetch profile + public recs by handle
@@ -34,6 +35,13 @@ export function VisitorProvider({ handle, children }) {
             subscribers: 0, subsEnabled: true,
             subsText: "Curated recs straight to your inbox. Only things worth your time.",
           });
+
+          // Check if logged-in user owns this profile
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && prof.auth_user_id === user.id) {
+            setIsOwner(true);
+          }
+
           const { data: recs } = await supabase
             .from("recommendations")
             .select("*")
@@ -94,6 +102,7 @@ export function VisitorProvider({ handle, children }) {
       restoreItem,
       undoArchive,
       toggleVisibility,
+      isOwner,
     }}>
       {children}
     </VisitorContext.Provider>
