@@ -13,6 +13,8 @@ html, body {
 @media (max-width: 767px) {
   html, body {
     overflow: hidden;
+    position: fixed;
+    overscroll-behavior: none;
   }
 }
 
