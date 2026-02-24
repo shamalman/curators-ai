@@ -1,0 +1,114 @@
+'use client'
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import { T, F, S } from "@/lib/constants"
+
+const inputStyle = {
+  width: "100%", padding: "12px 16px", borderRadius: 8,
+  border: `1.5px solid ${T.bdr}`, background: T.s2, color: T.ink,
+  fontSize: 15, fontFamily: F, outline: "none",
+}
+
+export default function SignupPage() {
+  const router = useRouter()
+  const [inviteCode, setInviteCode] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const pwValid = password.length >= 8
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
+    if (!pwValid) { setError("Password must be at least 8 characters"); return }
+    setLoading(true)
+    try {
+      // Validate invite code
+      const code = inviteCode.trim().toUpperCase()
+      const { data: invite, error: invErr } = await supabase
+        .from("invite_codes")
+        .select("id")
+        .eq("code", code)
+        .is("used_by", null)
+        .single()
+      if (invErr || !invite) throw new Error("Invalid or already used invite code")
+
+      // Sign up
+      const { data, error: authErr } = await supabase.auth.signUp({ email, password })
+      if (authErr) throw authErr
+
+      // Mark invite code as used
+      await supabase.from("invite_codes").update({
+        used_by: data.user.id,
+        used_at: new Date().toISOString(),
+      }).eq("id", invite.id)
+
+      router.push("/onboarding")
+    } catch (err) {
+      setError(err.message || "Signup failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <span style={{ fontFamily: S, fontSize: 28, color: T.acc, fontWeight: 400 }}>curators</span>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 6 }}>Invite code</label>
+            <input
+              type="text" name="invite" autoComplete="off"
+              value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())}
+              required placeholder="XXXX-XXXX"
+              style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "'JetBrains Mono',monospace" }}
+            />
+          </div>
+          <div>
+            <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 6 }}>Email</label>
+            <input
+              type="email" name="email" autoComplete="email"
+              value={email} onChange={e => setEmail(e.target.value)}
+              required style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 6 }}>Password</label>
+            <input
+              type="password" name="password" autoComplete="new-password"
+              value={password} onChange={e => setPassword(e.target.value)}
+              required style={inputStyle}
+            />
+            {password.length > 0 && (
+              <div style={{ fontFamily: F, fontSize: 11, marginTop: 6, color: pwValid ? "#6BAA8E" : "#EF4444" }}>
+                {pwValid ? "\u2713 Looks good" : `${8 - password.length} more character${8 - password.length !== 1 ? "s" : ""} needed`}
+              </div>
+            )}
+          </div>
+
+          {error && <div style={{ fontFamily: F, fontSize: 13, color: "#EF4444", lineHeight: 1.4 }}>{error}</div>}
+
+          <button type="submit" disabled={loading} style={{
+            width: "100%", padding: 14, borderRadius: 8, border: "none",
+            background: T.acc, color: T.accText, fontSize: 15, fontWeight: 600,
+            fontFamily: F, cursor: loading ? "default" : "pointer",
+            opacity: loading ? 0.6 : 1, marginTop: 4,
+          }}>{loading ? "Creating account..." : "Sign up"}</button>
+        </form>
+
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <span style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>Already have an account? </span>
+          <button onClick={() => router.push("/login")} style={{ background: "none", border: "none", color: T.acc, fontFamily: F, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Log in</button>
+        </div>
+      </div>
+    </div>
+  )
+}
