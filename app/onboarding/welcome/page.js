@@ -30,7 +30,7 @@ export default function WelcomePage() {
           Welcome to Curators{name ? `, ${name}` : ""}!
         </h1>
         <p style={{ fontFamily: F, fontSize: 15, color: T.ink2, lineHeight: 1.6, marginBottom: 36 }}>
-          Your AI is ready to capture your first recommendation.
+          Tell your AI what you love. It'll capture and organize your recommendations.
         </p>
         <button onClick={() => router.push("/myai")} style={{
           padding: "14px 32px", borderRadius: 8, border: "none",
