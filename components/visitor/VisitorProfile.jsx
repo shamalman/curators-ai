@@ -230,7 +230,7 @@ export default function VisitorProfile({ mode }) {
 
         {profileTab === "recent" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {items.filter(i => mode === "curator" || i.visibility === "public").slice(0, 6).map((item, i) => {
+            {items.filter(i => mode === "curator" || i.visibility === "public").map((item, i) => {
               const c = CAT[item.category] || CAT.other;
               return (
                 <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
@@ -247,11 +247,6 @@ export default function VisitorProfile({ mode }) {
                 </div>
               );
             })}
-            {items.length > 6 && (
-              <button onClick={onOpenAI} style={{ padding: "14px", borderRadius: 14, border: `1px dashed ${T.bdr}`, background: "none", cursor: "pointer", fontFamily: F, fontSize: 13, color: T.ink2, fontWeight: 500, textAlign: "center" }}>
-                + {items.length - 6} more — ask the AI →
-              </button>
-            )}
           </div>
         )}
 
