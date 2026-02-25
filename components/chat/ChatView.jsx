@@ -24,10 +24,20 @@ export default function ChatView({ variant }) {
   const chatScrollRef = useRef(null);
   const shouldScroll = useRef(false);
 
+  const [isDesktop, setIsDesktop] = useState(false);
+
   const isCurator = variant === "curator";
   const items = tasteItems;
   const n = items.length;
   const cats = [...new Set(items.map(i => i.category))];
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // Visitor opening message
   useEffect(() => {
@@ -213,17 +223,17 @@ export default function ChatView({ variant }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, width: "100%" }}>
         {/* Workspace header */}
         <div style={{ flexShrink: 0, borderBottom: `1px solid ${W.bdr}`, background: W.bg }}>
-        <div style={{ padding: "48px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 700, margin: "0 auto", width: "100%" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${W.accent}30` }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
+        <div style={{ padding: isDesktop ? "16px 20px" : "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 700, margin: "0 auto", width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isDesktop ? 10 : 8 }}>
+            <div style={{ width: isDesktop ? 34 : 28, height: isDesktop ? 34 : 28, borderRadius: isDesktop ? 10 : 8, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${W.accent}30` }}>
+              <span style={{ fontSize: isDesktop ? 13 : 11, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
             </div>
             <div>
-              <div style={{ fontFamily: F, fontSize: 16, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>My AI</div>
-              <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 3 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
+              <div style={{ fontFamily: F, fontSize: isDesktop ? 16 : 14, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>My AI</div>
+              <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 2 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
             </div>
           </div>
-          <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN }}>{n} recs</div>
+          {isDesktop && <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN }}>{n} recs</div>}
         </div>
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: W.bg }}>

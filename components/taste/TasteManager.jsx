@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { T, F, S, MN, CAT, EARNINGS } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
@@ -19,20 +19,31 @@ export default function TasteManager() {
   const cc = {}; cats.forEach(c => { cc[c] = activeItems.filter(i => i.category === c).length; });
   const activeN = activeItems.length;
 
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const filtered = filterCat === "archived" ? archivedItems : filterCat ? activeItems.filter(i => i.category === filterCat) : activeItems;
   const fmtDate = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, position: "relative" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
-      <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
-        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+      {isDesktop && (
+        <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
+          <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        </div>
+      )}
+      <div style={{ padding: isDesktop ? "4px 20px 12px" : "10px 20px 6px" }}>
+        <h2 style={{ fontFamily: S, fontSize: isDesktop ? 28 : 22, color: T.ink, fontWeight: 400, marginBottom: 2 }}>Your Taste</h2>
+        <p style={{ fontSize: isDesktop ? 13 : 12, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
       </div>
-      <div style={{ padding: "4px 20px 12px" }}>
-        <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Your Taste</h2>
-        <p style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
-      </div>
-      <div style={{ padding: "0 20px 12px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
+      <div style={{ padding: isDesktop ? "0 20px 12px" : "0 20px 8px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
         <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />
         {archivedItems.length > 0 && (
           <button onClick={() => setFilterCat(filterCat === "archived" ? null : "archived")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === "archived" ? T.ink3 : T.s, color: filterCat === "archived" ? "#fff" : T.ink3, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{"\uD83D\uDDC4"} ({archivedItems.length})</button>
