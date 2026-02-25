@@ -95,7 +95,7 @@ export async function POST(request) {
 
     // Build the recommendations context
     const recsContext = recommendations && recommendations.length > 0
-      ? `\n\nCURATOR'S EXISTING RECOMMENDATIONS (${recommendations.length} total):\n${recommendations.map(r => 
+      ? `\n\nCURATOR'S CURRENT APPROVED RECOMMENDATIONS (${recommendations.length} total):\nThis is the curator's current list. If a recommendation was previously discussed but is no longer in this list, the curator has removed it — do not reference it.\n${recommendations.map(r =>
           `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})`
         ).join("\n")}`
       : "\n\nNo recommendations captured yet.";
