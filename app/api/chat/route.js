@@ -107,19 +107,34 @@ export async function POST(request) {
       ? `${VISITOR_SYSTEM_PROMPT}\n\nCURATOR: ${curatorName}${recsContext}`
       : `${CURATOR_SYSTEM_PROMPT}${recsContext}`;
 
-    // Build messages array from history
+    // Current rec titles for filtering
+    const currentTitles = new Set((recommendations || []).map(r => r.title));
+
+    // Build messages array from history, stripping deleted rec references
     const messages = [];
-    
+
     if (history && history.length > 0) {
-      // Include last 10 messages for context
       const recent = history.slice(-10);
       for (const msg of recent) {
+        let text = msg.text;
+        // If this message captured a rec that's since been deleted, strip the capture data
+        if (msg.capturedRec && !currentTitles.has(msg.capturedRec)) {
+          // Replace capture card content referencing the deleted rec
+          text = text.replace(/📍 Adding:.*$/ms, '[A recommendation was captured here but has since been removed by the curator.]');
+        }
         if (msg.role === "user") {
-          messages.push({ role: "user", content: msg.text });
+          messages.push({ role: "user", content: text });
         } else if (msg.role === "ai" || msg.role === "assistant") {
-          messages.push({ role: "assistant", content: msg.text });
+          messages.push({ role: "assistant", content: text });
         }
       }
+    }
+
+    // Add a reminder of current recs right before the user's message
+    if (recommendations && recommendations.length > 0) {
+      const titleList = recommendations.map(r => r.title).join(", ");
+      messages.push({ role: "user", content: `REMINDER: My current recommendations are ONLY: ${titleList}. Do not reference anything not on this list.` });
+      messages.push({ role: "assistant", content: "Understood. I'll only reference your current recommendations." });
     }
 
     // Add the current message
