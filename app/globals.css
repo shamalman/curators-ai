@@ -8,13 +8,21 @@
 html, body {
   height: 100%;
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 @media (max-width: 767px) {
   html, body {
     overflow: hidden;
     position: fixed;
+    width: 100%;
+    max-width: 100vw;
     overscroll-behavior: none;
+  }
+  * {
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 }
 

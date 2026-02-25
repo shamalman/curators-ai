@@ -299,15 +299,16 @@ export default function ChatView({ variant }) {
                       <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
                     </div>
                   )}
-                  <div style={{ maxWidth: "82%" }}>
+                  <div style={{ maxWidth: "82%", minWidth: 0 }}>
                     <div style={{
-                      maxWidth: "82%", padding: msg.role === "user" ? "12px 16px" : "14px 18px",
+                      padding: msg.role === "user" ? "12px 16px" : "14px 18px",
                       borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
                       background: msg.role === "user" ? W.userBub : W.aiBub,
                       color: msg.role === "user" ? W.userTxt : T.ink,
                       fontSize: 14, lineHeight: 1.55, fontFamily: F,
                       fontWeight: msg.role === "user" ? 500 : 400,
                       border: msg.role === "user" ? "none" : `1px solid ${W.bdr}`,
+                      overflowWrap: "break-word", wordBreak: "break-word",
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !editingCapture && (
                       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -405,6 +406,7 @@ export default function ChatView({ variant }) {
               fontWeight: msg.role === "user" ? 500 : 400,
               border: "none",
               boxShadow: msg.role === "user" ? "none" : `inset 0 0 0 1px ${V.bdr}`,
+              overflowWrap: "break-word", wordBreak: "break-word",
             }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
           </div>
         ))}
