@@ -69,14 +69,15 @@ export default function CuratorShell({ children }) {
           <button onClick={() => router.push(`/${handle}`)} style={{
             display: "flex", alignItems: "center", gap: 7,
             background: "none", border: "none", cursor: "pointer", padding: 0,
+            minWidth: 0, maxWidth: "60%",
           }}>
             <div style={{
               width: 24, height: 24, borderRadius: 7, background: T.accSoft,
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
             }}>
               <span style={{ fontFamily: S, fontSize: 12, color: T.acc, fontWeight: 400 }}>{initial}</span>
             </div>
-            <span style={{ fontFamily: F, fontSize: 13, color: T.ink3 }}>@{handle}</span>
+            <span style={{ fontFamily: F, fontSize: 13, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{handle}</span>
           </button>
         </div>
       )}
