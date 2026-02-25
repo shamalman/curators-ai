@@ -97,7 +97,7 @@ export async function POST(request) {
 
     // Build the recommendations context
     const recsContext = recommendations && recommendations.length > 0
-      ? `\n\nCURATOR'S CURRENT APPROVED RECOMMENDATIONS (${recommendations.length} total):\nThis is the curator's current list. If a recommendation was previously discussed but is no longer in this list, the curator has removed it — do not reference it.\n${recommendations.map(r =>
+      ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r =>
           `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})`
         ).join("\n")}`
       : "\n\nNo recommendations captured yet.";
