@@ -418,7 +418,7 @@ export default function ChatView({ variant }) {
         </div>}
         <div ref={chatEnd} />
       </div>
-      <div style={{ padding: "4px 16px 6px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
+      <div style={{ padding: "4px 16px 6px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
         {[
           { label: "\uD83C\uDFA7 Radio", prompt: "Play me a radio station from the music recs" },
           { label: "\u2728 Newest", prompt: "What are the newest recommendations?" },

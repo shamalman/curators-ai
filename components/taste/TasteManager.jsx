@@ -32,7 +32,7 @@ export default function TasteManager() {
         <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Your Taste</h2>
         <p style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
       </div>
-      <div style={{ padding: "0 20px 12px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0 }}>
+      <div style={{ padding: "0 20px 12px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
         <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />
         {archivedItems.length > 0 && (
           <button onClick={() => setFilterCat(filterCat === "archived" ? null : "archived")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === "archived" ? T.ink3 : T.s, color: filterCat === "archived" ? "#fff" : T.ink3, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{"\uD83D\uDDC4"} ({archivedItems.length})</button>
