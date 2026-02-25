@@ -23,9 +23,8 @@ export default function CuratorShell({ children }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const tabPaths = ["/myai", "/recommendations", "/fans"];
   const isProfilePage = handle && pathname === `/${handle}`;
-  const shouldShowTabs = tabPaths.includes(pathname) || isProfilePage;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/fans") || isProfilePage;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
@@ -62,24 +61,28 @@ export default function CuratorShell({ children }) {
       {/* Mobile header with profile link */}
       {handle && (
         <div style={{
-          padding: "env(safe-area-inset-top, 44px) 16px 6px", flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          paddingTop: "env(safe-area-inset-top, 0px)", flexShrink: 0,
           borderBottom: `1px solid ${T.bdr}`,
         }}>
-          <span style={{ fontFamily: S, fontSize: 17, color: T.acc, fontWeight: 400 }}>curators</span>
-          <button onClick={() => router.push(`/${handle}`)} style={{
-            display: "flex", alignItems: "center", gap: 7,
-            background: "none", border: "none", cursor: "pointer", padding: 0,
-            minWidth: 0, maxWidth: "60%",
+          <div style={{
+            height: 44, padding: "0 16px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            <div style={{
-              width: 24, height: 24, borderRadius: 7, background: T.accSoft,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            <span style={{ fontFamily: S, fontSize: 17, color: T.acc, fontWeight: 400 }}>curators</span>
+            <button onClick={() => router.push(`/${handle}`)} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+              minWidth: 0, maxWidth: "60%",
             }}>
-              <span style={{ fontFamily: S, fontSize: 12, color: T.acc, fontWeight: 400 }}>{initial}</span>
-            </div>
-            <span style={{ fontFamily: F, fontSize: 13, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{handle}</span>
-          </button>
+              <div style={{
+                width: 24, height: 24, borderRadius: 7, background: T.accSoft,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <span style={{ fontFamily: S, fontSize: 12, color: T.acc, fontWeight: 400 }}>{initial}</span>
+              </div>
+              <span style={{ fontFamily: F, fontSize: 13, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{handle}</span>
+            </button>
+          </div>
         </div>
       )}
       {children}
