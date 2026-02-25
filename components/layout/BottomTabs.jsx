@@ -19,14 +19,14 @@ export default function BottomTabs() {
     <div style={{
       display: "flex", borderTop: `1px solid ${isAsk ? W.bdr : T.bdr}`,
       background: isAsk ? W.bg : T.bg2,
-      padding: "6px 0 28px", flexShrink: 0, transition: "background .3s",
+      padding: "4px 0 env(safe-area-inset-bottom, 16px)", flexShrink: 0, transition: "background .3s",
     }}>
       {tabs.map(tab => (
         <button key={tab.id}
           onClick={() => { if (tab.path) router.push(tab.path); }}
           style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-            border: "none", background: "transparent", cursor: "pointer", padding: "10px 0",
+            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+            border: "none", background: "transparent", cursor: "pointer", padding: "6px 0",
             color: tab.active ? tab.activeColor : T.ink3,
           }}>
           <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>

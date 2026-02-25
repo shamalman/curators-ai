@@ -24,7 +24,8 @@ export default function CuratorShell({ children }) {
   }, []);
 
   const tabPaths = ["/myai", "/recommendations", "/fans"];
-  const shouldShowTabs = tabPaths.includes(pathname);
+  const isProfilePage = handle && pathname === `/${handle}`;
+  const shouldShowTabs = tabPaths.includes(pathname) || isProfilePage;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
@@ -61,7 +62,7 @@ export default function CuratorShell({ children }) {
       {/* Mobile header with profile link */}
       {handle && (
         <div style={{
-          padding: "50px 16px 10px", flexShrink: 0,
+          padding: "env(safe-area-inset-top, 44px) 16px 6px", flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "space-between",
           borderBottom: `1px solid ${T.bdr}`,
         }}>
