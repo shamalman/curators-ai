@@ -196,6 +196,29 @@ export function CuratorProvider({ children }) {
     } catch (err) { console.error("Failed to save message:", err); }
   };
 
+  const refreshSubscriptions = useCallback(async () => {
+    if (!profileId) return;
+    try {
+      const { data: mySubs } = await supabase
+        .from("subscriptions")
+        .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
+        .eq("subscriber_id", profileId)
+        .is("unsubscribed_at", null);
+      if (mySubs) {
+        setMySubscriptions(mySubs);
+        setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
+      }
+      const { data: myFans } = await supabase
+        .from("subscriptions")
+        .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
+        .eq("curator_id", profileId)
+        .is("unsubscribed_at", null);
+      if (myFans) setMySubscribers(myFans);
+    } catch (err) {
+      console.warn("Failed to refresh subscriptions:", err);
+    }
+  }, [profileId]);
+
   const subscribe = async (curatorId) => {
     if (!profileId) return;
     try {
@@ -283,7 +306,7 @@ export function CuratorProvider({ children }) {
       toggleVisibility,
       logout,
       mySubscriptions, mySubscribers, mySubscriptionIds,
-      subscribe, unsubscribe,
+      subscribe, unsubscribe, refreshSubscriptions,
       isOwner: true,
     }}>
       {children}
