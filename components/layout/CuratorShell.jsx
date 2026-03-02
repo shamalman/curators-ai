@@ -85,7 +85,7 @@ export default function CuratorShell({ children }) {
               </button>
               <button onClick={() => router.push("/settings")} style={{
                 background: "none", border: "none", cursor: "pointer", padding: 4,
-                display: "flex", alignItems: "center",
+                display: "flex", alignItems: "center", flexShrink: 0,
               }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" />
