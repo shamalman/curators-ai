@@ -12,7 +12,8 @@ export default function BottomTabs() {
   const tabs = [
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai", active: pathname.startsWith("/myai"), activeColor: W.accent },
     { id: "recs", icon: "\u25C9", label: "Recs", path: "/recommendations", active: pathname.startsWith("/recommendations"), activeColor: T.acc },
-    { id: "fans", icon: "\u2661", label: "Fans", path: "/fans", active: pathname.startsWith("/fans"), activeColor: T.acc },
+    { id: "subs", icon: "\u2661", label: "Subs", path: "/subs", active: pathname.startsWith("/subs"), activeColor: T.acc },
+    { id: "profile", icon: "\u25C7", label: "Profile", path: "/profile", active: pathname.startsWith("/profile") || pathname.startsWith("/settings"), activeColor: T.acc },
   ];
 
   return (

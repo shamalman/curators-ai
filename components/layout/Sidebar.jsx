@@ -15,13 +15,15 @@ export default function Sidebar() {
   const nav = [
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations" },
-    { id: "fans", icon: "\u2661", label: "Fans", path: "/fans" },
+    { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
+    { id: "profile", icon: "\u25C7", label: "Profile", path: "/profile" },
   ];
 
   const isActive = (item) => {
     if (item.id === "recs") return pathname.startsWith("/recommendations");
     if (item.id === "ask") return pathname.startsWith("/myai");
-    if (item.id === "fans") return pathname.startsWith("/fans");
+    if (item.id === "subs") return pathname.startsWith("/subs");
+    if (item.id === "profile") return pathname.startsWith("/profile") || pathname.startsWith("/settings");
     return false;
   };
 

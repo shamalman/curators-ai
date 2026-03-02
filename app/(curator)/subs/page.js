@@ -1,3 +1,3 @@
 "use client"
 import FansView from "@/components/fans/FansView"
-export default function FansPage() { return <FansView /> }
+export default function SubsPage() { return <FansView /> }

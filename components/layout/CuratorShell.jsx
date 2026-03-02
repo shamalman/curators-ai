@@ -24,13 +24,13 @@ export default function CuratorShell({ children }) {
   }, []);
 
   const isProfilePage = handle && pathname === `/${handle}`;
-  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/fans") || isProfilePage;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/profile") || pathname.startsWith("/settings") || isProfilePage;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
   if (isDesktop) {
     const isChat = pathname.startsWith("/myai");
-    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/fans");
+    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/profile") || pathname.startsWith("/settings");
     return (
       <>
         <Sidebar />
