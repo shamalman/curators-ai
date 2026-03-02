@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { VisitorProvider } from '@/context/VisitorContext'
 import { CuratorProvider } from '@/context/CuratorContext'
@@ -10,6 +10,8 @@ import { T } from '@/lib/constants'
 
 export default function VisitorLayout({ children }) {
   const { handle } = useParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [isDesktop, setIsDesktop] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
   const [checked, setChecked] = useState(false)
@@ -47,7 +49,13 @@ export default function VisitorLayout({ children }) {
     return <div style={{ minHeight: "100vh", background: T.bg }} />
   }
 
-  // Owner: wrap in CuratorProvider + CuratorShell (sidebar + tabs)
+  // Owner visiting their own profile URL → redirect to /profile
+  if (isOwner && pathname === `/${handle}`) {
+    router.replace('/profile')
+    return <div style={{ minHeight: "100vh", background: T.bg }} />
+  }
+
+  // Owner on sub-routes (edit, ask, etc.) → wrap in CuratorProvider + CuratorShell
   if (isOwner) {
     return (
       <CuratorProvider>

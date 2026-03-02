@@ -69,7 +69,7 @@ export default function CuratorShell({ children }) {
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
             <span style={{ fontFamily: S, fontSize: 15, color: T.acc, fontWeight: 400 }}>curators</span>
-            <button onClick={() => router.push(`/${handle}`)} style={{
+            <button onClick={() => router.push("/profile")} style={{
               display: "flex", alignItems: "center", gap: 7,
               background: "none", border: "none", cursor: "pointer", padding: 0,
               minWidth: 0, maxWidth: "60%",

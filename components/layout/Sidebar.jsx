@@ -63,22 +63,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Profile link + logout */}
-      <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        <button
-          onClick={() => { if (handle) router.push(`/${handle}`); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 8, width: "100%",
-            background: "none", border: "none", cursor: handle ? "pointer" : "default",
-            fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
-            padding: 0,
-          }}
-          onMouseEnter={e => { if (handle) e.currentTarget.style.color = T.ink2; }}
-          onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
-        >
-          <span style={{ flex: 1 }}>{handle ? `@${handle}` : "..."}</span>
-          {handle && <span style={{ fontSize: 12 }}>{"\u2197"}</span>}
-        </button>
+      {/* Logout */}
+      <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0 }}>
         <button
           onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login'; }}
           style={{
