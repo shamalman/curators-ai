@@ -75,26 +75,29 @@ export function CuratorProvider({ children }) {
         prevMsgCount.current = msgs.length;
       }
 
-      // Load my subscriptions (curators I follow)
-      const { data: mySubs } = await supabase
-        .from("subscriptions")
-        .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
-        .eq("subscriber_id", prof.id)
-        .is("unsubscribed_at", null);
-      if (mySubs) {
-        setMySubscriptions(mySubs);
-        setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
-      }
-
-      // Load my subscribers (people following me)
-      const { data: myFans } = await supabase
-        .from("subscriptions")
-        .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
-        .eq("curator_id", prof.id)
-        .is("unsubscribed_at", null);
-      if (myFans) setMySubscribers(myFans);
-
       setDbLoaded(true);
+
+      // Load subscriptions separately — non-blocking so core data loads even if table doesn't exist
+      try {
+        const { data: mySubs } = await supabase
+          .from("subscriptions")
+          .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
+          .eq("subscriber_id", prof.id)
+          .is("unsubscribed_at", null);
+        if (mySubs) {
+          setMySubscriptions(mySubs);
+          setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
+        }
+
+        const { data: myFans } = await supabase
+          .from("subscriptions")
+          .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
+          .eq("curator_id", prof.id)
+          .is("unsubscribed_at", null);
+        if (myFans) setMySubscribers(myFans);
+      } catch (subErr) {
+        console.warn("Failed to load subscriptions (table may not exist yet):", subErr);
+      }
     } catch (err) {
       console.error("Failed to load from Supabase:", err);
       setDbLoaded(true);
