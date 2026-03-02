@@ -30,11 +30,10 @@ export async function middleware(req) {
     // Public routes — no auth required
     const publicRoutes = ['/login', '/signup', '/onboarding', '/onboarding/welcome'];
     const isPublicRoute = publicRoutes.includes(path);
-    const isVisitorRoute = /^\/[a-z0-9-]+/.test(path) && !path.startsWith('/myai') && !path.startsWith('/recommendations') && !publicRoutes.includes(path);
     const isApiRoute = path.startsWith('/api');
 
-    // Allow public routes, visitor routes, and API routes
-    if (isPublicRoute || isVisitorRoute || isApiRoute) {
+    // Allow public routes and API routes
+    if (isPublicRoute || isApiRoute) {
       // If logged in and visiting /login or /signup, redirect to /myai
       if (session && (path === '/login' || path === '/signup')) {
         return NextResponse.redirect(new URL('/myai', req.url));
