@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT } from "@/lib/constants";
@@ -8,10 +8,35 @@ import { useCurator } from "@/context/CuratorContext";
 
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
-  const { profile, profileId, tasteItems, isOwner, mySubscriptionIds, subscribe, unsubscribe } = useCurator();
+  const ctx = useCurator();
+  const { profile, profileId, tasteItems, isOwner } = ctx;
   const [subscribed, setSubscribed] = useState(false);
   const [subToggling, setSubToggling] = useState(false);
   const [subEmail, setSubEmail] = useState("");
+
+  // Local subscription state for visitor mode (context may not provide these)
+  const [localSubbed, setLocalSubbed] = useState(false);
+  const [myProfileId, setMyProfileId] = useState(null);
+
+  useEffect(() => {
+    if (mode !== "visitor" || isOwner || !profileId) return;
+    async function checkSub() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: myProf } = await supabase
+        .from("profiles").select("id").eq("auth_user_id", user.id).single();
+      if (!myProf) return;
+      setMyProfileId(myProf.id);
+      try {
+        const { data } = await supabase
+          .from("subscriptions").select("id")
+          .eq("subscriber_id", myProf.id).eq("curator_id", profileId)
+          .is("unsubscribed_at", null).limit(1);
+        if (data && data.length > 0) setLocalSubbed(true);
+      } catch { /* subscriptions table may not exist */ }
+    }
+    checkSub();
+  }, [mode, isOwner, profileId]);
   const [profileTab, setProfileTab] = useState("recent");
   const [profileCopied, setProfileCopied] = useState(false);
 
@@ -116,30 +141,32 @@ export default function VisitorProfile({ mode }) {
             cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 10,
           }}>Edit Profile</button>
         )}
-        {mode === "visitor" && !isOwner && mySubscriptionIds && (
-          (() => {
-            const isSubbed = subToggling ? !mySubscriptionIds.has(profileId) : mySubscriptionIds.has(profileId);
-            return (
-              <button onClick={async () => {
-                if (!subscribe || !unsubscribe) return;
-                setSubToggling(true);
-                try {
-                  if (mySubscriptionIds.has(profileId)) {
-                    await unsubscribe(profileId);
-                  } else {
-                    await subscribe(profileId);
-                  }
-                } finally { setSubToggling(false); }
-              }} style={{
-                background: isSubbed ? "transparent" : T.acc,
-                border: isSubbed ? `1px solid ${T.bdr}` : "none",
-                borderRadius: 8, padding: "6px 18px", cursor: "pointer",
-                fontFamily: F, fontSize: 12, fontWeight: 600,
-                color: isSubbed ? T.ink3 : "#fff",
-                marginBottom: 10, transition: "all .15s",
-              }}>{isSubbed ? "Subscribed" : "Subscribe"}</button>
-            );
-          })()
+        {mode === "visitor" && !isOwner && myProfileId && (
+          <button onClick={async () => {
+            if (subToggling) return;
+            setSubToggling(true);
+            try {
+              if (localSubbed) {
+                await supabase.from("subscriptions")
+                  .update({ unsubscribed_at: new Date().toISOString() })
+                  .eq("subscriber_id", myProfileId).eq("curator_id", profileId)
+                  .is("unsubscribed_at", null);
+                setLocalSubbed(false);
+              } else {
+                await supabase.from("subscriptions")
+                  .insert({ subscriber_id: myProfileId, curator_id: profileId });
+                setLocalSubbed(true);
+              }
+            } catch (err) { console.error("Subscribe toggle failed:", err); }
+            finally { setSubToggling(false); }
+          }} style={{
+            background: localSubbed ? "transparent" : T.acc,
+            border: localSubbed ? `1px solid ${T.bdr}` : "none",
+            borderRadius: 8, padding: "6px 18px", cursor: "pointer",
+            fontFamily: F, fontSize: 12, fontWeight: 600,
+            color: localSubbed ? T.ink3 : "#fff",
+            marginBottom: 10, transition: "all .15s",
+          }}>{localSubbed ? "Subscribed" : "Subscribe"}</button>
         )}
         <p style={{ fontFamily: F, fontSize: 14, color: T.ink2, lineHeight: 1.65, maxWidth: 300, margin: "0 auto" }}>
           {profile.bio}
