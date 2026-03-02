@@ -69,9 +69,15 @@ export default function VisitorProfile({ mode }) {
           <span style={{ fontFamily: S, fontSize: 38, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
         </div>
         <h1 style={{ fontFamily: S, fontSize: 34, color: T.ink, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}>{profile.name}</h1>
-        <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, marginBottom: 14 }}>
+        <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, marginBottom: mode === "curator" ? 10 : 14 }}>
           {profile.handle}
         </p>
+        {mode === "curator" && (
+          <button onClick={() => router.push(`/${handle}/edit`)} style={{
+            background: "none", border: `1px solid ${T.bdr}`, borderRadius: 8, padding: "6px 16px",
+            cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink3, marginBottom: 10,
+          }}>Edit Profile</button>
+        )}
         <p style={{ fontFamily: F, fontSize: 14, color: T.ink2, lineHeight: 1.65, maxWidth: 300, margin: "0 auto" }}>
           {profile.bio}
         </p>
