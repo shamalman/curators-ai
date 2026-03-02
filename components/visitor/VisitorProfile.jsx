@@ -8,8 +8,9 @@ import { useCurator } from "@/context/CuratorContext";
 
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
-  const { profile, profileId, tasteItems, isOwner } = useCurator();
+  const { profile, profileId, tasteItems, isOwner, mySubscriptionIds, subscribe, unsubscribe } = useCurator();
   const [subscribed, setSubscribed] = useState(false);
+  const [subToggling, setSubToggling] = useState(false);
   const [subEmail, setSubEmail] = useState("");
   const [profileTab, setProfileTab] = useState("recent");
   const [profileCopied, setProfileCopied] = useState(false);
@@ -114,6 +115,31 @@ export default function VisitorProfile({ mode }) {
             background: "none", border: `1px solid ${T.bdr}`, borderRadius: 8, padding: "5px 14px",
             cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 10,
           }}>Edit Profile</button>
+        )}
+        {mode === "visitor" && !isOwner && mySubscriptionIds && (
+          (() => {
+            const isSubbed = subToggling ? !mySubscriptionIds.has(profileId) : mySubscriptionIds.has(profileId);
+            return (
+              <button onClick={async () => {
+                if (!subscribe || !unsubscribe) return;
+                setSubToggling(true);
+                try {
+                  if (mySubscriptionIds.has(profileId)) {
+                    await unsubscribe(profileId);
+                  } else {
+                    await subscribe(profileId);
+                  }
+                } finally { setSubToggling(false); }
+              }} style={{
+                background: isSubbed ? "transparent" : T.acc,
+                border: isSubbed ? `1px solid ${T.bdr}` : "none",
+                borderRadius: 8, padding: "6px 18px", cursor: "pointer",
+                fontFamily: F, fontSize: 12, fontWeight: 600,
+                color: isSubbed ? T.ink3 : "#fff",
+                marginBottom: 10, transition: "all .15s",
+              }}>{isSubbed ? "Subscribed" : "Subscribe"}</button>
+            );
+          })()
         )}
         <p style={{ fontFamily: F, fontSize: 14, color: T.ink2, lineHeight: 1.65, maxWidth: 300, margin: "0 auto" }}>
           {profile.bio}

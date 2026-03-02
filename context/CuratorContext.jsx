@@ -21,6 +21,11 @@ export function CuratorProvider({ children }) {
   const [undoItem, setUndoItem] = useState(null);
   const undoTimer = useRef(null);
 
+  // Subscription state
+  const [mySubscriptions, setMySubscriptions] = useState([]);
+  const [mySubscribers, setMySubscribers] = useState([]);
+  const [mySubscriptionIds, setMySubscriptionIds] = useState(new Set());
+
   // Load profile + recs + messages from Supabase
   const loadData = useCallback(async () => {
     try {
@@ -69,6 +74,26 @@ export function CuratorProvider({ children }) {
         setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
         prevMsgCount.current = msgs.length;
       }
+
+      // Load my subscriptions (curators I follow)
+      const { data: mySubs } = await supabase
+        .from("subscriptions")
+        .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
+        .eq("subscriber_id", prof.id)
+        .is("unsubscribed_at", null);
+      if (mySubs) {
+        setMySubscriptions(mySubs);
+        setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
+      }
+
+      // Load my subscribers (people following me)
+      const { data: myFans } = await supabase
+        .from("subscriptions")
+        .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
+        .eq("curator_id", prof.id)
+        .is("unsubscribed_at", null);
+      if (myFans) setMySubscribers(myFans);
+
       setDbLoaded(true);
     } catch (err) {
       console.error("Failed to load from Supabase:", err);
@@ -88,6 +113,9 @@ export function CuratorProvider({ children }) {
         setProfileId(null);
         setTasteItems([]);
         setMessages([]);
+        setMySubscriptions([]);
+        setMySubscribers([]);
+        setMySubscriptionIds(new Set());
       }
     });
     return () => subscription.unsubscribe();
@@ -165,6 +193,34 @@ export function CuratorProvider({ children }) {
     } catch (err) { console.error("Failed to save message:", err); }
   };
 
+  const subscribe = async (curatorId) => {
+    if (!profileId) return;
+    try {
+      const { data, error } = await supabase.from("subscriptions").insert({
+        subscriber_id: profileId,
+        curator_id: curatorId,
+      }).select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))").single();
+      if (error) throw error;
+      setMySubscriptions(prev => [data, ...prev]);
+      setMySubscriptionIds(prev => new Set([...prev, curatorId]));
+    } catch (err) { console.error("Failed to subscribe:", err); }
+  };
+
+  const unsubscribe = async (curatorId) => {
+    if (!profileId) return;
+    try {
+      const { error } = await supabase.from("subscriptions")
+        .update({ unsubscribed_at: new Date().toISOString() })
+        .eq("subscriber_id", profileId)
+        .eq("curator_id", curatorId)
+        .is("unsubscribed_at", null);
+      if (error) throw error;
+      setMySubscriptions(prev => prev.filter(s => s.curator_id !== curatorId));
+      setMySubscriptionIds(prev => { const next = new Set(prev); next.delete(curatorId); return next; });
+      setMySubscribers(prev => prev.filter(s => s.subscriber_id !== curatorId));
+    } catch (err) { console.error("Failed to unsubscribe:", err); }
+  };
+
   const removeItem = async (id) => {
     if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
     setRemoving(id);
@@ -223,6 +279,8 @@ export function CuratorProvider({ children }) {
       undoArchive,
       toggleVisibility,
       logout,
+      mySubscriptions, mySubscribers, mySubscriptionIds,
+      subscribe, unsubscribe,
       isOwner: true,
     }}>
       {children}
