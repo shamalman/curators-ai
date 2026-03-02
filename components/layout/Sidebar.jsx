@@ -64,36 +64,28 @@ export default function Sidebar() {
       </nav>
 
       {/* Settings + Logout */}
-      <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "8px 12px 16px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4 }}>
         <button
           onClick={() => router.push("/settings")}
           style={{
-            display: "flex", alignItems: "center", gap: 8, width: "100%",
-            background: "none", border: "none", cursor: "pointer",
-            fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
-            padding: 0,
+            width: "100%", display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 12px", borderRadius: 8, border: "none",
+            background: pathname.startsWith("/settings") ? T.accSoft : "transparent",
+            color: pathname.startsWith("/settings") ? T.acc : T.ink3,
+            fontFamily: F, fontSize: 14, fontWeight: 500,
+            cursor: "pointer", textAlign: "left",
+            transition: "background .15s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = T.ink2; }}
-          onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
+          onMouseEnter={e => { if (!pathname.startsWith("/settings")) e.currentTarget.style.background = T.s; }}
+          onMouseLeave={e => { if (!pathname.startsWith("/settings")) e.currentTarget.style.background = "transparent"; }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-          Settings
-        </button>
-        <button
-          onClick={async () => { await supabase.auth.signOut(); window.location.href = '/login'; }}
-          style={{
-            display: "flex", alignItems: "center", gap: 8, width: "100%",
-            background: "none", border: "none", cursor: "pointer",
-            fontFamily: F, fontSize: 13, color: T.ink3, textAlign: "left",
-            padding: 0,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = T.ink2; }}
-          onMouseLeave={e => { e.currentTarget.style.color = T.ink3; }}
-        >
-          Log out
+          <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </span>
+          <span>Settings</span>
         </button>
       </div>
     </div>
