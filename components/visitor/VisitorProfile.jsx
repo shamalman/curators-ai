@@ -12,8 +12,6 @@ export default function VisitorProfile({ mode }) {
   const [subscribed, setSubscribed] = useState(false);
   const [subEmail, setSubEmail] = useState("");
   const [profileTab, setProfileTab] = useState("recent");
-  const [profileCopied, setProfileCopied] = useState(false);
-
   if (!profile) return null;
 
   const handle = profile.handle.replace("@", "");
@@ -23,17 +21,6 @@ export default function VisitorProfile({ mode }) {
   const cats = [...new Set(activeItems.map(i => i.category))];
   const cc = {}; cats.forEach(c => { cc[c] = activeItems.filter(i => i.category === c).length; });
   const topCats = [...cats].sort((a, b) => (cc[b] || 0) - (cc[a] || 0));
-
-  const shareProfile = () => {
-    const url = `curators.com/${handle}`;
-    if (navigator.share) {
-      navigator.share({ title: `${profile.name} on Curators`, url: `https://${url}` }).catch(() => {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(`https://${url}`);
-    }
-    setProfileCopied(true);
-    setTimeout(() => setProfileCopied(false), 2200);
-  };
 
   const onSelectItem = (item) => {
     if (mode === "curator") {
@@ -55,39 +42,6 @@ export default function VisitorProfile({ mode }) {
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
 
-      {/* Curator edit banner */}
-      {mode === "curator" && (
-        <div style={{
-          margin: "48px 16px 0", padding: "12px 16px", borderRadius: 12,
-          background: T.acc + "15", border: `1px solid ${T.acc}30`,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <span style={{ fontFamily: F, fontSize: 13, color: T.acc, fontWeight: 500 }}>
-            This is your public profile
-          </span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={shareProfile} style={{
-              background: "none", border: `1px solid ${T.acc}50`, borderRadius: 8, padding: "6px 14px",
-              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.acc,
-              display: "flex", alignItems: "center", gap: 5,
-            }}>{profileCopied ? "Copied \u2713" : "Share \u2197"}</button>
-            <button onClick={() => router.push(`/${handle}/edit`)} style={{
-              background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
-              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
-            }}>Edit</button>
-            <button onClick={() => router.push("/settings")} style={{
-              background: "none", border: `1px solid ${T.acc}50`, borderRadius: 8, padding: "7px 8px",
-              cursor: "pointer", display: "flex", alignItems: "center",
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.acc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Visitor top bar */}
       {mode === "visitor" && (
         <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -104,7 +58,7 @@ export default function VisitorProfile({ mode }) {
       )}
 
       {/* Hero */}
-      <div style={{ padding: mode === "curator" ? "20px 24px 0" : "36px 24px 0", textAlign: "center" }}>
+      <div style={{ padding: mode === "curator" ? "24px 24px 0" : "36px 24px 0", textAlign: "center" }}>
         <div style={{
           width: 92, height: 92, borderRadius: 26, margin: "0 auto 18px",
           background: `linear-gradient(145deg, ${T.s2}, ${T.s})`,
