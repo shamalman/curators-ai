@@ -45,7 +45,10 @@ export function CuratorProvider({ children }) {
       setProfileId(prof.id);
       setProfile({
         name: prof.name, handle: "@" + prof.handle,
-        bio: prof.bio, aiEnabled: prof.ai_enabled,
+        bio: prof.bio, location: prof.location || "",
+        styleSummary: prof.style_summary || null,
+        invitedBy: prof.invited_by || null,
+        aiEnabled: prof.ai_enabled,
         acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
         cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
         walletFull: "",
@@ -165,6 +168,7 @@ export function CuratorProvider({ children }) {
         name: profile.name,
         handle: profile.handle.replace("@", ""),
         bio: profile.bio,
+        location: profile.location || "",
         ai_enabled: profile.aiEnabled,
         accept_requests: profile.acceptRequests,
         show_recs: profile.showRecs,
@@ -178,7 +182,10 @@ export function CuratorProvider({ children }) {
       if (prof) {
         setProfile({
           name: prof.name, handle: "@" + prof.handle,
-          bio: prof.bio, aiEnabled: prof.ai_enabled,
+          bio: prof.bio, location: prof.location || "",
+          styleSummary: prof.style_summary || null,
+          invitedBy: prof.invited_by || null,
+          aiEnabled: prof.ai_enabled,
           acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
           cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
           walletFull: "",
@@ -403,10 +410,14 @@ export function CuratorProvider({ children }) {
     ));
   };
 
+  // First-time curator: 0 recs and no bio yet
+  const isFirstTime = dbLoaded && tasteItems.length === 0 && (!profile?.bio || profile.bio.trim() === '');
+
   return (
     <CuratorContext.Provider value={{
       profile, setProfile,
       profileId,
+      isFirstTime,
       tasteItems, setTasteItems,
       messages, setMessages,
       dbLoaded,

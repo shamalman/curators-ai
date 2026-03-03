@@ -21,7 +21,6 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [handle, setHandle] = useState("")
-  const [bio, setBio] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [handleStatus, setHandleStatus] = useState(null) // null | "checking" | "available" | "taken" | "invalid" | "reserved"
@@ -69,19 +68,27 @@ export default function OnboardingPage() {
       const { data: { user }, error: userErr } = await supabase.auth.getUser()
       if (userErr || !user) throw new Error("Not logged in")
 
-      const { error: insertErr } = await supabase.from("profiles").insert({
+      // Get invite context (who invited them)
+      let invitedBy = null
+      try {
+        const ctx = JSON.parse(localStorage.getItem("invite_context"))
+        if (ctx?.invited_by) invitedBy = ctx.invited_by
+      } catch {}
+
+      const { data: newProfile, error: insertErr } = await supabase.from("profiles").insert({
         name: name.trim(),
         handle: handle.toLowerCase(),
-        bio: bio.trim(),
         auth_user_id: user.id,
         onboarding_complete: true,
         ai_enabled: true,
         accept_requests: true,
         show_recs: true,
-      })
+        ...(invitedBy ? { invited_by: invitedBy } : {}),
+      }).select("id").single()
       if (insertErr) throw insertErr
 
-      router.push("/onboarding/welcome")
+      localStorage.removeItem("invite_context")
+      router.push("/myai")
     } catch (err) {
       setError(err.message || "Something went wrong")
     } finally {
@@ -132,16 +139,6 @@ export default function OnboardingPage() {
               </div>
             )}
           </div>
-          <div>
-            <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 6 }}>Bio <span style={{ fontWeight: 400, textTransform: "none" }}>(optional)</span></label>
-            <textarea
-              name="bio" value={bio} onChange={e => setBio(e.target.value)}
-              placeholder="What do you recommend?"
-              rows={3}
-              style={{ ...inputStyle, resize: "none", lineHeight: 1.5 }}
-            />
-          </div>
-
           {error && <div style={{ fontFamily: F, fontSize: 13, color: "#EF4444", lineHeight: 1.4 }}>{error}</div>}
 
           <button type="submit" disabled={loading} style={{

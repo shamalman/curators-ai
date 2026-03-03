@@ -27,11 +27,11 @@ export default function SignupPage() {
     if (!pwValid) { setError("Password must be at least 8 characters"); return }
     setLoading(true)
     try {
-      // Step 1: Validate invite code
+      // Step 1: Validate invite code and fetch inviter info
       const code = inviteCode.trim().toUpperCase()
       const { data: invite, error: invErr } = await supabase
         .from("invite_codes")
-        .select("id")
+        .select("id, created_by, inviter_note")
         .eq("code", code)
         .is("used_at", null)
         .single()
@@ -67,6 +67,14 @@ export default function SignupPage() {
         used_at: new Date().toISOString(),
       }).eq("id", invite.id)
       if (updateErr) console.error("Failed to mark invite as used:", updateErr)
+
+      // Store invite context for onboarding to set invited_by
+      if (invite.created_by) {
+        localStorage.setItem("invite_context", JSON.stringify({
+          invited_by: invite.created_by,
+          inviter_note: invite.inviter_note || null,
+        }))
+      }
 
       router.push("/onboarding")
     } catch (err) {
