@@ -145,6 +145,23 @@ export function CuratorProvider({ children }) {
     window.location.href = '/login';
   };
 
+  const saveProfile = async () => {
+    if (!profileId || !profile) return;
+    try {
+      const { error } = await supabase.from("profiles").update({
+        name: profile.name,
+        handle: profile.handle.replace("@", ""),
+        bio: profile.bio,
+        ai_enabled: profile.aiEnabled,
+        accept_requests: profile.acceptRequests,
+        show_recs: profile.showRecs,
+        crypto_enabled: profile.cryptoEnabled,
+        wallet: profile.wallet || "",
+      }).eq("id", profileId);
+      if (error) throw error;
+    } catch (err) { console.error("Failed to save profile:", err); }
+  };
+
   const addRec = async (item) => {
     if (!item.slug) {
       item = { ...item, slug: item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') };
@@ -340,6 +357,7 @@ export function CuratorProvider({ children }) {
       addRec,
       deleteRec,
       updateRec,
+      saveProfile,
       saveMsgToDb,
       archived, setArchived,
       removing, setRemoving,
