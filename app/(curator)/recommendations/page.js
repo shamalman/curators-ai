@@ -20,7 +20,7 @@ export default function RecommendationsPage() {
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
         {/* Header */}
         <div style={{ padding: "52px 20px 0", flexShrink: 0 }}>
-          <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 16 }}>Recs</h2>
+          <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 16 }}>Recommendations</h2>
 
           {/* Segmented control */}
           <div style={{ display: "flex", gap: 2, background: T.s, borderRadius: 8, padding: 2, marginBottom: 16 }}>
@@ -39,7 +39,7 @@ export default function RecommendationsPage() {
         {/* Tab content */}
         {tab === "network" && <NetworkView />}
         {tab === "saved" && <SavedView onSwitchToNetwork={() => setTab("network")} />}
-        {tab === "yours" && <TasteManager />}
+        {tab === "yours" && <TasteManager embedded />}
       </div>
     </div>
   );

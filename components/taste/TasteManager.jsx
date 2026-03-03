@@ -7,7 +7,7 @@ import { useCurator } from "@/context/CuratorContext";
 import CategoryPill from "@/components/shared/CategoryPill";
 import Toast from "@/components/shared/Toast";
 
-export default function TasteManager() {
+export default function TasteManager({ embedded = false }) {
   const router = useRouter();
   const { tasteItems: items, archived, filterCat, setFilterCat, removing, removeItem, restoreItem, undoItem, undoArchive } = useCurator();
   const [earningsExpanded, setEarningsExpanded] = useState(false);
@@ -34,15 +34,17 @@ export default function TasteManager() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, position: "relative" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
-      {isDesktop && (
+      {!embedded && isDesktop && (
         <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
           <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
         </div>
       )}
-      <div style={{ padding: isDesktop ? "4px 20px 12px" : "10px 20px 6px" }}>
-        <h2 style={{ fontFamily: S, fontSize: isDesktop ? 28 : 22, color: T.ink, fontWeight: 400, marginBottom: 2 }}>Your Taste</h2>
-        <p style={{ fontSize: isDesktop ? 13 : 12, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
-      </div>
+      {!embedded && (
+        <div style={{ padding: isDesktop ? "4px 20px 12px" : "10px 20px 6px" }}>
+          <h2 style={{ fontFamily: S, fontSize: isDesktop ? 28 : 22, color: T.ink, fontWeight: 400, marginBottom: 2 }}>Your Taste</h2>
+          <p style={{ fontSize: isDesktop ? 13 : 12, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
+        </div>
+      )}
       <div style={{ padding: isDesktop ? "0 20px 12px" : "0 20px 8px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
         <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />
         {archivedItems.length > 0 && (
