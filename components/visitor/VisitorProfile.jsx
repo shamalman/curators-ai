@@ -184,8 +184,8 @@ export default function VisitorProfile({ mode }) {
         </p>
       </div>
 
-      {/* Taste spectrum — only when recs exist */}
-      {n > 0 && (
+      {/* Taste spectrum — only when recs exist and showRecs is on */}
+      {n > 0 && profile.showRecs !== false && (
         <div style={{ padding: "24px 28px 0" }}>
           <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 4, background: T.s2 }}>
             {topCats.map(cat => {
@@ -208,40 +208,44 @@ export default function VisitorProfile({ mode }) {
       )}
 
       {/* Two action cards */}
-      <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
-        {profile.aiEnabled && (
-          <button onClick={onOpenAI} style={{
-            flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr, cursor: "pointer", textAlign: "left",
-            background: `linear-gradient(160deg, ${T.s2}, ${T.s})`, position: "relative", overflow: "hidden",
-          }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-              <span style={{ fontSize: 18 }}>🧠</span>
-            </div>
-            <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>
-              Ask {profile.name}'s AI
-            </div>
-            <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
-              Get streams of their new recommendations
-            </div>
-            <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
-          </button>
-        )}
-        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
-          flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
-          background: T.s, cursor: "pointer", textAlign: "left",
-        }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <span style={{ fontSize: 18 }}>🙏</span>
-          </div>
-          <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>Request a rec</div>
-          <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
-            Ask {profile.name} directly for a recommendation
-          </div>
-        </button>
-      </div>
+      {(profile.aiEnabled || profile.acceptRequests) && (
+        <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
+          {profile.aiEnabled && (
+            <button onClick={onOpenAI} style={{
+              flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr, cursor: "pointer", textAlign: "left",
+              background: `linear-gradient(160deg, ${T.s2}, ${T.s})`, position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 18 }}>🧠</span>
+              </div>
+              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>
+                Ask {profile.name}'s AI
+              </div>
+              <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
+                Get streams of their new recommendations
+              </div>
+              <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
+            </button>
+          )}
+          {profile.acceptRequests && (
+            <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
+              flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
+              background: T.s, cursor: "pointer", textAlign: "left",
+            }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 18 }}>🙏</span>
+              </div>
+              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>Request a rec</div>
+              <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
+                Ask {profile.name} directly for a recommendation
+              </div>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Taste preview */}
-      {n > 0 ? (
+      {n > 0 && profile.showRecs !== false ? (
         <>
           <div style={{ padding: "28px 20px 0" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
