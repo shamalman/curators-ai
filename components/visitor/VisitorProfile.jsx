@@ -184,26 +184,28 @@ export default function VisitorProfile({ mode }) {
         </p>
       </div>
 
-      {/* Taste spectrum */}
-      <div style={{ padding: "24px 28px 0" }}>
-        <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 4, background: T.s2 }}>
-          {topCats.map(cat => {
-            const c = CAT[cat] || CAT.other;
-            return <div key={cat} style={{ width: `${((cc[cat] || 0) / n) * 100}%`, background: c.color, minWidth: 3 }} />;
-          })}
+      {/* Taste spectrum — only when recs exist */}
+      {n > 0 && (
+        <div style={{ padding: "24px 28px 0" }}>
+          <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 4, background: T.s2 }}>
+            {topCats.map(cat => {
+              const c = CAT[cat] || CAT.other;
+              return <div key={cat} style={{ width: `${((cc[cat] || 0) / n) * 100}%`, background: c.color, minWidth: 3 }} />;
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
+            {topCats.map(cat => {
+              const c = CAT[cat] || CAT.other;
+              return (
+                <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: T.ink2, fontFamily: F }}>
+                  <span style={{ width: 5, height: 5, borderRadius: 3, background: c.color }} />
+                  {cc[cat]} {c.label}
+                </span>
+              );
+            })}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
-          {topCats.map(cat => {
-            const c = CAT[cat] || CAT.other;
-            return (
-              <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: T.ink2, fontFamily: F }}>
-                <span style={{ width: 5, height: 5, borderRadius: 3, background: c.color }} />
-                {cc[cat]} {c.label}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* Two action cards */}
       <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
@@ -239,73 +241,81 @@ export default function VisitorProfile({ mode }) {
       </div>
 
       {/* Taste preview */}
-      <div style={{ padding: "28px 20px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em" }}>
-            What {profile.name} recommends
-          </span>
-          <div style={{ display: "flex", gap: 2, background: T.s, borderRadius: 8, padding: 2 }}>
-            {["recent", "categories"].map(tab => (
-              <button key={tab} onClick={() => setProfileTab(tab)} style={{
-                padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
-                background: profileTab === tab ? T.s2 : "transparent", color: profileTab === tab ? T.ink : T.ink3,
-                fontSize: 10, fontWeight: 600, fontFamily: F,
-              }}>{tab === "recent" ? "Recent" : "By Category"}</button>
-            ))}
-          </div>
-        </div>
-
-        {profileTab === "recent" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {items.filter(i => mode === "curator" || i.visibility === "public").map((item, i) => {
-              const c = CAT[item.category] || CAT.other;
-              return (
-                <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
-                  display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
-                  background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .05}s`,
-                  cursor: "pointer", transition: "border-color .15s",
-                }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                    <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context}</div>
-                  </div>
-                  <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>›</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {profileTab === "categories" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {topCats.map((cat, i) => {
-              const c = CAT[cat] || CAT.other;
-              const ci = items.filter(x => x.category === cat);
-              return (
-                <div key={cat} className="fu" style={{ padding: "16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .06}s` }}>
-                  <div style={{ fontSize: 22, marginBottom: 8 }}>{c.emoji}</div>
-                  <div style={{ fontFamily: F, fontSize: 14, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{c.label}</div>
-                  <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginBottom: 8 }}>{cc[cat]} rec{cc[cat] !== 1 ? "s" : ""}</div>
-                  <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, lineHeight: 1.4 }}>
-                    {ci.slice(0, 2).map(x => x.title).join(", ")}{ci.length > 2 ? `, +${ci.length - 2}` : ""}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Pull quote */}
-      {items[3] && (
-        <div style={{ padding: "28px 20px 20px" }}>
-          <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
-            <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
-              {items[3]?.context}
+      {n > 0 ? (
+        <>
+          <div style={{ padding: "28px 20px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                What {profile.name} recommends
+              </span>
+              <div style={{ display: "flex", gap: 2, background: T.s, borderRadius: 8, padding: 2 }}>
+                {["recent", "categories"].map(tab => (
+                  <button key={tab} onClick={() => setProfileTab(tab)} style={{
+                    padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
+                    background: profileTab === tab ? T.s2 : "transparent", color: profileTab === tab ? T.ink : T.ink3,
+                    fontSize: 10, fontWeight: 600, fontFamily: F,
+                  }}>{tab === "recent" ? "Recent" : "By Category"}</button>
+                ))}
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
+
+            {profileTab === "recent" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {items.filter(i => mode === "curator" || i.visibility === "public").map((item, i) => {
+                  const c = CAT[item.category] || CAT.other;
+                  return (
+                    <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
+                      display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
+                      background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .05}s`,
+                      cursor: "pointer", transition: "border-color .15s",
+                    }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context}</div>
+                      </div>
+                      <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>›</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {profileTab === "categories" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {topCats.map((cat, i) => {
+                  const c = CAT[cat] || CAT.other;
+                  const ci = items.filter(x => x.category === cat);
+                  return (
+                    <div key={cat} className="fu" style={{ padding: "16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .06}s` }}>
+                      <div style={{ fontSize: 22, marginBottom: 8 }}>{c.emoji}</div>
+                      <div style={{ fontFamily: F, fontSize: 14, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{c.label}</div>
+                      <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginBottom: 8 }}>{cc[cat]} rec{cc[cat] !== 1 ? "s" : ""}</div>
+                      <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, lineHeight: 1.4 }}>
+                        {ci.slice(0, 2).map(x => x.title).join(", ")}{ci.length > 2 ? `, +${ci.length - 2}` : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* Pull quote */}
+          {items[3] && (
+            <div style={{ padding: "28px 20px 20px" }}>
+              <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
+                <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
+                  {items[3]?.context}
+                </div>
+                <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ textAlign: "center", padding: "48px 20px" }}>
+          <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No recommendations yet</p>
         </div>
       )}
 
