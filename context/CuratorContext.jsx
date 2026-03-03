@@ -77,6 +77,13 @@ export function CuratorProvider({ children }) {
 
       setDbLoaded(true);
 
+      // DEBUG: plain select with no joins or filters except subscriber_id
+      const { data: testSubs, error: testErr } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("subscriber_id", prof.id);
+      console.log("DEBUG raw subscriptions query for profileId:", prof.id, "result:", testSubs, "error:", testErr);
+
       // Load subscriptions separately — non-blocking so core data loads even if table doesn't exist
       try {
         // My subscriptions (curators I follow)
