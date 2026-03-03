@@ -159,6 +159,20 @@ export function CuratorProvider({ children }) {
         wallet: profile.wallet || "",
       }).eq("id", profileId);
       if (error) throw error;
+      // Re-fetch profile from DB to ensure context is fully in sync
+      const { data: prof } = await supabase
+        .from("profiles").select("*").eq("id", profileId).single();
+      if (prof) {
+        setProfile({
+          name: prof.name, handle: "@" + prof.handle,
+          bio: prof.bio, aiEnabled: prof.ai_enabled,
+          acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
+          cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
+          walletFull: "",
+          subscribers: 0, subsEnabled: true,
+          subsText: "Curated recs straight to your inbox. Only things worth your time.",
+        });
+      }
     } catch (err) { console.error("Failed to save profile:", err); }
   };
 
