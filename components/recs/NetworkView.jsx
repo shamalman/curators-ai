@@ -33,11 +33,14 @@ export default function NetworkView() {
   const q = search.toLowerCase().trim();
   let filtered = recs;
   if (q) {
-    filtered = filtered.filter(r =>
-      r.title?.toLowerCase().includes(q) ||
-      r.context?.toLowerCase().includes(q) ||
-      (r.tags || []).some(t => t.toLowerCase().includes(q))
-    );
+    filtered = filtered.filter(r => {
+      const cat = CAT[r.category] || CAT.other;
+      return r.title?.toLowerCase().includes(q) ||
+        r.context?.toLowerCase().includes(q) ||
+        (r.tags || []).some(t => t.toLowerCase().includes(q)) ||
+        r.category?.toLowerCase().includes(q) ||
+        cat.label?.toLowerCase().includes(q);
+    });
   }
   if (filterCat) {
     filtered = filtered.filter(r => r.category === filterCat);
