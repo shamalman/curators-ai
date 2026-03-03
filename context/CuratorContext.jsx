@@ -120,8 +120,9 @@ export function CuratorProvider({ children }) {
 
       // Load saved recs — non-blocking
       try {
-        const { data: savedRows } = await supabase
+        const { data: savedRows, error: savedErr } = await supabase
           .from("saved_recs").select("recommendation_id").eq("profile_id", prof.id);
+        console.log("[loadData] saved_recs rows:", savedRows, "error:", savedErr);
         if (savedRows && savedRows.length > 0) {
           setSavedRecIds(new Set(savedRows.map(r => r.recommendation_id)));
         }
@@ -338,28 +339,40 @@ export function CuratorProvider({ children }) {
 
   const saveRec = useCallback(async (recId) => {
     if (!profileId) return;
+    console.log("[saveRec] saving rec:", recId, "for profile:", profileId);
     setSavedRecIds(prev => new Set([...prev, recId]));
     try {
-      const { data: existing } = await supabase.from("saved_recs")
+      const { data: existing, error: selectErr } = await supabase.from("saved_recs")
         .select("id").eq("profile_id", profileId).eq("recommendation_id", recId)
         .limit(1).maybeSingle();
+      if (selectErr) console.error("[saveRec] select error:", selectErr);
       if (!existing) {
-        await supabase.from("saved_recs").insert({ profile_id: profileId, recommendation_id: recId });
+        const { data: inserted, error: insertErr } = await supabase.from("saved_recs")
+          .insert({ profile_id: profileId, recommendation_id: recId }).select();
+        console.log("[saveRec] insert result:", inserted, "error:", insertErr);
+        if (insertErr) {
+          console.error("[saveRec] insert failed:", insertErr);
+          setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
+        }
+      } else {
+        console.log("[saveRec] already exists:", existing);
       }
     } catch (err) {
-      console.error("Failed to save rec:", err);
+      console.error("[saveRec] exception:", err);
       setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
     }
   }, [profileId]);
 
   const unsaveRec = useCallback(async (recId) => {
     if (!profileId) return;
+    console.log("[unsaveRec] removing rec:", recId, "for profile:", profileId);
     setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
     try {
-      await supabase.from("saved_recs").delete()
+      const { error: delErr } = await supabase.from("saved_recs").delete()
         .eq("profile_id", profileId).eq("recommendation_id", recId);
+      if (delErr) console.error("[unsaveRec] delete error:", delErr);
     } catch (err) {
-      console.error("Failed to unsave rec:", err);
+      console.error("[unsaveRec] exception:", err);
       setSavedRecIds(prev => new Set([...prev, recId]));
     }
   }, [profileId]);
