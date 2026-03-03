@@ -79,6 +79,21 @@ export default function VisitorProfile({ mode }) {
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
 
+      {/* Back arrow for visitor mode (viewing another curator) */}
+      {mode === "visitor" && !isOwner && (
+        <div style={{ padding: "48px 20px 0" }}>
+          <button onClick={() => router.back()} style={{
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            display: "flex", alignItems: "center",
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Curator edit banner */}
       {mode === "curator" && (
         <div style={{

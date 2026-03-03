@@ -25,6 +25,8 @@ export default function CuratorShell({ children }) {
 
   const isProfilePage = handle && pathname === `/${handle}`;
   const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/profile") || pathname.startsWith("/settings") || isProfilePage;
+  const isMainTab = pathname === "/myai" || pathname === "/recommendations" || pathname === "/subs" || pathname === "/profile" || isProfilePage;
+  const isDeepPage = !isMainTab;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
@@ -68,7 +70,19 @@ export default function CuratorShell({ children }) {
             height: 40, padding: "0 14px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            <span style={{ fontFamily: S, fontSize: 15, color: T.acc, fontWeight: 400 }}>curators</span>
+            {isDeepPage ? (
+              <button onClick={() => router.back()} style={{
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+                display: "flex", alignItems: "center",
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5" />
+                  <path d="M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+            ) : (
+              <span style={{ fontFamily: S, fontSize: 15, color: T.acc, fontWeight: 400 }}>curators</span>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button onClick={() => router.push("/profile")} style={{
                 display: "flex", alignItems: "center", gap: 7,

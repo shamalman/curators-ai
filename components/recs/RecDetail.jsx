@@ -125,8 +125,7 @@ export function CuratorRecDetail({ slug }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
-      <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+      <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0 }}>
         {!isEditing && (
           <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category, links: [...(selectedItem.links || [])] })} style={{
             background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
