@@ -14,7 +14,7 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
 
 export default function ChatView({ variant }) {
   const router = useRouter();
-  const { profile, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb } = useCurator();
+  const { profile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb } = useCurator();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [pendingLink, setPendingLink] = useState(null);
@@ -66,23 +66,53 @@ export default function ChatView({ variant }) {
   }, [dbLoaded]);
 
   // Opening prompts for curator chat
+  const openingGenerated = useRef(false);
   useEffect(() => {
-    if (!dbLoaded || !isCurator) return;
-    if (messages.length === 0) {
-      const openingPrompts = [
-        "What's something you're enjoying that you want to capture and share?",
-        "What have you been recommending to people lately?",
-        "Anything new you've discovered that deserves a spot in your collection?",
-        "What's something you keep telling people about?",
-      ];
-      const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
-      const openingMessage = n === 0
-        ? `Hey! I'm here to help you capture the stuff you love — the music, places, books, shows, whatever you find yourself telling people about.\n\nJust tell me about something you'd recommend, and I'll save it to your profile.\n\nWhat have you been recommending to people lately?`
-        : n < 10
-        ? `You've got ${n} recommendations so far.\n\n${randomPrompt}`
-        : `${n} recs and counting.\n\n${randomPrompt}`;
-      setMessages([{ role: "ai", text: openingMessage }]);
+    if (!dbLoaded || !isCurator || !profile) return;
+    if (messages.length > 0) return;
+
+    // First-time curator: generate personalized AI opening via API
+    if (isFirstTime && !openingGenerated.current) {
+      openingGenerated.current = true;
+      setTyping(true);
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          generateOpening: true,
+          curatorName: profile.name,
+          curatorHandle: profile.handle?.replace('@', ''),
+          curatorBio: profile.bio || '',
+          profileId,
+          recommendations: [],
+        }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          setTyping(false);
+          const text = data.message;
+          setMessages([{ role: "ai", text }]);
+          saveMsgToDb("ai", text);
+        })
+        .catch(() => {
+          setTyping(false);
+          setMessages([{ role: "ai", text: `Hey ${profile.name}! I'm here to learn what you're into and make your recommendations work for you. What's something you wish more people knew about?` }]);
+        });
+      return;
     }
+
+    // Returning curator: standard opening
+    const openingPrompts = [
+      "What's something you're enjoying that you want to capture and share?",
+      "What have you been recommending to people lately?",
+      "Anything new you've discovered that deserves a spot in your collection?",
+      "What's something you keep telling people about?",
+    ];
+    const randomPrompt = openingPrompts[Math.floor(Math.random() * openingPrompts.length)];
+    const openingMessage = n < 10
+      ? `You've got ${n} recommendations so far.\n\n${randomPrompt}`
+      : `${n} recs and counting.\n\n${randomPrompt}`;
+    setMessages([{ role: "ai", text: openingMessage }]);
   }, [dbLoaded]);
 
   const send = async () => {
@@ -129,6 +159,9 @@ export default function ChatView({ variant }) {
           message: enrichedMsg,
           isVisitor: isVis,
           curatorName: profile.name,
+          curatorHandle: profile.handle?.replace('@', ''),
+          curatorBio: profile.bio || '',
+          profileId,
           recommendations: items.map(item => ({
             title: item.title, category: item.category,
             context: item.context, tags: item.tags, date: item.date
