@@ -313,11 +313,7 @@ export default function VisitorProfile({ mode }) {
             </div>
           )}
         </>
-      ) : (
-        <div style={{ textAlign: "center", padding: "48px 20px" }}>
-          <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No recommendations yet</p>
-        </div>
-      )}
+      ) : null}
 
       </div>
     </div>
