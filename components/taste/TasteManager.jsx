@@ -172,10 +172,8 @@ export default function TasteManager({ embedded = false }) {
                   <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 1 }}>{ct.label} {"·"} {fmtDate(item.date)}</div>
                 </div>
               </div>
-              {isArch ? (
+              {isArch && (
                 <button onClick={function() { restoreItem(item.id); }} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid #6BAA8E40", background: "#6BAA8E15", color: "#6BAA8E", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: F, flexShrink: 0 }}>Restore</button>
-              ) : (
-                <button onClick={function() { removeItem(item.id); }} style={{ width: 28, height: 28, borderRadius: 14, border: "1px solid " + T.bdr, background: "none", color: T.ink3, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{"\u2715"}</button>
               )}
             </div>
           </div>
