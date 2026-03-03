@@ -3,16 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { T, F, S, MN, CAT } from "@/lib/constants";
+import { T, F, S, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
   const ctx = useCurator();
   const { profile, profileId, tasteItems, isOwner } = ctx;
-  const [subscribed, setSubscribed] = useState(false);
   const [subToggling, setSubToggling] = useState(false);
-  const [subEmail, setSubEmail] = useState("");
 
   // Local subscription state for visitor mode (context may not provide these)
   const [localSubbed, setLocalSubbed] = useState(false);
@@ -105,21 +103,6 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Visitor top bar */}
-      {mode === "visitor" && (
-        <div style={{ padding: "48px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontFamily: S, fontSize: 15, color: T.ink3 }}>curators</span>
-          {isOwner ? (
-            <button onClick={() => router.push(`/${handle}/edit`)} style={{
-              background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
-              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.accText,
-            }}>Edit Profile</button>
-          ) : (
-            <button onClick={() => router.push('/login')} style={{ background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: MN, fontSize: 9, color: T.ink3 }}>log in →</button>
-          )}
-        </div>
-      )}
-
       {/* Hero */}
       <div style={{ padding: mode === "curator" ? "20px 24px 0" : "36px 24px 0", textAlign: "center" }}>
         <div style={{
@@ -185,49 +168,6 @@ export default function VisitorProfile({ mode }) {
           {profile.bio}
         </p>
       </div>
-
-      {/* Email subscribe widget */}
-      {!subscribed ? (
-        <div style={{ padding: "16px 28px 0" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="email"
-              value={subEmail}
-              onChange={e => setSubEmail(e.target.value)}
-              placeholder={`Get notified of new recs`}
-              style={{
-                flex: 1, padding: "10px 14px", borderRadius: 10, fontSize: 13,
-                fontFamily: F, background: T.s, border: "1px solid " + T.bdr,
-                color: T.ink, outline: "none",
-              }}
-              onKeyDown={e => e.key === "Enter" && subEmail.includes("@") && (async () => {
-                console.log("Subscribing with curator_id:", profileId, "email:", subEmail);
-                const { error } = await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
-                if (error) { console.error("Subscribe failed:", error, "curator_id was:", profileId); return; }
-                setSubscribed(true);
-              })()}
-            />
-            <button
-              onClick={async () => {
-                if (!subEmail.includes("@")) return;
-                console.log("Subscribing with curator_id:", profileId, "email:", subEmail);
-                const { error } = await supabase.from("subscribers").insert({ curator_id: profileId, email: subEmail });
-                if (error) { console.error("Subscribe failed:", error, "curator_id was:", profileId); return; }
-                setSubscribed(true);
-              }}
-              style={{
-                padding: "10px 16px", borderRadius: 10, border: "none",
-                background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
-                fontFamily: F, cursor: "pointer", whiteSpace: "nowrap",
-              }}
-            >Subscribe</button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ padding: "16px 28px 0", textAlign: "center" }}>
-          <p style={{ fontFamily: F, fontSize: 13, color: T.acc }}>✓ You'll get notified of new recs</p>
-        </div>
-      )}
 
       {/* Taste spectrum */}
       <div style={{ padding: "24px 28px 0" }}>
