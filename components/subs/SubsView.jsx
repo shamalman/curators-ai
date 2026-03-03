@@ -8,7 +8,7 @@ import { useCurator } from "@/context/CuratorContext"
 
 export default function SubsView() {
   const router = useRouter()
-  const { profileId, profile, mySubscriptions, mySubscribers } = useCurator()
+  const { profileId, profile, mySubscriptions, mySubscribers, refreshSubscriptions } = useCurator()
   const [tab, setTab] = useState("subscriptions")
 
   // Email subscribers (legacy)
@@ -16,6 +16,17 @@ export default function SubsView() {
   const [emailLoaded, setEmailLoaded] = useState(false)
 
   const handle = profile?.handle?.replace("@", "") || ""
+
+  // Refresh subscriptions from DB on mount
+  useEffect(() => {
+    console.log("[SubsView] profileId:", profileId, "mySubscriptions from context:", mySubscriptions)
+    if (refreshSubscriptions) {
+      console.log("[SubsView] calling refreshSubscriptions...")
+      refreshSubscriptions().then(() => {
+        console.log("[SubsView] refreshSubscriptions done, mySubscriptions:", mySubscriptions)
+      })
+    }
+  }, [profileId, refreshSubscriptions])
 
   useEffect(() => {
     if (!profileId) return
