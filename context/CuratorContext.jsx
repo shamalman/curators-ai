@@ -26,6 +26,9 @@ export function CuratorProvider({ children }) {
   const [mySubscribers, setMySubscribers] = useState([]);
   const [mySubscriptionIds, setMySubscriptionIds] = useState(new Set());
 
+  // Saved recs state
+  const [savedRecIds, setSavedRecIds] = useState(new Set());
+
   // Load profile + recs + messages from Supabase
   const loadData = useCallback(async () => {
     try {
@@ -114,6 +117,15 @@ export function CuratorProvider({ children }) {
       } catch (subErr) {
         console.warn("Failed to load subscriptions (table may not exist yet):", subErr);
       }
+
+      // Load saved recs — non-blocking
+      try {
+        const { data: savedRows } = await supabase
+          .from("saved_recs").select("recommendation_id").eq("profile_id", prof.id);
+        if (savedRows && savedRows.length > 0) {
+          setSavedRecIds(new Set(savedRows.map(r => r.recommendation_id)));
+        }
+      } catch (e) { console.warn("Failed to load saved recs:", e); }
     } catch (err) {
       console.error("Failed to load from Supabase:", err);
       setDbLoaded(true);
@@ -135,6 +147,7 @@ export function CuratorProvider({ children }) {
         setMySubscriptions([]);
         setMySubscribers([]);
         setMySubscriptionIds(new Set());
+        setSavedRecIds(new Set());
       }
     });
     return () => subscription.unsubscribe();
@@ -323,6 +336,34 @@ export function CuratorProvider({ children }) {
     } catch (err) { console.error("Failed to unsubscribe:", err); }
   };
 
+  const saveRec = useCallback(async (recId) => {
+    if (!profileId) return;
+    setSavedRecIds(prev => new Set([...prev, recId]));
+    try {
+      const { data: existing } = await supabase.from("saved_recs")
+        .select("id").eq("profile_id", profileId).eq("recommendation_id", recId)
+        .limit(1).maybeSingle();
+      if (!existing) {
+        await supabase.from("saved_recs").insert({ profile_id: profileId, recommendation_id: recId });
+      }
+    } catch (err) {
+      console.error("Failed to save rec:", err);
+      setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
+    }
+  }, [profileId]);
+
+  const unsaveRec = useCallback(async (recId) => {
+    if (!profileId) return;
+    setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
+    try {
+      await supabase.from("saved_recs").delete()
+        .eq("profile_id", profileId).eq("recommendation_id", recId);
+    } catch (err) {
+      console.error("Failed to unsave rec:", err);
+      setSavedRecIds(prev => new Set([...prev, recId]));
+    }
+  }, [profileId]);
+
   const removeItem = async (id) => {
     if (!window.confirm("\u26A0\uFE0F DELETE RECOMMENDATION\n\nThis will permanently delete this recommendation and cannot be undone. Are you sure?")) return;
     setRemoving(id);
@@ -384,6 +425,7 @@ export function CuratorProvider({ children }) {
       logout,
       mySubscriptions, mySubscribers, mySubscriptionIds,
       subscribe, unsubscribe, refreshSubscriptions,
+      savedRecIds, saveRec, unsaveRec,
       isOwner: true,
     }}>
       {children}

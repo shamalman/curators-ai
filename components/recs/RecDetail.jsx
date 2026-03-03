@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import LinkDisplay from "@/components/shared/LinkDisplay";
@@ -25,7 +26,7 @@ export function CuratorRecDetail({ slug }) {
   const router = useRouter();
   const { profile, tasteItems, updateRec, archived, removeItem, restoreItem, toggleVisibility } = useCurator();
 
-  const selectedItem = tasteItems.find(i => i.slug === slug);
+  const selectedItem = tasteItems.find(i => i.slug === slug || i.id === slug);
 
   // Local state for editing
   const [editingItem, setEditingItem] = useState(null);
@@ -889,6 +890,169 @@ export function VisitorRecDetail({ slug }) {
           </div>}
         </div>
       </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Network/Saved Rec Detail (viewing another curator's rec) ── */
+export function NetworkRecDetail({ slug }) {
+  const router = useRouter();
+  const { profileId, savedRecIds, saveRec, unsaveRec, mySubscriptionIds, subscribe } = useCurator();
+  const [rec, setRec] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      // Try by slug first, then by ID
+      let { data } = await supabase
+        .from("recommendations")
+        .select("*, profiles(id, name, handle)")
+        .eq("slug", slug)
+        .eq("status", "approved")
+        .limit(1)
+        .maybeSingle();
+      if (!data) {
+        const res = await supabase
+          .from("recommendations")
+          .select("*, profiles(id, name, handle)")
+          .eq("id", slug)
+          .limit(1)
+          .maybeSingle();
+        data = res.data;
+      }
+      setRec(data);
+      setLoading(false);
+    }
+    load();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!rec) {
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <div style={{ fontSize: 28, opacity: 0.3 }}>{"\uD83D\uDD0D"}</div>
+        <div style={{ fontFamily: F, fontSize: 15, color: T.ink3 }}>Rec not found</div>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer" }}>{"\u2190"} Go back</button>
+      </div>
+    );
+  }
+
+  const c = CAT[rec.category] || CAT.other;
+  const curator = rec.profiles || {};
+  const isBookmarked = savedRecIds.has(rec.id);
+  const isSubscribed = curator.id ? mySubscriptionIds.has(curator.id) : false;
+  const item = { ...rec, date: rec.created_at?.split("T")[0] };
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
+        {/* Header */}
+        <div style={{ padding: "52px 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          {/* Bookmark button */}
+          <button onClick={() => isBookmarked ? unsaveRec(rec.id) : saveRec(rec.id)} style={{
+            width: 36, height: 36, borderRadius: 10, border: "1px solid " + T.bdr,
+            background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="16" height="16" viewBox="0 0 14 14" fill={isBookmarked ? T.acc : "none"} stroke={isBookmarked ? T.acc : T.ink3} strokeWidth="1.5">
+              <path d="M3 1.5h8a.5.5 0 0 1 .5.5v10.5L7 9.5 2.5 12.5V2a.5.5 0 0 1 .5-.5z" />
+            </svg>
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 40px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
+          <div className="fu">
+            {/* Curator attribution */}
+            <div onClick={() => router.push(`/${curator.handle}`)} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+              background: T.s, borderRadius: 14, border: "1px solid " + T.bdr,
+              marginBottom: 20, cursor: "pointer",
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12, background: T.accSoft,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <span style={{ fontFamily: S, fontSize: 17, color: T.acc, fontWeight: 400 }}>
+                  {curator.name?.[0] || "?"}
+                </span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{curator.name}</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>@{curator.handle}</div>
+              </div>
+              {!isSubscribed && curator.id && curator.id !== profileId && (
+                <button onClick={(e) => { e.stopPropagation(); subscribe(curator.id); }} style={{
+                  padding: "7px 14px", borderRadius: 8, border: "none",
+                  background: T.acc, color: T.accText,
+                  fontSize: 12, fontWeight: 600, fontFamily: F, cursor: "pointer", flexShrink: 0,
+                }}>Subscribe</button>
+              )}
+              {isSubscribed && (
+                <span style={{ fontSize: 11, color: T.ink3, fontFamily: F, fontWeight: 500 }}>Subscribed</span>
+              )}
+            </div>
+
+            {/* Category + date */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 16, background: c.bg,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
+                border: `1px solid ${c.color}20`,
+              }}>{c.emoji}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: c.color, fontFamily: F }}>{c.label}</div>
+                <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 2 }}>Recommended {fmtDateFull(item.date)}</div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h1 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, lineHeight: 1.2, marginBottom: 20 }}>{rec.title}</h1>
+
+            {/* Context */}
+            {rec.context && (
+              <div style={{
+                padding: "20px 22px", background: T.s, borderRadius: 16,
+                border: "1px solid " + T.bdr, marginBottom: 20,
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>
+                  Why {curator.name} recommends this
+                </div>
+                <p style={{ fontSize: 15, lineHeight: 1.6, color: T.ink, fontFamily: F, whiteSpace: "pre-line" }}>
+                  <Linkify text={rec.context} style={{ fontSize: 15, fontFamily: F }} />
+                </p>
+              </div>
+            )}
+
+            {/* Tags */}
+            {rec.tags?.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
+                {rec.tags.map(tag => (
+                  <span key={tag} style={{ padding: "6px 14px", borderRadius: 10, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>{tag}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Links */}
+            {rec.links?.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
+                <LinkDisplay links={rec.links} />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
