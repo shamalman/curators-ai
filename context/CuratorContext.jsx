@@ -121,7 +121,7 @@ export function CuratorProvider({ children }) {
       // Load saved recs — non-blocking
       try {
         const { data: savedRows, error: savedErr } = await supabase
-          .from("saved_recs").select("recommendation_id").eq("profile_id", prof.id);
+          .from("saved_recs").select("recommendation_id").eq("user_id", prof.id);
         console.log("[loadData] saved_recs rows:", savedRows, "error:", savedErr);
         if (savedRows && savedRows.length > 0) {
           setSavedRecIds(new Set(savedRows.map(r => r.recommendation_id)));
@@ -343,12 +343,12 @@ export function CuratorProvider({ children }) {
     setSavedRecIds(prev => new Set([...prev, recId]));
     try {
       const { data: existing, error: selectErr } = await supabase.from("saved_recs")
-        .select("id").eq("profile_id", profileId).eq("recommendation_id", recId)
+        .select("id").eq("user_id", profileId).eq("recommendation_id", recId)
         .limit(1).maybeSingle();
       if (selectErr) console.error("[saveRec] select error:", selectErr);
       if (!existing) {
         const { data: inserted, error: insertErr } = await supabase.from("saved_recs")
-          .insert({ profile_id: profileId, recommendation_id: recId }).select();
+          .insert({ user_id: profileId, recommendation_id: recId }).select();
         console.log("[saveRec] insert result:", inserted, "error:", insertErr);
         if (insertErr) {
           console.error("[saveRec] insert failed:", insertErr);
@@ -369,7 +369,7 @@ export function CuratorProvider({ children }) {
     setSavedRecIds(prev => { const next = new Set(prev); next.delete(recId); return next; });
     try {
       const { error: delErr } = await supabase.from("saved_recs").delete()
-        .eq("profile_id", profileId).eq("recommendation_id", recId);
+        .eq("user_id", profileId).eq("recommendation_id", recId);
       if (delErr) console.error("[unsaveRec] delete error:", delErr);
     } catch (err) {
       console.error("[unsaveRec] exception:", err);
