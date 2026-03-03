@@ -77,13 +77,6 @@ export function CuratorProvider({ children }) {
 
       setDbLoaded(true);
 
-      // DEBUG: plain select with no joins or filters except subscriber_id
-      const { data: testSubs, error: testErr } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("subscriber_id", prof.id);
-      console.log("DEBUG raw subscriptions query for profileId:", prof.id, "result:", testSubs, "error:", testErr);
-
       // Load subscriptions separately — non-blocking so core data loads even if table doesn't exist
       try {
         // My subscriptions (curators I follow)
@@ -259,13 +252,28 @@ export function CuratorProvider({ children }) {
   const subscribe = async (curatorId) => {
     if (!profileId) return;
     try {
-      const { data, error } = await supabase.from("subscriptions").insert({
-        subscriber_id: profileId,
-        curator_id: curatorId,
-      }).select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))").single();
-      if (error) throw error;
-      setMySubscriptions(prev => [data, ...prev]);
+      // Check if a row already exists (possibly with unsubscribed_at set)
+      const { data: existing } = await supabase.from("subscriptions")
+        .select("*")
+        .eq("subscriber_id", profileId)
+        .eq("curator_id", curatorId)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        // Re-subscribe: clear unsubscribed_at
+        await supabase.from("subscriptions")
+          .update({ unsubscribed_at: null })
+          .eq("id", existing.id);
+      } else {
+        // New subscription
+        await supabase.from("subscriptions").insert({
+          subscriber_id: profileId,
+          curator_id: curatorId,
+        });
+      }
       setMySubscriptionIds(prev => new Set([...prev, curatorId]));
+      // Refresh to get full data with profiles
+      await refreshSubscriptions();
     } catch (err) { console.error("Failed to subscribe:", err); }
   };
 

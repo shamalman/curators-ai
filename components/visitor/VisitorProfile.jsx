@@ -153,8 +153,21 @@ export default function VisitorProfile({ mode }) {
                   .is("unsubscribed_at", null);
                 setLocalSubbed(false);
               } else {
-                await supabase.from("subscriptions")
-                  .insert({ subscriber_id: myProfileId, curator_id: profileId });
+                // Check if row already exists (previously unsubscribed)
+                const { data: existing } = await supabase.from("subscriptions")
+                  .select("*")
+                  .eq("subscriber_id", myProfileId)
+                  .eq("curator_id", profileId)
+                  .limit(1)
+                  .maybeSingle();
+                if (existing) {
+                  await supabase.from("subscriptions")
+                    .update({ unsubscribed_at: null })
+                    .eq("id", existing.id);
+                } else {
+                  await supabase.from("subscriptions")
+                    .insert({ subscriber_id: myProfileId, curator_id: profileId });
+                }
                 setLocalSubbed(true);
               }
             } catch (err) { console.error("Subscribe toggle failed:", err); }
