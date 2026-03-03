@@ -79,25 +79,38 @@ export function CuratorProvider({ children }) {
 
       // Load subscriptions separately — non-blocking so core data loads even if table doesn't exist
       try {
-        console.log("[CuratorContext loadData] fetching subscriptions for profileId:", prof.id);
-        const { data: mySubs, error: subsErr } = await supabase
-          .from("subscriptions")
-          .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
-          .eq("subscriber_id", prof.id)
-          .is("unsubscribed_at", null);
-        console.log("[CuratorContext loadData] mySubscriptions result:", mySubs, "error:", subsErr);
-        if (mySubs) {
-          setMySubscriptions(mySubs);
-          setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
+        // My subscriptions (curators I follow)
+        const { data: subRows } = await supabase
+          .from("subscriptions").select("*")
+          .eq("subscriber_id", prof.id).is("unsubscribed_at", null);
+        if (subRows && subRows.length > 0) {
+          const curatorIds = subRows.map(s => s.curator_id);
+          const { data: curatorProfiles } = await supabase
+            .from("profiles").select("id, name, handle, bio").in("id", curatorIds);
+          const profileMap = {};
+          (curatorProfiles || []).forEach(p => { profileMap[p.id] = p; });
+          const merged = subRows.map(s => ({ ...s, curator: profileMap[s.curator_id] || null }));
+          setMySubscriptions(merged);
+          setMySubscriptionIds(new Set(curatorIds));
+        } else {
+          setMySubscriptions(subRows || []);
+          setMySubscriptionIds(new Set());
         }
 
-        const { data: myFans, error: fansErr } = await supabase
-          .from("subscriptions")
-          .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
-          .eq("curator_id", prof.id)
-          .is("unsubscribed_at", null);
-        console.log("[CuratorContext loadData] mySubscribers result:", myFans, "error:", fansErr);
-        if (myFans) setMySubscribers(myFans);
+        // My subscribers (people following me)
+        const { data: fanRows } = await supabase
+          .from("subscriptions").select("*")
+          .eq("curator_id", prof.id).is("unsubscribed_at", null);
+        if (fanRows && fanRows.length > 0) {
+          const subscriberIds = fanRows.map(s => s.subscriber_id);
+          const { data: subProfiles } = await supabase
+            .from("profiles").select("id, name, handle, bio").in("id", subscriberIds);
+          const profileMap = {};
+          (subProfiles || []).forEach(p => { profileMap[p.id] = p; });
+          setMySubscribers(fanRows.map(s => ({ ...s, subscriber: profileMap[s.subscriber_id] || null })));
+        } else {
+          setMySubscribers(fanRows || []);
+        }
       } catch (subErr) {
         console.warn("Failed to load subscriptions (table may not exist yet):", subErr);
       }
@@ -202,24 +215,35 @@ export function CuratorProvider({ children }) {
   const refreshSubscriptions = useCallback(async () => {
     if (!profileId) return;
     try {
-      console.log("[CuratorContext refreshSubscriptions] fetching for profileId:", profileId);
-      const { data: mySubs, error: subsErr } = await supabase
-        .from("subscriptions")
-        .select("*, curator:profiles!subscriptions_curator_id_fkey(id, name, handle, bio, recommendations(count))")
-        .eq("subscriber_id", profileId)
-        .is("unsubscribed_at", null);
-      console.log("[CuratorContext refreshSubscriptions] mySubs:", mySubs, "error:", subsErr);
-      if (mySubs) {
-        setMySubscriptions(mySubs);
-        setMySubscriptionIds(new Set(mySubs.map(s => s.curator_id)));
+      const { data: subRows } = await supabase
+        .from("subscriptions").select("*")
+        .eq("subscriber_id", profileId).is("unsubscribed_at", null);
+      if (subRows && subRows.length > 0) {
+        const curatorIds = subRows.map(s => s.curator_id);
+        const { data: curatorProfiles } = await supabase
+          .from("profiles").select("id, name, handle, bio").in("id", curatorIds);
+        const profileMap = {};
+        (curatorProfiles || []).forEach(p => { profileMap[p.id] = p; });
+        setMySubscriptions(subRows.map(s => ({ ...s, curator: profileMap[s.curator_id] || null })));
+        setMySubscriptionIds(new Set(curatorIds));
+      } else {
+        setMySubscriptions(subRows || []);
+        setMySubscriptionIds(new Set());
       }
-      const { data: myFans, error: fansErr } = await supabase
-        .from("subscriptions")
-        .select("*, subscriber:profiles!subscriptions_subscriber_id_fkey(id, name, handle, bio)")
-        .eq("curator_id", profileId)
-        .is("unsubscribed_at", null);
-      console.log("[CuratorContext refreshSubscriptions] myFans:", myFans, "error:", fansErr);
-      if (myFans) setMySubscribers(myFans);
+
+      const { data: fanRows } = await supabase
+        .from("subscriptions").select("*")
+        .eq("curator_id", profileId).is("unsubscribed_at", null);
+      if (fanRows && fanRows.length > 0) {
+        const subscriberIds = fanRows.map(s => s.subscriber_id);
+        const { data: subProfiles } = await supabase
+          .from("profiles").select("id, name, handle, bio").in("id", subscriberIds);
+        const profileMap = {};
+        (subProfiles || []).forEach(p => { profileMap[p.id] = p; });
+        setMySubscribers(fanRows.map(s => ({ ...s, subscriber: profileMap[s.subscriber_id] || null })));
+      } else {
+        setMySubscribers(fanRows || []);
+      }
     } catch (err) {
       console.warn("Failed to refresh subscriptions:", err);
     }

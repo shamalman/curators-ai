@@ -19,13 +19,7 @@ export default function SubsView() {
 
   // Refresh subscriptions from DB on mount
   useEffect(() => {
-    console.log("[SubsView] profileId:", profileId, "mySubscriptions from context:", mySubscriptions)
-    if (refreshSubscriptions) {
-      console.log("[SubsView] calling refreshSubscriptions...")
-      refreshSubscriptions().then(() => {
-        console.log("[SubsView] refreshSubscriptions done, mySubscriptions:", mySubscriptions)
-      })
-    }
+    if (refreshSubscriptions) refreshSubscriptions()
   }, [profileId, refreshSubscriptions])
 
   useEffect(() => {
