@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    "anthropic-no-log": "true"
+  }
 });
 
 const CURATOR_SYSTEM_PROMPT = `You are the AI behind Curators — a tool that helps people capture, structure, and share their personal recommendations. You are talking to a curator who is building their taste timeline.
