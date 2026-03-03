@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { T, F, S } from "@/lib/constants"
 import { supabase } from "@/lib/supabase"
 
@@ -26,6 +27,7 @@ function Toggle({ on, onToggle }) {
 }
 
 export default function SettingsView() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [weeklyDigest, setWeeklyDigest] = useState(true)
   const [newSubscriber, setNewSubscriber] = useState(true)
@@ -61,6 +63,17 @@ export default function SettingsView() {
 
         {/* Header with back button */}
         <div style={{ padding: "52px 20px 0", flexShrink: 0 }}>
+          <div style={{ marginBottom: 16 }}>
+            <button onClick={() => router.back()} style={{
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+              display: "flex", alignItems: "center",
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
           <h2 style={{ fontFamily: S, fontSize: 28, color: T.ink, fontWeight: 400, marginBottom: 24 }}>Settings</h2>
         </div>
 
