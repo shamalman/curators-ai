@@ -24,14 +24,16 @@ export default function CuratorShell({ children }) {
   }, []);
 
   const isProfilePage = handle && pathname === `/${handle}`;
-  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || isProfilePage;
+  const isHandleRoute = handle && pathname.startsWith(`/${handle}`);
+  const isHandleAsk = handle && pathname === `/${handle}/ask`;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || isHandleRoute;
   const isMainTab = pathname === "/myai" || pathname === "/recommendations" || pathname === "/subs" || isProfilePage;
   const isDeepPage = !isMainTab;
 
   // Desktop layout: fixed sidebar + natural document scroll
-  // Exception: chat (/ask) keeps its own scroll container
+  // Exception: chat (/ask, /[handle]/ask) keeps its own scroll container
   if (isDesktop) {
-    const isChat = pathname.startsWith("/myai");
+    const isChat = pathname.startsWith("/myai") || isHandleAsk;
     const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/settings");
     return (
       <>

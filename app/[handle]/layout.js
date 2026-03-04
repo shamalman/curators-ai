@@ -48,8 +48,8 @@ export default function VisitorLayout({ children }) {
     return <div style={{ minHeight: "100vh", background: T.bg }} />
   }
 
-  // Owner on /[handle]/edit → wrap in CuratorProvider + CuratorShell
-  if (isOwner && pathname === `/${handle}/edit`) {
+  // Owner on any /[handle] route → CuratorProvider + CuratorShell for navigation
+  if (isOwner) {
     return (
       <CuratorProvider>
         <CuratorShell>
@@ -59,8 +59,7 @@ export default function VisitorLayout({ children }) {
     )
   }
 
-  // All other /[handle] routes (profile, ask, [slug]) → always visitor view
-  // This lets curators see their own profile/AI exactly as visitors do
+  // Visitor view — no shell, just content
   return (
     <VisitorProvider handle={handle}>
       <div style={isDesktop ? {

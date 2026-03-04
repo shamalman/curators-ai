@@ -15,7 +15,7 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
 
 export default function ChatView({ variant }) {
   const router = useRouter();
-  const { profile, setProfile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb, saveProfileFromChat } = useCurator();
+  const { profile, setProfile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb, saveProfileFromChat, isOwner } = useCurator();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [pendingLink, setPendingLink] = useState(null);
@@ -490,11 +490,21 @@ export default function ChatView({ variant }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: V.bg }}>
       {/* Branded header with curator identity */}
-      <div style={{ padding: "48px 20px 12px", background: V.bg, flexShrink: 0, borderBottom: `1px solid ${V.bdr}` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={() => router.push(`/${profile.handle.replace('@', '')}`)} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>{"\u2190"} Profile</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
+      <div style={{ padding: isOwner ? "12px 20px 12px" : "48px 20px 12px", background: V.bg, flexShrink: 0, borderBottom: `1px solid ${V.bdr}` }}>
+        {!isOwner && (
+          <div style={{ marginBottom: 14 }}>
+            <button onClick={() => router.back()} style={{
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+              display: "flex", alignItems: "center",
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, border: `1.5px solid ${V.bdr}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: S, fontSize: 20, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
           </div>

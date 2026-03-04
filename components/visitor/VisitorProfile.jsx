@@ -94,8 +94,8 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Curator edit banner */}
-      {mode === "curator" && (
+      {/* Edit banner for owner */}
+      {isOwner && (
         <div style={{
           margin: "48px 16px 0", padding: "12px 16px", borderRadius: 12,
           background: T.acc + "15", border: `1px solid ${T.acc}30`,
@@ -119,7 +119,7 @@ export default function VisitorProfile({ mode }) {
       )}
 
       {/* Hero */}
-      <div style={{ padding: mode === "curator" ? "20px 24px 0" : "36px 24px 0", textAlign: "center" }}>
+      <div style={{ padding: isOwner ? "20px 24px 0" : "36px 24px 0", textAlign: "center" }}>
         <div style={{
           width: 92, height: 92, borderRadius: 26, margin: "0 auto 18px",
           background: `linear-gradient(145deg, ${T.s2}, ${T.s})`,
