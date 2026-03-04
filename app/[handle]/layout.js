@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, usePathname } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { VisitorProvider } from '@/context/VisitorContext'
 import { CuratorProvider } from '@/context/CuratorContext'
@@ -10,10 +10,8 @@ import { T } from '@/lib/constants'
 
 export default function VisitorLayout({ children }) {
   const { handle } = useParams()
-  const pathname = usePathname()
   const [isDesktop, setIsDesktop] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isOwner, setIsOwner] = useState(false)
   const [checked, setChecked] = useState(false)
 
   useEffect(() => {
@@ -28,42 +26,21 @@ export default function VisitorLayout({ children }) {
     async function checkAuth() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { setChecked(true); return }
-        setIsLoggedIn(true)
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("handle")
-          .eq("auth_user_id", user.id)
-          .single()
-        if (prof && prof.handle === handle) {
-          setIsOwner(true)
-        }
+        if (user) setIsLoggedIn(true)
       } catch {
-        // Not logged in or query failed — treat as visitor
+        // Not logged in — treat as anonymous visitor
       }
       setChecked(true)
     }
     checkAuth()
-  }, [handle])
+  }, [])
 
   if (!checked) {
     return <div style={{ minHeight: "100vh", background: T.bg }} />
   }
 
-  // Logged-in curator viewing their OWN profile → CuratorProvider + CuratorShell
-  // No VisitorProvider needed — CuratorContext has their data
-  if (isLoggedIn && isOwner) {
-    return (
-      <CuratorProvider>
-        <CuratorShell>
-          {children}
-        </CuratorShell>
-      </CuratorProvider>
-    )
-  }
-
-  // Logged-in curator viewing ANOTHER curator → CuratorProvider + CuratorShell + VisitorProvider
-  // Shell uses CuratorContext (logged-in user's nav), content uses VisitorContext (viewed profile)
+  // Logged-in curator (owner or not) → CuratorProvider for shell + VisitorProvider for content
+  // Shell reads CuratorContext directly; page content gets VisitorContext via useCurator()
   if (isLoggedIn) {
     return (
       <CuratorProvider>
