@@ -177,7 +177,7 @@ export default function ChatView({ variant }) {
       setTyping(false);
 
       const text = data.message;
-      const isCapturedRec = text.includes('\u{1F4CD} Adding:') || text.includes('\u{1F3F7} Suggested tags:');
+      const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
       const isProfileDraft = text.includes('\u{1F4CB} PROFILE DRAFT') || text.includes('PROFILE DRAFT');
 
       let capturedRec = null;
@@ -195,9 +195,23 @@ export default function ChatView({ variant }) {
       } else if (isCapturedRec) {
         const titleMatch = text.match(/\*\*([^*]+)\*\*/);
         const contextMatch = text.match(/"([^"]+)"/);
-        const tagsMatch = text.match(/\u{1F3F7} Suggested tags?:?\s*([^\n]+)/iu);
-        const categoryMatch = text.match(/\u{1F4C1} Category:\s*(\w+)/iu);
+        const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
+        const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
         const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
+        const validCategories = ["restaurant", "book", "music", "tv", "film", "travel", "product", "other"];
+        const parseCategory = (match) => {
+          if (!match) return 'other';
+          const raw = match[1].toLowerCase();
+          if (validCategories.includes(raw)) return raw;
+          // Common aliases
+          if (raw === 'books') return 'book';
+          if (raw === 'movies' || raw === 'movie') return 'film';
+          if (raw === 'television' || raw === 'show' || raw === 'shows') return 'tv';
+          if (raw === 'restaurants' || raw === 'dining' || raw === 'food') return 'restaurant';
+          if (raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist') return 'music';
+          if (raw === 'products') return 'product';
+          return 'other';
+        };
         if (titleMatch) {
           const parsedUrl = linkMatch ? linkMatch[1] : null;
           let linkLabel = '';
@@ -208,7 +222,7 @@ export default function ChatView({ variant }) {
             title: titleMatch[1].replace(' \u2014 ', ' - '),
             context: contextMatch ? contextMatch[1] : '',
             tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
-            category: categoryMatch ? categoryMatch[1].toLowerCase() : 'other',
+            category: parseCategory(categoryMatch),
             links: parsedUrl ? [{ url: parsedUrl, label: linkLabel, type: 'website' }] : [],
           };
         }
