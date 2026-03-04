@@ -51,6 +51,8 @@ export default function ChatView({ variant }) {
   const chatScrollRef = useRef(null);
   const shouldScroll = useRef(false);
   const isBackNav = useRef(messages.length > 0);
+  const nudgeTimer = useRef(null);
+  const typedSinceSave = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -58,6 +60,8 @@ export default function ChatView({ variant }) {
   const items = tasteItems;
   const n = items.length;
   const cats = [...new Set(items.map(i => i.category))];
+
+  useEffect(() => { return () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }; }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -322,10 +326,24 @@ export default function ChatView({ variant }) {
       revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
     };
     addRec(newItem);
-    const saveMessages = ["\u2713 Saved.", "\u2713 Added to your timeline.", "\u2713 That's in.", "\u2713 Locked in.", "\u2713 Got it."];
-    const saveMsg = saveMessages[Math.floor(Math.random() * saveMessages.length)];
-    setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true, savedLinks: newItem.links } : m), { role: "ai", text: saveMsg }]);
-    saveMsgToDb("ai", saveMsg);
+    // Immediate toast
+    setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true, savedLinks: newItem.links } : m), { role: "ai", text: "\u2713 Saved." }]);
+    saveMsgToDb("ai", "\u2713 Saved.");
+
+    // Schedule follow-up nudge after 3s (cancelled if curator starts typing)
+    typedSinceSave.current = false;
+    if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
+    const recCount = items.length + 1; // includes the one just saved
+    nudgeTimer.current = setTimeout(() => {
+      if (typedSinceSave.current) return;
+      const nudges = recCount <= 3
+        ? ["What else you got?", "Keep 'em coming.", "What's another one?"]
+        : ["What else?", "Keep going.", "What's next?", "Another one?"];
+      const nudge = nudges[Math.floor(Math.random() * nudges.length)];
+      setMessages(prev => [...prev, { role: "ai", text: nudge }]);
+      saveMsgToDb("ai", nudge);
+    }, 3000);
+
     setPendingLink(null);
     setEditingCapture(null);
     setCaptureLinkInputs(prev => { const next = { ...prev }; delete next[msgIndex]; return next; });
@@ -532,7 +550,7 @@ export default function ChatView({ variant }) {
           </div>
           <div style={{ padding: "10px 16px 28px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
+              <input value={input} onChange={e => { setInput(e.target.value); if (e.target.value) { typedSinceSave.current = true; if (nudgeTimer.current) { clearTimeout(nudgeTimer.current); nudgeTimer.current = null; } } }} onKeyDown={e => e.key === "Enter" && send()}
                 placeholder="Drop a rec, paste a link, or ask anything..."
                 style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink }}
                 onFocus={e => e.target.style.borderColor = W.accent} onBlur={e => e.target.style.borderColor = W.inputBdr}
