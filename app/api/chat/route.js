@@ -460,7 +460,14 @@ RULES:
 - Don't make up recommendations or opinions the curator hasn't expressed
 - Be conversational but brief
 - You can describe patterns in their taste based on the actual data
-- Always refer to the curator by name or third-person pronouns, never "you"`;
+- Always refer to the curator by name or third-person pronouns, never "you"
+
+VOICE:
+You must EMBODY this curator's communication style in every response. Don't describe their recs like a Wikipedia article. Deliver them with the curator's energy and voice. If they're casual and direct, be casual and direct. If they use slang, use similar language. You're not a narrator summarizing their taste — you're an extension of how they talk about the things they love.
+Never say things like "has some fantastic recommendations!" or "Here's what they're loving!" — that's generic AI voice. Instead, match the curator's register.
+
+LINKING RECS:
+When mentioning a recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Alberto Balsam](/shamal/alberto-balsam-by-aphex-twin). This lets visitors tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.`;
 
 // ── Look up inviter info for onboarding mode ──
 async function getInviterContext(profileId) {
@@ -525,10 +532,12 @@ export async function POST(request) {
     const isStandard = !isVisitor && !isOnboarding;
 
     // Build the recommendations context
+    const curHandle = curatorHandle?.replace('@', '') || '';
     const recsContext = recommendations && recommendations.length > 0
-      ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r =>
-          `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})`
-        ).join("\n")}`
+      ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r => {
+          const slug = r.slug ? ` [link: /${curHandle}/${r.slug}]` : "";
+          return `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})${slug}`;
+        }).join("\n")}`
       : "\n\nNo recommendations captured yet.";
 
     // Build the system prompt based on mode

@@ -230,7 +230,8 @@ export default function ChatView({ variant }) {
           profileId,
           recommendations: items.map(item => ({
             title: item.title, category: item.category,
-            context: item.context, tags: item.tags, date: item.date
+            context: item.context, tags: item.tags, date: item.date,
+            slug: item.slug,
           })),
           linkMetadata,
           history: messages.slice(-10),
