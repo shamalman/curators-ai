@@ -32,8 +32,14 @@ export async function middleware(req) {
     const isPublicRoute = publicRoutes.includes(path);
     const isApiRoute = path.startsWith('/api');
 
-    // Allow public routes and API routes
-    if (isPublicRoute || isApiRoute) {
+    // Visitor routes — always public (e.g. /shamal, /shamal/ask, /shamal/some-rec)
+    // These are any /[handle] paths that aren't known curator-only routes
+    const curatorOnlyPaths = ['/myai', '/profile', '/recommendations', '/settings', '/subs'];
+    const isVisitorRoute = !curatorOnlyPaths.some(p => path === p || path.startsWith(p + '/'))
+      && !isPublicRoute && !isApiRoute && path !== '/';
+
+    // Allow public routes, API routes, and visitor routes
+    if (isPublicRoute || isApiRoute || isVisitorRoute) {
       // If logged in and visiting /login or /signup, redirect to /myai
       if (session && (path === '/login' || path === '/signup')) {
         return NextResponse.redirect(new URL('/myai', req.url));
