@@ -656,13 +656,34 @@ export function VisitorRecDetail({ slug }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+          </svg>
+        </button>
         <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
           Copy link
         </button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 40px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
         <div className="fu">
+          {/* Curator attribution */}
+          <button onClick={() => router.push(`/${profile.handle.replace("@", "")}`)} style={{
+            display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 10,
+              background: `linear-gradient(145deg, ${T.s2}, ${T.s})`,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <span style={{ fontFamily: S, fontSize: 15, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
+            </div>
+            <span style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{profile.name}</span>
+            <span style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>·</span>
+            <span style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>@{profile.handle.replace("@", "")}</span>
+          </button>
+
           {/* Category + date */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
             <div style={{
