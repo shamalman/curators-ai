@@ -86,10 +86,32 @@ export default function ChatView({ variant }) {
     }
   }, [messages, typing]);
 
-  // Auto-scroll on initial load (skip if returning via back navigation)
+  // Save chat scroll position before navigating away via internal links
   useEffect(() => {
-    if (dbLoaded && messages.length > 0 && !isBackNav.current) {
-      setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "instant" }), 100);
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const handleClick = (e) => {
+      const link = e.target.closest("a[href^='/']");
+      if (link && el) {
+        sessionStorage.setItem("chatScrollPos", String(el.scrollTop));
+      }
+    };
+    el.addEventListener("click", handleClick);
+    return () => el.removeEventListener("click", handleClick);
+  }, []);
+
+  // Auto-scroll on initial load (skip + restore position if returning via back navigation)
+  useEffect(() => {
+    if (dbLoaded && messages.length > 0) {
+      if (isBackNav.current) {
+        const saved = sessionStorage.getItem("chatScrollPos");
+        if (saved != null && chatScrollRef.current) {
+          setTimeout(() => { chatScrollRef.current.scrollTop = parseInt(saved, 10); }, 80);
+        }
+        sessionStorage.removeItem("chatScrollPos");
+      } else {
+        setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "instant" }), 100);
+      }
     }
     isBackNav.current = false;
   }, [dbLoaded]);
