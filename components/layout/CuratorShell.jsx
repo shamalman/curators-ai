@@ -7,12 +7,14 @@ import { T, F, S } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 import BottomTabs from "./BottomTabs";
 import Sidebar from "./Sidebar";
+import InviteModal from "./InviteModal";
 
 export default function CuratorShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useContext(CuratorContext);
+  const { profile, profileId } = useContext(CuratorContext);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const handle = profile?.handle?.replace("@", "") || "";
   const initial = profile?.name?.[0] || "";
 
@@ -38,7 +40,8 @@ export default function CuratorShell({ children }) {
     const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/settings");
     return (
       <>
-        <Sidebar />
+        <Sidebar onInvite={() => setShowInvite(true)} />
+        {showInvite && <InviteModal profileId={profileId} onClose={() => setShowInvite(false)} />}
         <div
           className={needsFlexLayout ? undefined : "desktop-scroll"}
           style={{
@@ -100,6 +103,17 @@ export default function CuratorShell({ children }) {
                 </div>
                 <span style={{ fontFamily: F, fontSize: 12, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{handle}</span>
               </button>
+              <button onClick={() => setShowInvite(true)} style={{
+                background: "none", border: "none", cursor: "pointer", padding: 4,
+                display: "flex", alignItems: "center", flexShrink: 0,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <line x1="20" y1="8" x2="20" y2="14" />
+                  <line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+              </button>
               <button onClick={() => router.push("/settings")} style={{
                 background: "none", border: "none", cursor: "pointer", padding: 4,
                 display: "flex", alignItems: "center", flexShrink: 0,
@@ -115,6 +129,7 @@ export default function CuratorShell({ children }) {
       )}
       {children}
       {shouldShowTabs && <BottomTabs />}
+      {showInvite && <InviteModal profileId={profileId} onClose={() => setShowInvite(false)} />}
     </div>
   );
 }

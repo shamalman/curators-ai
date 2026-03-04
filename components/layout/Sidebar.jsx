@@ -5,7 +5,7 @@ import { useContext } from "react";
 import { T, F, S } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 
-export default function Sidebar() {
+export default function Sidebar({ onInvite }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useContext(CuratorContext);
@@ -63,8 +63,32 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Settings + Logout */}
+      {/* Invite + Settings */}
       <div style={{ padding: "8px 12px 16px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+        <button
+          onClick={onInvite}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 12px", borderRadius: 8, border: "none",
+            background: "transparent",
+            color: T.ink3,
+            fontFamily: F, fontSize: 14, fontWeight: 500,
+            cursor: "pointer", textAlign: "left",
+            transition: "background .15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = T.s}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+          </span>
+          <span>Invite</span>
+        </button>
         <button
           onClick={() => router.push("/settings")}
           style={{
