@@ -196,7 +196,7 @@ export default function ChatView({ variant }) {
         const contextMatch = text.match(/"([^"]+)"/);
         const tagsMatch = text.match(/\u{1F3F7} Suggested tags?:?\s*([^\n]+)/iu);
         const categoryMatch = text.match(/\u{1F4C1} Category:\s*(\w+)/iu);
-        const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(https?:\/\/[^\s]+)/iu);
+        const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
         if (titleMatch) {
           const parsedUrl = linkMatch ? linkMatch[1] : null;
           let linkLabel = '';
