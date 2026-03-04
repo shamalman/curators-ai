@@ -6,7 +6,7 @@ import { useCurator } from "@/context/CuratorContext";
 
 export default function EditProfile() {
   const router = useRouter();
-  const { profile, setProfile, saveProfile } = useCurator();
+  const { profile, setProfile, saveProfile, tasteItems } = useCurator();
 
   if (!profile) return null;
 
@@ -76,17 +76,22 @@ export default function EditProfile() {
         <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Interactions</div>
 
         <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", borderBottom: `1px solid ${T.bdr}` }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Public AI access</div>
-              <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>Let visitors chat with your taste AI</div>
+          <div style={{ padding: "16px", borderBottom: `1px solid ${T.bdr}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Public AI access</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>Let visitors chat with your taste AI</div>
+              </div>
+              <button onClick={() => setProfile(p => ({ ...p, aiEnabled: !p.aiEnabled }))} style={{
+                width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+                background: profile.aiEnabled ? T.acc : T.bdr, transition: "background .2s",
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: profile.aiEnabled ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
             </div>
-            <button onClick={() => setProfile(p => ({ ...p, aiEnabled: !p.aiEnabled }))} style={{
-              width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
-              background: profile.aiEnabled ? T.acc : T.bdr, transition: "background .2s",
-            }}>
-              <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: profile.aiEnabled ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-            </button>
+            <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
+              Your AI becomes available to visitors once you have 5+ recommendations.{tasteItems.length < 5 ? ` You have ${tasteItems.length} so far.` : ''}
+            </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px" }}>
             <div style={{ flex: 1 }}>

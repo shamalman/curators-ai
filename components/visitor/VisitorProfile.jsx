@@ -201,42 +201,52 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Action cards */}
-      {profile.aiEnabled && (
-        <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
-            <button onClick={onOpenAI} style={{
-              flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr, cursor: "pointer", textAlign: "left",
-              background: `linear-gradient(160deg, ${T.s2}, ${T.s})`, position: "relative", overflow: "hidden",
+      {/* Ask AI banner — only when AI enabled and 5+ public recs */}
+      {profile.aiEnabled && n >= 5 && (
+        <div style={{ padding: "16px 20px 0" }}>
+          <button onClick={onOpenAI} style={{
+            width: "100%", padding: "18px 20px", borderRadius: 16, border: `1px solid ${T.acc}30`,
+            cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 16,
+            background: `linear-gradient(135deg, ${T.acc}12, ${T.s})`, position: "relative", overflow: "hidden",
+          }}>
+            <div style={{
+              width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+              background: `linear-gradient(145deg, ${T.acc}25, ${T.acc}10)`, border: `1px solid ${T.acc}30`,
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-                <span style={{ fontSize: 18 }}>🧠</span>
+              <span style={{ fontFamily: S, fontSize: 22, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 3 }}>
+                Chat with {profile.name}'s AI
               </div>
-              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>
-                Ask {profile.name}'s AI
+              <div style={{ fontFamily: F, fontSize: 12, color: T.ink2, lineHeight: 1.4 }}>
+                Ask about their recommendations — get personalized suggestions from their taste
               </div>
-              <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
-                Get streams of their new recommendations
-              </div>
-              <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
-            </button>
-          {/* TODO: Request a rec — hidden until end-to-end flow is built
-          {profile.acceptRequests && (
-            <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
-              flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
-              background: T.s, cursor: "pointer", textAlign: "left",
-            }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-                <span style={{ fontSize: 18 }}>🙏</span>
-              </div>
-              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>Request a rec</div>
-              <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
-                Ask {profile.name} directly for a recommendation
-              </div>
-            </button>
-          )}
-          */}
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.acc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M5 12h14" /><path d="M12 5l7 7-7 7" />
+            </svg>
+            <div style={{ position: "absolute", top: 14, right: 14, width: 6, height: 6, borderRadius: 3, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
+          </button>
         </div>
       )}
+      {/* TODO: Request a rec — hidden until end-to-end flow is built
+      {profile.acceptRequests && (
+        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
+          flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
+          background: T.s, cursor: "pointer", textAlign: "left",
+        }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <span style={{ fontSize: 18 }}>🙏</span>
+          </div>
+          <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>Request a rec</div>
+          <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
+            Ask {profile.name} directly for a recommendation
+          </div>
+        </button>
+      )}
+      */}
 
       {/* Taste preview */}
       {n > 0 && profile.showRecs !== false ? (
