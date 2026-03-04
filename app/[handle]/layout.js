@@ -44,6 +44,8 @@ export default function VisitorLayout({ children }) {
     checkOwnership()
   }, [handle])
 
+  console.log("[VISITOR LAYOUT]", pathname, "isOwner:", isOwner, "checked:", checked)
+
   if (!checked) {
     return <div style={{ minHeight: "100vh", background: T.bg }} />
   }

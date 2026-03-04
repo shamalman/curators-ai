@@ -26,6 +26,7 @@ export async function middleware(req) {
     const { data: { session } } = await supabase.auth.getSession();
 
     const path = req.nextUrl.pathname;
+    console.log("[MIDDLEWARE]", path, "session:", !!session);
 
     // Public routes — no auth required
     const publicRoutes = ['/login', '/signup', '/onboarding', '/onboarding/welcome'];

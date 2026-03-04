@@ -486,6 +486,7 @@ export default function ChatView({ variant }) {
   }
 
   // ── VISITOR CHAT ──
+  console.log("[CHATVIEW VISITOR]", "variant:", variant, "isCurator:", isCurator, "profile:", profile?.name, "dbLoaded:", dbLoaded)
   if (!profile) return null;
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: V.bg }}>
