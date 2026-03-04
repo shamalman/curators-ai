@@ -24,15 +24,15 @@ export default function CuratorShell({ children }) {
   }, []);
 
   const isProfilePage = handle && pathname === `/${handle}`;
-  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/profile") || pathname.startsWith("/settings") || isProfilePage;
-  const isMainTab = pathname === "/myai" || pathname === "/recommendations" || pathname === "/subs" || pathname === "/profile" || isProfilePage;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || isProfilePage;
+  const isMainTab = pathname === "/myai" || pathname === "/recommendations" || pathname === "/subs" || isProfilePage;
   const isDeepPage = !isMainTab;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask) keeps its own scroll container
   if (isDesktop) {
     const isChat = pathname.startsWith("/myai");
-    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/profile") || pathname.startsWith("/settings");
+    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/settings");
     return (
       <>
         <Sidebar />
@@ -84,7 +84,7 @@ export default function CuratorShell({ children }) {
               <span style={{ fontFamily: S, fontSize: 15, color: T.acc, fontWeight: 400 }}>curators</span>
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button onClick={() => router.push("/profile")} style={{
+              <button onClick={() => handle && router.push(`/${handle}`)} style={{
                 display: "flex", alignItems: "center", gap: 7,
                 background: "none", border: "none", cursor: "pointer", padding: 0,
                 minWidth: 0,

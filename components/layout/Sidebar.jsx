@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { T, F, S } from "@/lib/constants";
-import { supabase } from "@/lib/supabase";
 import { useCurator } from "@/context/CuratorContext";
 
 export default function Sidebar() {
@@ -16,14 +15,14 @@ export default function Sidebar() {
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations" },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
-    { id: "profile", icon: "\u25C7", label: "Profile", path: "/profile" },
+    { id: "profile", icon: "\u25C7", label: "Profile", path: handle ? `/${handle}` : "/myai" },
   ];
 
   const isActive = (item) => {
     if (item.id === "recs") return pathname.startsWith("/recommendations");
     if (item.id === "ask") return pathname.startsWith("/myai");
     if (item.id === "subs") return pathname.startsWith("/subs");
-    if (item.id === "profile") return pathname.startsWith("/profile") || pathname.startsWith("/settings");
+    if (item.id === "profile") return (handle && pathname === `/${handle}`) || pathname.startsWith("/settings");
     return false;
   };
 

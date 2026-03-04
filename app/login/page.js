@@ -23,31 +23,25 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
     try {
-      console.log("[login] signing in…")
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
       if (authErr) throw authErr
-      console.log("[login] auth success, user:", data.user.id)
 
       // Ensure session cookie is written before redirecting
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log("[login] session confirmed:", !!session)
+      await supabase.auth.getSession()
 
-      const { data: profile, error: profErr } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("onboarding_complete")
         .eq("auth_user_id", data.user.id)
         .single()
-      console.log("[login] profile query:", { profile, profErr })
 
       if (!profile || !profile.onboarding_complete) {
-        console.log("[login] redirecting to /onboarding")
         window.location.href = "/onboarding"
       } else {
-        console.log("[login] redirecting to /myai")
         window.location.href = "/myai"
       }
     } catch (err) {
-      console.error("[login] error:", err)
+      console.error("Login failed:", err)
       setError(err.message || "Login failed")
       setLoading(false)
     }

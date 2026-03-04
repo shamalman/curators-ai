@@ -2,10 +2,13 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { T, W, F } from "@/lib/constants";
+import { useCurator } from "@/context/CuratorContext";
 
 export default function BottomTabs() {
   const pathname = usePathname();
   const router = useRouter();
+  const { profile } = useCurator();
+  const handle = profile?.handle?.replace("@", "") || "";
 
   const isAsk = pathname.startsWith("/myai");
 
@@ -13,7 +16,7 @@ export default function BottomTabs() {
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai", active: pathname.startsWith("/myai"), activeColor: W.accent },
     { id: "recs", icon: "\u25C9", label: "Recs", path: "/recommendations", active: pathname.startsWith("/recommendations"), activeColor: T.acc },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs", active: pathname.startsWith("/subs"), activeColor: T.acc },
-    { id: "profile", icon: "\u25C7", label: "Profile", path: "/profile", active: pathname.startsWith("/profile") || pathname.startsWith("/settings"), activeColor: T.acc },
+    { id: "profile", icon: "\u25C7", label: "Profile", path: handle ? `/${handle}` : "/myai", active: (handle && pathname === `/${handle}`) || pathname.startsWith("/settings"), activeColor: T.acc },
   ];
 
   return (
