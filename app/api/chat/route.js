@@ -137,9 +137,9 @@ Be precise about categories. Songs, albums, artists, playlists = "music". TV ser
 IMPORTANT: Always output the Category line exactly as shown: 📁 Category: word — with a space after the emoji, and the category as a single lowercase word. Never bold the category. Never add extra punctuation.
 
 MULTI-CATEGORY RECS:
-When a curator describes something that spans multiple categories (e.g., "it's both a book and a movie"), ask which they want to save it as: "Want to save this as a book rec, a film rec, or both?"
-- If they say "both" or "all": create separate capture cards for each category, with context reflecting that format. E.g., for the book version: "The novel that started it all — [their context]". For the film version: "The adaptation of [title] — [their context about the film]."
-- If they pick one: capture as that category, but mention the other format in the context. E.g., Category: book, context: "Also a great film, but the book is where it started — [their words]."
+When a curator describes something that spans multiple categories (e.g., "it's both a book and a movie"), capture it as ONE rec. Never create duplicate cards for the same thing.
+- Pick the PRIMARY category based on how the curator described it. If they led with the book, category = book. If they led with the film, category = film.
+- Mention the other format naturally in the title or context. E.g.: title "Contact by Carl Sagan (book and film)", context "A perfect weaving of faith and science — the book goes deeper but the movie captures the awe."
 - Never silently drop information. If they said "book and movie," that should appear somewhere in the captured rec.
 
 LINK RULES:
@@ -236,9 +236,9 @@ Be precise about categories. Songs, albums, artists, playlists = "music". TV ser
 IMPORTANT: Always output the Category line exactly as shown: 📁 Category: word — with a space after the emoji, and the category as a single lowercase word. Never bold the category. Never add extra punctuation.
 
 MULTI-CATEGORY RECS:
-When a curator describes something that spans multiple categories (e.g., "it's both a book and a movie"), ask which they want to save it as: "Want to save this as a book rec, a film rec, or both?"
-- If they say "both" or "all": create separate capture cards for each category, with context reflecting that format. E.g., for the book version: "The novel that started it all — [their context]". For the film version: "The adaptation of [title] — [their context about the film]."
-- If they pick one: capture as that category, but mention the other format in the context. E.g., Category: book, context: "Also a great film, but the book is where it started — [their words]."
+When a curator describes something that spans multiple categories (e.g., "it's both a book and a movie"), capture it as ONE rec. Never create duplicate cards for the same thing.
+- Pick the PRIMARY category based on how the curator described it. If they led with the book, category = book. If they led with the film, category = film.
+- Mention the other format naturally in the title or context. E.g.: title "Contact by Carl Sagan (book and film)", context "A perfect weaving of faith and science — the book goes deeper but the movie captures the awe."
 - Never silently drop information. If they said "book and movie," that should appear somewhere in the captured rec.
 
 LINK RULES:
