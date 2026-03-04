@@ -486,14 +486,13 @@ export default function ChatView({ variant }) {
   }
 
   // ── VISITOR CHAT ──
-  console.log("[CHATVIEW VISITOR]", "variant:", variant, "isCurator:", isCurator, "profile:", profile?.name, "dbLoaded:", dbLoaded)
   if (!profile) return null;
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: V.bg }}>
       {/* Branded header with curator identity */}
       <div style={{ padding: "48px 20px 12px", background: V.bg, flexShrink: 0, borderBottom: `1px solid ${V.bdr}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>{"\u2190"} Profile</button>
+          <button onClick={() => router.push(`/${profile.handle.replace('@', '')}`)} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>{"\u2190"} Profile</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, border: `1.5px solid ${V.bdr}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
