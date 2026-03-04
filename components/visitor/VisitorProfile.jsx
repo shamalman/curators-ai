@@ -201,10 +201,9 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Two action cards */}
-      {(profile.aiEnabled || profile.acceptRequests) && (
+      {/* Action cards */}
+      {profile.aiEnabled && (
         <div style={{ padding: "12px 20px 0", display: "flex", gap: 10 }}>
-          {profile.aiEnabled && (
             <button onClick={onOpenAI} style={{
               flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr, cursor: "pointer", textAlign: "left",
               background: `linear-gradient(160deg, ${T.s2}, ${T.s})`, position: "relative", overflow: "hidden",
@@ -220,7 +219,7 @@ export default function VisitorProfile({ mode }) {
               </div>
               <div style={{ position: "absolute", top: 18, right: 18, width: 7, height: 7, borderRadius: 4, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
             </button>
-          )}
+          {/* TODO: Request a rec — hidden until end-to-end flow is built
           {profile.acceptRequests && (
             <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
               flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
@@ -235,6 +234,7 @@ export default function VisitorProfile({ mode }) {
               </div>
             </button>
           )}
+          */}
         </div>
       )}
 
