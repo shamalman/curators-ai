@@ -63,6 +63,17 @@ export default function ChatView({ variant }) {
 
   useEffect(() => { return () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }; }, []);
 
+  // Generate style summary if missing and curator has 5+ recs
+  useEffect(() => {
+    if (isCurator && dbLoaded && profileId && !profile?.styleSummary && items.length >= 5) {
+      fetch('/api/generate-style-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId }),
+      }).catch(() => {});
+    }
+  }, [dbLoaded]);
+
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
     setIsDesktop(mq.matches);
@@ -344,9 +355,10 @@ export default function ChatView({ variant }) {
       saveMsgToDb("ai", nudge);
     }, 3000);
 
-    // Fire style summary generation at milestones (fire and forget)
+    // Fire style summary generation at milestones or if missing (fire and forget)
     const milestones = [5, 10, 20];
-    if (milestones.includes(recCount)) {
+    const shouldGenerate = milestones.includes(recCount) || (!profile?.styleSummary && recCount >= 5);
+    if (shouldGenerate) {
       fetch('/api/generate-style-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
