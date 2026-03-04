@@ -478,7 +478,9 @@ export function useCurator() {
   // Both contexts are always called (rules of hooks) — one will be null
   const curator = useContext(CuratorContext);
   const visitor = useContext(VisitorContext);
-  const ctx = curator || visitor;
+  // Prefer visitor when both present — on /[handle] routes, logged-in users
+  // have CuratorProvider (for shell nav) + VisitorProvider (for viewed profile data)
+  const ctx = visitor || curator;
   if (!ctx) throw new Error("useCurator must be used within CuratorProvider or VisitorProvider");
   return ctx;
 }

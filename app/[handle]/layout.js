@@ -12,6 +12,7 @@ export default function VisitorLayout({ children }) {
   const { handle } = useParams()
   const pathname = usePathname()
   const [isDesktop, setIsDesktop] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
   const [checked, setChecked] = useState(false)
 
@@ -24,10 +25,11 @@ export default function VisitorLayout({ children }) {
   }, [])
 
   useEffect(() => {
-    async function checkOwnership() {
+    async function checkAuth() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { setChecked(true); return }
+        setIsLoggedIn(true)
         const { data: prof } = await supabase
           .from("profiles")
           .select("handle")
@@ -41,15 +43,16 @@ export default function VisitorLayout({ children }) {
       }
       setChecked(true)
     }
-    checkOwnership()
+    checkAuth()
   }, [handle])
 
   if (!checked) {
     return <div style={{ minHeight: "100vh", background: T.bg }} />
   }
 
-  // Owner on any /[handle] route → CuratorProvider + CuratorShell for navigation
-  if (isOwner) {
+  // Logged-in curator viewing their OWN profile → CuratorProvider + CuratorShell
+  // No VisitorProvider needed — CuratorContext has their data
+  if (isLoggedIn && isOwner) {
     return (
       <CuratorProvider>
         <CuratorShell>
@@ -59,7 +62,21 @@ export default function VisitorLayout({ children }) {
     )
   }
 
-  // Visitor view — no shell, just content
+  // Logged-in curator viewing ANOTHER curator → CuratorProvider + CuratorShell + VisitorProvider
+  // Shell uses CuratorContext (logged-in user's nav), content uses VisitorContext (viewed profile)
+  if (isLoggedIn) {
+    return (
+      <CuratorProvider>
+        <CuratorShell>
+          <VisitorProvider handle={handle}>
+            {children}
+          </VisitorProvider>
+        </CuratorShell>
+      </CuratorProvider>
+    )
+  }
+
+  // Anonymous visitor — no shell
   return (
     <VisitorProvider handle={handle}>
       <div style={isDesktop ? {

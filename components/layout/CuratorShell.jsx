@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useContext } from "react";
 import { T, F, S } from "@/lib/constants";
-import { useCurator } from "@/context/CuratorContext";
+import { CuratorContext } from "@/context/CuratorContext";
 import BottomTabs from "./BottomTabs";
 import Sidebar from "./Sidebar";
 
 export default function CuratorShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useCurator();
+  const { profile } = useContext(CuratorContext);
   const [isDesktop, setIsDesktop] = useState(false);
   const handle = profile?.handle?.replace("@", "") || "";
   const initial = profile?.name?.[0] || "";

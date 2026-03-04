@@ -1,13 +1,14 @@
 'use client'
 
 import { usePathname, useRouter } from "next/navigation";
+import { useContext } from "react";
 import { T, W, F } from "@/lib/constants";
-import { useCurator } from "@/context/CuratorContext";
+import { CuratorContext } from "@/context/CuratorContext";
 
 export default function BottomTabs() {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useCurator();
+  const { profile } = useContext(CuratorContext);
   const handle = profile?.handle?.replace("@", "") || "";
 
   const isAsk = pathname.startsWith("/myai");
