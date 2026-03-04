@@ -20,6 +20,7 @@ export default function ChatView({ variant }) {
   const [typing, setTyping] = useState(false);
   const [pendingLink, setPendingLink] = useState(null);
   const [editingCapture, setEditingCapture] = useState(null);
+  const [captureLinkInputs, setCaptureLinkInputs] = useState({});
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const chatEnd = useRef(null);
   const chatScrollRef = useRef(null);
@@ -243,7 +244,18 @@ export default function ChatView({ variant }) {
       visibility: "public",
       revision: 1,
       earnableMode: "none",
-      links: editingCapture?.links?.length > 0 ? editingCapture.links : (pendingLink ? [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }] : (capturedRec.links || [])),
+      links: (() => {
+        // Priority: editing card links > inline link input > pending link > AI-parsed links
+        if (editingCapture?.links?.length > 0) return editingCapture.links;
+        const inlineLink = captureLinkInputs[msgIndex]?.trim();
+        if (inlineLink && /^https?:\/\//.test(inlineLink)) {
+          let label = 'Link';
+          try { label = new URL(inlineLink).hostname.replace('www.', ''); } catch {}
+          return [{ url: inlineLink, label, type: 'website' }];
+        }
+        if (pendingLink) return [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }];
+        return capturedRec.links || [];
+      })(),
       revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
     };
     addRec(newItem);
@@ -251,6 +263,7 @@ export default function ChatView({ variant }) {
     saveMsgToDb("ai", "\u2713 Saved. What else?");
     setPendingLink(null);
     setEditingCapture(null);
+    setCaptureLinkInputs(prev => { const next = { ...prev }; delete next[msgIndex]; return next; });
   };
 
   const handleAddLink = async () => {
@@ -381,17 +394,31 @@ export default function ChatView({ variant }) {
                       overflowWrap: "break-word", wordBreak: "break-word",
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !editingCapture && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <button onClick={() => handleSaveCapture(msg.capturedRec, i)} style={{
-                          padding: "8px 16px", borderRadius: 10, border: "none",
-                          background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
-                          cursor: "pointer", fontFamily: F
-                        }}>Save</button>
-                        <button onClick={() => setEditingCapture({ ...msg.capturedRec, msgIndex: i })} style={{
-                          padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
-                          background: T.s, color: T.ink, fontSize: 13, fontWeight: 500,
-                          cursor: "pointer", fontFamily: F
-                        }}>Edit</button>
+                      <div style={{ marginTop: 8 }}>
+                        <input
+                          value={captureLinkInputs[i] ?? (msg.capturedRec.links?.[0]?.url || '')}
+                          onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
+                          placeholder="Paste a link (optional)"
+                          style={{
+                            width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
+                            border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
+                            background: W.aiBub, color: T.ink, outline: "none",
+                          }}
+                          onFocus={e => e.target.style.borderColor = W.accent}
+                          onBlur={e => e.target.style.borderColor = W.bdr}
+                        />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => handleSaveCapture(msg.capturedRec, i)} style={{
+                            padding: "8px 16px", borderRadius: 10, border: "none",
+                            background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
+                            cursor: "pointer", fontFamily: F
+                          }}>Save</button>
+                          <button onClick={() => setEditingCapture({ ...msg.capturedRec, msgIndex: i })} style={{
+                            padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
+                            background: T.s, color: T.ink, fontSize: 13, fontWeight: 500,
+                            cursor: "pointer", fontFamily: F
+                          }}>Edit</button>
+                        </div>
                       </div>
                     )}
                     {editingCapture && editingCapture.msgIndex === i && (
