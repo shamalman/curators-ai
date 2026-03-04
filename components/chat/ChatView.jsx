@@ -6,6 +6,7 @@ import { T, W, V, F, S, MN, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import MessageBubble from "./MessageBubble";
 import CaptureCard from "./CaptureCard";
+import ProfileCaptureCard from "./ProfileCaptureCard";
 
 const renderMd = (text) => text.split("\n").map((line, i) => {
   const b = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -14,7 +15,7 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
 
 export default function ChatView({ variant }) {
   const router = useRouter();
-  const { profile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb } = useCurator();
+  const { profile, setProfile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb, saveProfileFromChat } = useCurator();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [pendingLink, setPendingLink] = useState(null);
@@ -176,9 +177,21 @@ export default function ChatView({ variant }) {
 
       const text = data.message;
       const isCapturedRec = text.includes('\u{1F4CD} Adding:') || text.includes('\u{1F3F7} Suggested tags:');
+      const isProfileDraft = text.includes('\u{1F4CB} PROFILE DRAFT') || text.includes('PROFILE DRAFT');
 
       let capturedRec = null;
-      if (isCapturedRec) {
+      let capturedProfile = null;
+
+      if (isProfileDraft) {
+        const nameMatch = text.match(/name:\s*(.+)/i);
+        const locationMatch = text.match(/location:\s*(.+)/i);
+        const bioMatch = text.match(/bio:\s*([\s\S]*?)(?:\n---|\n📋|$)/i);
+        capturedProfile = {
+          name: nameMatch ? nameMatch[1].trim() : profile.name,
+          location: locationMatch ? locationMatch[1].trim() : '',
+          bio: bioMatch ? bioMatch[1].trim() : '',
+        };
+      } else if (isCapturedRec) {
         const titleMatch = text.match(/\*\*([^*]+)\*\*/);
         const contextMatch = text.match(/"([^"]+)"/);
         const tagsMatch = text.match(/\u{1F3F7} Suggested tags?:?\s*([^\n]+)/iu);
@@ -195,13 +208,22 @@ export default function ChatView({ variant }) {
         }
       }
 
-      setMessages(m => [...m, { role: "ai", text: data.message, capturedRec }]);
+      setMessages(m => [...m, { role: "ai", text: data.message, capturedRec, capturedProfile }]);
       saveMsgToDb("ai", data.message, capturedRec);
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
       setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
     }
+  };
+
+  const handleSaveProfile = async (profileData, msgIndex) => {
+    await saveProfileFromChat(profileData);
+    setMessages(prev => [
+      ...prev.map((m, idx) => idx === msgIndex ? { ...m, profileSaved: true } : m),
+      { role: "ai", text: "\u2713 Profile saved. Looking good!" },
+    ]);
+    saveMsgToDb("ai", "\u2713 Profile saved. Looking good!");
   };
 
   const handleSaveCapture = (capturedRec, msgIndex) => {
@@ -378,8 +400,15 @@ export default function ChatView({ variant }) {
                         onAddLink={handleAddLink}
                       />
                     )}
-                    {msg.saved && false && (
-                      <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>{"\u2713"} Saved to your recommendations</div>
+                    {msg.capturedProfile && !msg.profileSaved && (
+                      <ProfileCaptureCard
+                        profile={msg.capturedProfile}
+                        onSave={(data) => handleSaveProfile(data, i)}
+                        onDismiss={() => setMessages(prev => prev.map((m, idx) => idx === i ? { ...m, profileSaved: true } : m))}
+                      />
+                    )}
+                    {msg.profileSaved && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>{"\u2713"} Profile saved</div>
                     )}
                   </div>
                 </div>

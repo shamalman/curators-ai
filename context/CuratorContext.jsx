@@ -196,6 +196,33 @@ export function CuratorProvider({ children }) {
     } catch (err) { console.error("Failed to save profile:", err); }
   };
 
+  const saveProfileFromChat = async ({ name, location, bio }) => {
+    if (!profileId) return;
+    try {
+      const { error } = await supabase.from("profiles").update({
+        name, location, bio,
+      }).eq("id", profileId);
+      if (error) throw error;
+      // Re-fetch to sync all fields
+      const { data: prof } = await supabase
+        .from("profiles").select("*").eq("id", profileId).single();
+      if (prof) {
+        setProfile({
+          name: prof.name, handle: "@" + prof.handle,
+          bio: prof.bio, location: prof.location || "",
+          styleSummary: prof.style_summary || null,
+          invitedBy: prof.invited_by || null,
+          aiEnabled: prof.ai_enabled,
+          acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
+          cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
+          walletFull: "",
+          subscribers: 0, subsEnabled: true,
+          subsText: "Curated recs straight to your inbox. Only things worth your time.",
+        });
+      }
+    } catch (err) { console.error("Failed to save profile from chat:", err); }
+  };
+
   const addRec = async (item) => {
     if (!item.slug) {
       item = { ...item, slug: item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') };
@@ -426,6 +453,7 @@ export function CuratorProvider({ children }) {
       deleteRec,
       updateRec,
       saveProfile,
+      saveProfileFromChat,
       saveMsgToDb,
       archived, setArchived,
       removing, setRemoving,
