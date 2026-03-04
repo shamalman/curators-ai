@@ -364,9 +364,8 @@ export async function POST(request) {
     const recCount = recommendations ? recommendations.length : 0;
     const hasBio = curatorBio && curatorBio.trim() !== '';
 
-    // Detect mode: onboarding (0 recs, no bio) vs standard (3+ recs and bio)
-    // In between (1-2 recs or recs but no bio) stays in onboarding
-    const isOnboarding = !isVisitor && (recCount === 0 && !hasBio);
+    // Detect mode: onboarding until 3+ recs AND bio, then standard
+    const isOnboarding = !isVisitor && (recCount < 3 || !hasBio);
     const isStandard = !isVisitor && !isOnboarding;
 
     // Build the recommendations context
