@@ -2,15 +2,40 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { T, W, V, F, S, MN, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import MessageBubble from "./MessageBubble";
 import CaptureCard from "./CaptureCard";
 import ProfileCaptureCard from "./ProfileCaptureCard";
 
+const linkStyle = {
+  color: T.acc, textDecoration: "underline",
+  textUnderlineOffset: 2, cursor: "pointer",
+};
+
+const parseLinks = (text) => {
+  const parts = text.split(/(\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (!match) return part;
+    const [, label, href] = match;
+    if (href.startsWith("/")) {
+      return <Link key={i} href={href} style={linkStyle}>{label}</Link>;
+    }
+    return <a key={i} href={href} target="_blank" rel="noopener noreferrer" style={linkStyle}>{label}</a>;
+  });
+};
+
 const renderMd = (text) => text.split("\n").map((line, i) => {
-  const b = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  return <div key={i} dangerouslySetInnerHTML={{ __html: b }} style={{ marginBottom: line === "" ? 8 : 2 }} />;
+  const b = line.replace(/\*\*(.*?)\*\*/g, '<b_mark>$1</b_mark>');
+  const segments = b.split(/(<b_mark>.*?<\/b_mark>)/g);
+  const content = segments.map((seg, j) => {
+    const boldMatch = seg.match(/^<b_mark>(.*?)<\/b_mark>$/);
+    if (boldMatch) return <strong key={j}>{parseLinks(boldMatch[1])}</strong>;
+    return <span key={j}>{parseLinks(seg)}</span>;
+  });
+  return <div key={i} style={{ marginBottom: line === "" ? 8 : 2 }}>{content}</div>;
 });
 
 export default function ChatView({ variant }) {
