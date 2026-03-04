@@ -337,8 +337,8 @@ export default function ChatView({ variant }) {
     nudgeTimer.current = setTimeout(() => {
       if (typedSinceSave.current) return;
       const nudges = recCount <= 3
-        ? ["What else you got?", "Keep 'em coming.", "What's another one?"]
-        : ["What else?", "Keep going.", "What's next?", "Another one?"];
+        ? ["What else you got?", "What else do you wish more people knew about?", "What's another one?"]
+        : ["What else you got?", "Keep going \u2014 what's next?", "What's another one?", "Got more?"];
       const nudge = nudges[Math.floor(Math.random() * nudges.length)];
       setMessages(prev => [...prev, { role: "ai", text: nudge }]);
       saveMsgToDb("ai", nudge);
@@ -476,7 +476,7 @@ export default function ChatView({ variant }) {
                       border: msg.role === "user" ? "none" : `1px solid ${W.bdr}`,
                       overflowWrap: "break-word", wordBreak: "break-word",
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
-                    {msg.capturedRec && !msg.saved && !editingCapture && (
+                    {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
                         <input
                           value={captureLinkInputs[i] ?? (msg.capturedRec.links?.[0]?.url || '')}
@@ -515,15 +515,19 @@ export default function ChatView({ variant }) {
                         onAddLink={handleAddLink}
                       />
                     )}
-                    {msg.saved && msg.savedLinks?.length > 0 && (
-                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: T.ink3 }}>🔗</span>
-                        <a href={msg.savedLinks[0].url} target="_blank" rel="noopener noreferrer" style={{
-                          fontSize: 12, color: T.ink3, fontFamily: F, textDecoration: "underline",
-                          textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200,
-                        }}>{msg.savedLinks[0].label || msg.savedLinks[0].url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}</a>
-                      </div>
-                    )}
+                    {(() => {
+                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase())?.links);
+                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()));
+                      return isSaved && savedLinks?.length > 0 ? (
+                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 12, color: T.ink3 }}>🔗</span>
+                          <a href={savedLinks[0].url} target="_blank" rel="noopener noreferrer" style={{
+                            fontSize: 12, color: T.ink3, fontFamily: F, textDecoration: "underline",
+                            textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200,
+                          }}>{savedLinks[0].label || savedLinks[0].url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}</a>
+                        </div>
+                      ) : null;
+                    })()}
                     {msg.capturedProfile && !msg.profileSaved && (
                       <ProfileCaptureCard
                         profile={msg.capturedProfile}
