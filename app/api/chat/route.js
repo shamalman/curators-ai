@@ -534,7 +534,31 @@ export async function POST(request) {
     // Build the system prompt based on mode
     let systemPrompt;
     if (isVisitor) {
-      systemPrompt = `${VISITOR_SYSTEM_PROMPT}\n\nCURATOR: ${curatorName}${recsContext}`;
+      // Fetch curator's style summary for visitor AI personality
+      let styleBlock = "";
+      if (profileId) {
+        try {
+          const sb = getSupabaseAdmin();
+          const { data: curatorProfile } = await sb
+            .from("profiles")
+            .select("style_summary")
+            .eq("id", profileId)
+            .single();
+          if (curatorProfile?.style_summary) {
+            const s = curatorProfile.style_summary;
+            styleBlock = `\n\nCURATOR PERSONALITY (match this voice):
+Voice: ${s.voice || "warm and direct"}
+${s.voice_description || ""}
+Energy: ${s.energy || "confident"}
+Signature patterns: ${(s.signature_patterns || []).join(", ")}
+Aesthetic threads: ${(s.aesthetic_threads || []).join(", ")}
+${s.location ? `Location: ${s.location}` : ""}`;
+          }
+        } catch (err) {
+          console.error("Failed to fetch style summary:", err);
+        }
+      }
+      systemPrompt = `${VISITOR_SYSTEM_PROMPT}${styleBlock}\n\nCURATOR: ${curatorName}${recsContext}`;
     } else if (isOnboarding && profileId) {
       const inviterCtx = await getInviterContext(profileId);
       systemPrompt = buildOnboardingPrompt({

@@ -344,6 +344,16 @@ export default function ChatView({ variant }) {
       saveMsgToDb("ai", nudge);
     }, 3000);
 
+    // Fire style summary generation at milestones (fire and forget)
+    const milestones = [5, 10, 20];
+    if (milestones.includes(recCount)) {
+      fetch('/api/generate-style-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId }),
+      }).catch(() => {});
+    }
+
     setPendingLink(null);
     setEditingCapture(null);
     setCaptureLinkInputs(prev => { const next = { ...prev }; delete next[msgIndex]; return next; });
