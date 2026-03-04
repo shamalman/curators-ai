@@ -124,7 +124,7 @@ Only use this format once you have their real context:
 
 📍 Adding: **Title**
 "Their actual words about why, when, for whom"
-🏷 Suggested tags: tag1, tag2, tag3
+🏷 Suggested tags: tag1, tag2 (2-4 descriptive tags — MAXIMUM 4, never more)
 📁 Category: category
 🔗 Link: url
 
@@ -328,7 +328,7 @@ Only use this format once you have their real context:
 
 📍 Adding: **Title**
 "Their actual words about why, when, for whom"
-🏷 Suggested tags: tag1, tag2, tag3
+🏷 Suggested tags: tag1, tag2 (2-4 descriptive tags — MAXIMUM 4, never more)
 📁 Category: category
 🔗 Link: url
 

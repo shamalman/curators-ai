@@ -322,8 +322,10 @@ export default function ChatView({ variant }) {
       revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
     };
     addRec(newItem);
-    setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true } : m), { role: "ai", text: "\u2713 Saved. What else?" }]);
-    saveMsgToDb("ai", "\u2713 Saved. What else?");
+    const saveMessages = ["\u2713 Saved.", "\u2713 Added to your timeline.", "\u2713 That's in.", "\u2713 Locked in.", "\u2713 Got it."];
+    const saveMsg = saveMessages[Math.floor(Math.random() * saveMessages.length)];
+    setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true, savedLinks: newItem.links } : m), { role: "ai", text: saveMsg }]);
+    saveMsgToDb("ai", saveMsg);
     setPendingLink(null);
     setEditingCapture(null);
     setCaptureLinkInputs(prev => { const next = { ...prev }; delete next[msgIndex]; return next; });
@@ -494,6 +496,15 @@ export default function ChatView({ variant }) {
                         onRemoveLink={handleRemoveLink}
                         onAddLink={handleAddLink}
                       />
+                    )}
+                    {msg.saved && msg.savedLinks?.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, color: T.ink3 }}>🔗</span>
+                        <a href={msg.savedLinks[0].url} target="_blank" rel="noopener noreferrer" style={{
+                          fontSize: 12, color: T.ink3, fontFamily: F, textDecoration: "underline",
+                          textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200,
+                        }}>{msg.savedLinks[0].label || msg.savedLinks[0].url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}</a>
+                      </div>
                     )}
                     {msg.capturedProfile && !msg.profileSaved && (
                       <ProfileCaptureCard
