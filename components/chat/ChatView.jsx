@@ -50,6 +50,7 @@ export default function ChatView({ variant }) {
   const chatEnd = useRef(null);
   const chatScrollRef = useRef(null);
   const shouldScroll = useRef(false);
+  const isBackNav = useRef(messages.length > 0);
 
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -85,11 +86,12 @@ export default function ChatView({ variant }) {
     }
   }, [messages, typing]);
 
-  // Auto-scroll on initial load
+  // Auto-scroll on initial load (skip if returning via back navigation)
   useEffect(() => {
-    if (dbLoaded && messages.length > 0) {
+    if (dbLoaded && messages.length > 0 && !isBackNav.current) {
       setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "instant" }), 100);
     }
+    isBackNav.current = false;
   }, [dbLoaded]);
 
   // Opening prompts for curator chat
