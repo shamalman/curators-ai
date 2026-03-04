@@ -398,7 +398,7 @@ export default function ChatView({ variant }) {
                         <input
                           value={captureLinkInputs[i] ?? (msg.capturedRec.links?.[0]?.url || '')}
                           onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                          placeholder="Paste a link (optional)"
+                          placeholder="Add a link (suggested)"
                           style={{
                             width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
                             border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
