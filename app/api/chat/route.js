@@ -256,7 +256,9 @@ async function getNetworkRecs(profileId) {
                 ? (r.context.length > 150 ? r.context.slice(0, 147) + "..." : r.context)
                 : "No context";
               const tags = (r.tags || []).length > 0 ? ` [tags: ${r.tags.join(", ")}]` : "";
-              return `- ${r.title} (${r.category}) - "${ctx}"${tags}`;
+              const handle = p?.handle || "unknown";
+              const slug = r.slug ? ` [link: /${handle}/${r.slug}]` : "";
+              return `- ${r.title} (${r.category}) - "${ctx}"${tags}${slug}`;
             });
             return `@${p?.handle || "unknown"} (${p?.name || "Unknown"}) - ${recs.length} rec${recs.length !== 1 ? "s" : ""}:\n${recLines.join("\n")}`;
           });
@@ -272,7 +274,9 @@ async function getNetworkRecs(profileId) {
         const ctx = r.context
           ? (r.context.length > 80 ? r.context.slice(0, 77) + "..." : r.context)
           : "";
-        return `@${p?.handle || "unknown"} (${p?.name || "Unknown"}): ${r.title} (${r.category})${ctx ? ` - "${ctx}"` : ""}`;
+        const handle = p?.handle || "unknown";
+        const slug = r.slug ? ` [link: /${handle}/${r.slug}]` : "";
+        return `@${p?.handle || "unknown"} (${p?.name || "Unknown"}): ${r.title} (${r.category})${ctx ? ` - "${ctx}"` : ""}${slug}`;
       });
       broaderBlock = `\n\nBROADER NETWORK (other curators on the platform):\n---\n${lines.join("\n")}\n---`;
     }
@@ -394,6 +398,8 @@ WHAT NOT TO DO:
 
 NETWORK & DISCOVERY:
 When the curator asks about their network, what other curators are sharing, or wants discovery suggestions, use the network data below. Reference specific recs from specific curators. Don't volunteer network recs unprompted — only surface them when asked or when naturally relevant.
+
+When mentioning a network recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Pok Pok](/maya/pok-pok). This lets the curator tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.
 ${networkContext || ''}`;
 }
 
