@@ -65,7 +65,7 @@ export default function ChatView({ variant }) {
 
   // Generate style summary if missing and curator has 5+ recs
   useEffect(() => {
-    if (isCurator && dbLoaded && profileId && !profile?.styleSummary && items.length >= 5) {
+    if (isCurator && dbLoaded && profileId && !profile?.styleSummary && items.length >= 3) {
       fetch('/api/generate-style-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -357,8 +357,8 @@ export default function ChatView({ variant }) {
     }, 3000);
 
     // Fire style summary generation at milestones or if missing (fire and forget)
-    const milestones = [5, 10, 20];
-    const shouldGenerate = milestones.includes(recCount) || (!profile?.styleSummary && recCount >= 5);
+    const milestones = [3, 6, 10, 15, 20];
+    const shouldGenerate = milestones.includes(recCount) || (!profile?.styleSummary && recCount >= 3);
     if (shouldGenerate) {
       fetch('/api/generate-style-summary', {
         method: 'POST',
