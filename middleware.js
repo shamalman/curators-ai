@@ -38,6 +38,14 @@ export async function middleware(req) {
     const isVisitorRoute = !curatorOnlyPaths.some(p => path === p || path.startsWith(p + '/'))
       && !isPublicRoute && !isApiRoute && path !== '/';
 
+    // Root path: splash for unauthed, redirect for authed
+    if (path === '/') {
+      if (session) {
+        return NextResponse.redirect(new URL('/myai', req.url));
+      }
+      return res;
+    }
+
     // Allow public routes, API routes, and visitor routes
     if (isPublicRoute || isApiRoute || isVisitorRoute) {
       // If logged in and visiting /login or /signup, redirect to /myai
