@@ -69,15 +69,15 @@ export default function SplashPage() {
               value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@email.com"
               style={{
-                flex: 1, padding: "14px 16px", borderRadius: 10,
+                flex: 1, padding: "10px 14px", borderRadius: 8,
                 border: `1.5px solid ${T.bdr}`, background: T.s2, color: T.ink,
-                fontSize: 15, fontFamily: F, outline: "none",
+                fontSize: 14, fontFamily: F, outline: "none",
                 minWidth: 0,
               }}
             />
             <button type="submit" disabled={loading} style={{
-              padding: "14px 22px", borderRadius: 10, border: "none",
-              background: T.acc, color: T.accText, fontSize: 15, fontWeight: 600,
+              padding: "10px 18px", borderRadius: 8, border: "none",
+              background: T.acc, color: T.accText, fontSize: 14, fontWeight: 600,
               fontFamily: F, cursor: loading ? "default" : "pointer",
               opacity: loading ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0,
             }}>{loading ? "..." : "Get Early Access"}</button>
@@ -98,7 +98,7 @@ export default function SplashPage() {
             }}>Sign up &rarr;</button>
           </span>
           <button onClick={() => router.push("/login")} style={{
-            background: "none", border: "none", color: T.ink3, fontFamily: F,
+            background: "none", border: "none", color: T.ink2, fontFamily: F,
             fontSize: 13, cursor: "pointer", padding: 0,
           }}>Log in</button>
         </div>
