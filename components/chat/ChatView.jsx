@@ -38,6 +38,24 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
   return <div key={i} style={{ marginBottom: line === "" ? 8 : 2 }}>{content}</div>;
 });
 
+const isSpecificLink = (url) => {
+  try {
+    const u = new URL(url);
+    const p = u.pathname.replace(/\/+$/, '');
+    if (!p) {
+      return u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album');
+    }
+    const isGeneric = /^\/(search|browse|explore|discover|results|home)(\/|$)/i.test(u.pathname)
+      || /^\/(channel|c|user|@[^/]*)(\/[^/]*)?$/i.test(u.pathname)
+      || /^\/(category|genre)(\/[^/]*)?$/i.test(u.pathname);
+    if (isGeneric) return false;
+    if (u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album')) return true;
+    return p.split('/').filter(Boolean).length >= 2;
+  } catch { return false; }
+};
+
+const hasValidLink = (links) => (links || []).some(l => isSpecificLink(l.url));
+
 export default function ChatView({ variant }) {
   const router = useRouter();
   const { profile, setProfile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb, saveProfileFromChat, isOwner } = useCurator();
@@ -503,7 +521,7 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); const p = u.pathname.replace(/\/+$/, ''); if (!p) { const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); return hasContentParam; } const isGeneric = /^\/(search|browse|explore|discover|results|home)(\/|$)/i.test(u.pathname) || /^\/(channel|c|user|@[^/]*)(\/[^/]*)?$/i.test(u.pathname) || /^\/(category|genre)(\/[^/]*)?$/i.test(u.pathname); if (isGeneric) return false; const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); if (hasContentParam) return true; const segments = p.split('/').filter(Boolean); if (segments.length < 2) return false; return true; } catch { return false; } }) && (
+                        {!hasValidLink(msg.capturedRec.links) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
