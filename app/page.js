@@ -52,13 +52,13 @@ export default function SplashPage() {
         <h1 style={{
           fontFamily: S, fontSize: 36, fontWeight: 400, color: T.ink,
           margin: "0 0 16px", lineHeight: 1.2,
-        }}>For the Love of Curation.</h1>
+        }}>For the Love of Human Curation.</h1>
 
         {/* Subheadline */}
         <p style={{
           fontFamily: F, fontSize: 17, color: T.ink2, lineHeight: 1.6,
           margin: "0 0 40px", maxWidth: 360, marginLeft: "auto", marginRight: "auto",
-        }}>A personal AI that captures and shares your taste.</p>
+        }}>Your taste, captured. Recommendations from people you trust.</p>
 
         {/* Waitlist form */}
         {submitted ? (
