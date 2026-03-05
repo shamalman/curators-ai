@@ -58,7 +58,7 @@ export default function SplashPage() {
         <p style={{
           fontFamily: F, fontSize: 17, color: T.ink2, lineHeight: 1.6,
           margin: "0 0 40px", maxWidth: 360, marginLeft: "auto", marginRight: "auto",
-        }}>Your taste, captured. Recommendations from people you trust.</p>
+        }}>Capture and share your taste.<br />Discover recommendations from people you trust.</p>
 
         {/* Waitlist form */}
         {submitted ? (
