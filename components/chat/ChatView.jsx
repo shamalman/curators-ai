@@ -42,15 +42,18 @@ const isSpecificLink = (url) => {
   try {
     const u = new URL(url);
     const p = u.pathname.replace(/\/+$/, '');
-    if (!p) {
-      return u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album');
-    }
-    const isGeneric = /^\/(search|browse|explore|discover|results|home)(\/|$)/i.test(u.pathname)
-      || /^\/(channel|c|user|@[^/]*)(\/[^/]*)?$/i.test(u.pathname)
-      || /^\/(category|genre)(\/[^/]*)?$/i.test(u.pathname);
-    if (isGeneric) return false;
-    if (u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album')) return true;
-    return p.split('/').filter(Boolean).length >= 2;
+    // Root domain with no path and no meaningful query params → not specific
+    if (!p && !u.search) return false;
+    // Search/browse/explore pages → not specific
+    if (/^\/(search|browse|explore|discover|results|home)(\/|$)/i.test(u.pathname)) return false;
+    // Channel/user/profile pages → not specific
+    if (/^\/(channel|c|user|@[^/]*)(\/[^/]*)?$/i.test(u.pathname)) return false;
+    // Category/genre landing pages → not specific
+    if (/^\/(category|genre)(\/[^/]*)?$/i.test(u.pathname)) return false;
+    // Root domain with only a search query (no real path) → not specific
+    if (!p && u.search && !u.searchParams.has('v') && !u.searchParams.has('id')) return false;
+    // Has a real path or content query params → specific
+    return true;
   } catch { return false; }
 };
 
@@ -521,7 +524,7 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        {!hasValidLink(msg.capturedRec.links) && (
+                        {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
