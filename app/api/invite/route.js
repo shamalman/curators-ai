@@ -28,32 +28,45 @@ export async function GET(request) {
     }
 
     const sb = getSupabaseAdmin();
+    const mode = searchParams.get("mode");
     const isHistory = searchParams.get("history") === "1";
 
-    if (isHistory) {
+    if (mode === "all" || isHistory) {
       // Fetch all codes created by this curator
       const { data: allCodes } = await sb
         .from("invite_codes")
-        .select("id, code, used_at, inviter_note")
+        .select("id, code, used_at, used_by, inviter_note, created_at")
         .eq("created_by", profileId)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
 
       // Fetch all profiles invited by this curator
       const { data: invitedProfiles } = await sb
         .from("profiles")
-        .select("name, handle, created_at")
+        .select("id, name, handle, created_at")
         .eq("invited_by", profileId)
         .order("created_at", { ascending: false });
 
-      // Match used codes to profiles by timestamp proximity
-      const usedCodes = (allCodes || []).filter(c => c.used_at);
+      // Also fetch profiles by used_by IDs for direct matching
+      const usedByIds = (allCodes || []).filter(c => c.used_by).map(c => c.used_by);
+      let profilesById = {};
+      if (usedByIds.length > 0) {
+        const { data: usedProfiles } = await sb
+          .from("profiles")
+          .select("id, name, handle")
+          .in("id", usedByIds);
+        (usedProfiles || []).forEach(p => { profilesById[p.id] = p; });
+      }
+
+      // Match used codes to profiles — prefer direct used_by match, fall back to timestamp proximity
       const profilePool = [...(invitedProfiles || [])];
 
       const history = (allCodes || []).map(inv => {
         const entry = { ...inv, profile_name: null, profile_handle: null };
-        if (inv.used_at && profilePool.length > 0) {
-          // Find closest profile by created_at to used_at
+        if (inv.used_by && profilesById[inv.used_by]) {
+          entry.profile_name = profilesById[inv.used_by].name;
+          entry.profile_handle = profilesById[inv.used_by].handle;
+        } else if (inv.used_at && profilePool.length > 0) {
           let bestIdx = 0;
           let bestDiff = Infinity;
           const usedTime = new Date(inv.used_at).getTime();
@@ -61,7 +74,7 @@ export async function GET(request) {
             const diff = Math.abs(new Date(p.created_at).getTime() - usedTime);
             if (diff < bestDiff) { bestDiff = diff; bestIdx = idx; }
           });
-          if (bestDiff < 86400000) { // within 24 hours
+          if (bestDiff < 86400000) {
             const p = profilePool.splice(bestIdx, 1)[0];
             entry.profile_name = p.name;
             entry.profile_handle = p.handle;
@@ -69,6 +82,12 @@ export async function GET(request) {
         }
         return entry;
       });
+
+      if (mode === "all") {
+        const unused = history.filter(c => !c.used_at);
+        const used = history.filter(c => c.used_at);
+        return NextResponse.json({ unused, used, unusedCount: unused.length });
+      }
 
       return NextResponse.json({ history });
     }

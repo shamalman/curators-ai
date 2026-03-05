@@ -5,7 +5,7 @@ import { useContext } from "react";
 import { T, F, S } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 
-export default function Sidebar({ onInvite }) {
+export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useContext(CuratorContext);
@@ -66,18 +66,18 @@ export default function Sidebar({ onInvite }) {
       {/* Invite + Settings */}
       <div style={{ padding: "8px 12px 16px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4 }}>
         <button
-          onClick={onInvite}
+          onClick={() => router.push("/invite")}
           style={{
             width: "100%", display: "flex", alignItems: "center", gap: 10,
             padding: "10px 12px", borderRadius: 8, border: "none",
-            background: "transparent",
-            color: T.ink3,
+            background: pathname.startsWith("/invite") ? T.accSoft : "transparent",
+            color: pathname.startsWith("/invite") ? T.acc : T.ink3,
             fontFamily: F, fontSize: 14, fontWeight: 500,
             cursor: "pointer", textAlign: "left",
             transition: "background .15s",
           }}
-          onMouseEnter={e => e.currentTarget.style.background = T.s}
-          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          onMouseEnter={e => { if (!pathname.startsWith("/invite")) e.currentTarget.style.background = T.s; }}
+          onMouseLeave={e => { if (!pathname.startsWith("/invite")) e.currentTarget.style.background = "transparent"; }}
         >
           <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -7,14 +7,12 @@ import { T, F, S } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 import BottomTabs from "./BottomTabs";
 import Sidebar from "./Sidebar";
-import InviteModal from "./InviteModal";
 
 export default function CuratorShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, profileId } = useContext(CuratorContext);
+  const { profile } = useContext(CuratorContext);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
   const handle = profile?.handle?.replace("@", "") || "";
   const initial = profile?.name?.[0] || "";
 
@@ -29,7 +27,7 @@ export default function CuratorShell({ children }) {
   const isProfilePage = handle && pathname === `/${handle}`;
   const isHandleRoute = handle && pathname.startsWith(`/${handle}`);
   const isHandleAsk = handle && pathname === `/${handle}/ask`;
-  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || isHandleRoute;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/recommendations") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite") || isHandleRoute;
   const isMainTab = pathname === "/myai" || pathname === "/recommendations" || pathname === "/subs" || isProfilePage;
   const isDeepPage = !isMainTab;
 
@@ -37,11 +35,10 @@ export default function CuratorShell({ children }) {
   // Exception: chat (/ask, /[handle]/ask) keeps its own scroll container
   if (isDesktop) {
     const isChat = pathname.startsWith("/myai") || isHandleAsk;
-    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/settings");
+    const needsFlexLayout = isChat || pathname.startsWith("/recommendations/") || pathname === "/recommendations" || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite");
     return (
       <>
-        <Sidebar onInvite={() => setShowInvite(true)} />
-        {showInvite && <InviteModal profileId={profileId} onClose={() => setShowInvite(false)} />}
+        <Sidebar />
         <div
           className={needsFlexLayout ? undefined : "desktop-scroll"}
           style={{
@@ -103,7 +100,7 @@ export default function CuratorShell({ children }) {
                 </div>
                 <span style={{ fontFamily: F, fontSize: 12, color: T.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{handle}</span>
               </button>
-              <button onClick={() => setShowInvite(true)} style={{
+              <button onClick={() => router.push("/invite")} style={{
                 background: "none", border: "none", cursor: "pointer", padding: 4,
                 display: "flex", alignItems: "center", flexShrink: 0,
               }}>
@@ -129,7 +126,6 @@ export default function CuratorShell({ children }) {
       )}
       {children}
       {shouldShowTabs && <BottomTabs />}
-      {showInvite && <InviteModal profileId={profileId} onClose={() => setShowInvite(false)} />}
     </div>
   );
 }
