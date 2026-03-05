@@ -28,7 +28,7 @@ export async function middleware(req) {
     const path = req.nextUrl.pathname;
 
     // Public routes — no auth required
-    const publicRoutes = ['/login', '/signup', '/onboarding', '/onboarding/welcome'];
+    const publicRoutes = ['/login', '/signup', '/onboarding', '/onboarding/welcome', '/forgot-password', '/reset-password'];
     const isPublicRoute = publicRoutes.includes(path);
     const isApiRoute = path.startsWith('/api');
 

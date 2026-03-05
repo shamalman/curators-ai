@@ -83,7 +83,7 @@ export default function LoginPage() {
         </form>
 
         <div style={{ textAlign: "center", marginTop: 20 }}>
-          <button onClick={() => {}} style={{ background: "none", border: "none", color: T.ink3, fontFamily: F, fontSize: 13, cursor: "pointer" }}>Forgot password?</button>
+          <button onClick={() => router.push("/forgot-password")} style={{ background: "none", border: "none", color: T.ink3, fontFamily: F, fontSize: 13, cursor: "pointer" }}>Forgot password?</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 24 }}>
           <span style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>Don't have an account? </span>
