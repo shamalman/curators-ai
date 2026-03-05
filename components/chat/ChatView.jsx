@@ -390,9 +390,11 @@ export default function ChatView({ variant }) {
   };
 
   const handleRemoveLink = (linkIndex) => {
-    const links = editingCapture.links || [];
-    setEditingCapture(p => ({ ...p, links: links.filter((_, idx) => idx !== linkIndex) }));
-    if (pendingLink && linkIndex === 0 && links.length === 0) setPendingLink(null);
+    setEditingCapture(p => {
+      const updated = (p.links || []).filter((_, idx) => idx !== linkIndex);
+      return { ...p, links: updated };
+    });
+    setPendingLink(null);
   };
 
   // ── CURATOR CHAT ──
@@ -501,7 +503,7 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); const p = u.pathname.replace(/\/+$/, ''); const isSearch = /^\/(search|browse|explore|discover|category|genre)/i.test(u.pathname); if (isSearch) return false; if (p.length > 0) return true; const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); return hasContentParam; } catch { return false; } }) && (
+                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); const p = u.pathname.replace(/\/+$/, ''); if (!p) { const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); return hasContentParam; } const isGeneric = /^\/(search|browse|explore|discover|results|home)(\/|$)/i.test(u.pathname) || /^\/(channel|c|user|@[^/]*)(\/[^/]*)?$/i.test(u.pathname) || /^\/(category|genre)(\/[^/]*)?$/i.test(u.pathname); if (isGeneric) return false; const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); if (hasContentParam) return true; const segments = p.split('/').filter(Boolean); if (segments.length < 2) return false; return true; } catch { return false; } }) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
