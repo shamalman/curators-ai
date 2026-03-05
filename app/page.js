@@ -45,14 +45,14 @@ export default function SplashPage() {
       <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
         {/* Logo */}
         <div style={{ marginBottom: 48 }}>
-          <span style={{ fontFamily: S, fontSize: 42, color: T.acc, fontWeight: 400 }}>Curators</span>
+          <span style={{ fontFamily: S, fontSize: 24, color: T.acc, fontWeight: 400 }}>Curators</span>
         </div>
 
         {/* Headline */}
         <h1 style={{
           fontFamily: S, fontSize: 36, fontWeight: 400, color: T.ink,
           margin: "0 0 36px", lineHeight: 1.2,
-        }}>For the Love of Human Curation.</h1>
+        }}>For the Love of<br />Human Curation.</h1>
 
         {/* Waitlist form */}
         {submitted ? (
