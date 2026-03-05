@@ -51,14 +51,8 @@ export default function SplashPage() {
         {/* Headline */}
         <h1 style={{
           fontFamily: S, fontSize: 36, fontWeight: 400, color: T.ink,
-          margin: "0 0 16px", lineHeight: 1.2,
+          margin: "0 0 36px", lineHeight: 1.2,
         }}>For the Love of Human Curation.</h1>
-
-        {/* Subheadline */}
-        <p style={{
-          fontFamily: F, fontSize: 17, color: T.ink2, lineHeight: 1.6,
-          margin: "0 0 40px", maxWidth: 360, marginLeft: "auto", marginRight: "auto",
-        }}>Capture and share your taste.<br />Discover recommendations from people you trust.</p>
 
         {/* Waitlist form */}
         {submitted ? (
