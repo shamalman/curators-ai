@@ -324,7 +324,8 @@ export default function ChatView({ variant }) {
       earnableMode: "none",
       links: (() => {
         // Priority: editing card links > inline link input > pending link > AI-parsed links
-        if (editingCapture?.links?.length > 0) return editingCapture.links;
+        // If editingCapture exists, always use its links (even if empty — user may have removed all)
+        if (editingCapture) return editingCapture.links || [];
         const inlineLink = captureLinkInputs[msgIndex]?.trim();
         if (inlineLink && /^https?:\/\//.test(inlineLink)) {
           let label = 'Link';
@@ -500,7 +501,7 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); return u.pathname.replace(/\/+$/, '').length > 0 || u.search.length > 0; } catch { return false; } }) && (
+                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); const p = u.pathname.replace(/\/+$/, ''); const isSearch = /^\/(search|browse|explore|discover|category|genre)/i.test(u.pathname); if (isSearch) return false; if (p.length > 0) return true; const hasContentParam = u.searchParams.has('v') || u.searchParams.has('id') || u.searchParams.has('track') || u.searchParams.has('album'); return hasContentParam; } catch { return false; } }) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
