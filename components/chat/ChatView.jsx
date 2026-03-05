@@ -500,18 +500,20 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        <input
-                          value={captureLinkInputs[i] ?? (msg.capturedRec.links?.[0]?.url || '')}
-                          onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                          placeholder="Add a link (suggested)"
-                          style={{
-                            width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
-                            border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
-                            background: W.aiBub, color: T.ink, outline: "none",
-                          }}
-                          onFocus={e => e.target.style.borderColor = W.accent}
-                          onBlur={e => e.target.style.borderColor = W.bdr}
-                        />
+                        {!(msg.capturedRec.links?.length > 0) && (
+                          <input
+                            value={captureLinkInputs[i] || ''}
+                            onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
+                            placeholder="Add a link (suggested)"
+                            style={{
+                              width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
+                              border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
+                              background: W.aiBub, color: T.ink, outline: "none",
+                            }}
+                            onFocus={e => e.target.style.borderColor = W.accent}
+                            onBlur={e => e.target.style.borderColor = W.bdr}
+                          />
+                        )}
                         <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => handleSaveCapture(msg.capturedRec, i)} style={{
                             padding: "8px 16px", borderRadius: 10, border: "none",
@@ -656,9 +658,9 @@ export default function ChatView({ variant }) {
           { label: "\u2728 Newest", prompt: "What are the newest recommendations?" },
           { label: "\uD83D\uDD25 Most Popular", prompt: "What are the most popular picks?" },
           { label: "\uD83D\uDCFA Watch", prompt: "What should I watch?" },
-          { label: "\uD83C\uDFB5 Listen", prompt: "What should I listen to?" },
-          { label: "\uD83D\uDCD6 Read", prompt: "What should I read?" },
-          { label: "\uD83C\uDF7D Visit", prompt: "What places should I visit?" },
+          { label: "\uD83C\uDFA7 Listen", prompt: "What should I listen to?" },
+          { label: "\uD83D\uDCC4 Read", prompt: "What should I read?" },
+          { label: "\uD83D\uDCCD Visit", prompt: "What places should I visit?" },
         ].map(chip => (
           <button key={chip.label} onClick={() => setInput(chip.prompt)} style={{
             padding: "8px 14px", borderRadius: 20, border: `1px solid ${V.chipBdr}`, background: V.chip,
