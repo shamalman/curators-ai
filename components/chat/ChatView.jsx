@@ -500,7 +500,7 @@ export default function ChatView({ variant }) {
                     }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
-                        {!(msg.capturedRec.links?.length > 0) && (
+                        {!msg.capturedRec.links?.some(l => { try { const u = new URL(l.url); return u.pathname.replace(/\/+$/, '').length > 0 || u.search.length > 0; } catch { return false; } }) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
