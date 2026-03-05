@@ -263,18 +263,17 @@ export default function ChatView({ variant }) {
         const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
         const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
         const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
-        const validCategories = ["restaurant", "book", "music", "tv", "film", "travel", "product", "other"];
+        const validCategories = ["watch", "listen", "read", "visit", "get", "other"];
         const parseCategory = (match) => {
           if (!match) return 'other';
           const raw = match[1].toLowerCase();
           if (validCategories.includes(raw)) return raw;
-          // Common aliases
-          if (raw === 'books') return 'book';
-          if (raw === 'movies' || raw === 'movie') return 'film';
-          if (raw === 'television' || raw === 'show' || raw === 'shows') return 'tv';
-          if (raw === 'restaurants' || raw === 'dining' || raw === 'food') return 'restaurant';
-          if (raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist') return 'music';
-          if (raw === 'products') return 'product';
+          // Aliases: old categories → new
+          if (raw === 'tv' || raw === 'film' || raw === 'movies' || raw === 'movie' || raw === 'television' || raw === 'show' || raw === 'shows') return 'watch';
+          if (raw === 'music' || raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist' || raw === 'podcast') return 'listen';
+          if (raw === 'book' || raw === 'books') return 'read';
+          if (raw === 'restaurant' || raw === 'restaurants' || raw === 'dining' || raw === 'food' || raw === 'travel') return 'visit';
+          if (raw === 'product' || raw === 'products') return 'get';
           return 'other';
         };
         if (titleMatch) {
@@ -653,12 +652,13 @@ export default function ChatView({ variant }) {
       </div>
       <div style={{ padding: "4px 16px 6px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
         {[
-          { label: "\uD83C\uDFA7 Radio", prompt: "Play me a radio station from the music recs" },
+          { label: "\uD83C\uDFA7 Radio", prompt: "Play me a radio station from the listen recs" },
           { label: "\u2728 Newest", prompt: "What are the newest recommendations?" },
           { label: "\uD83D\uDD25 Most Popular", prompt: "What are the most popular picks?" },
-          { label: "\uD83D\uDCD6 Books", prompt: "Show me book recommendations" },
-          { label: "\uD83C\uDFB5 Music", prompt: "What music do you recommend?" },
-          { label: "\uD83C\uDF7D Restaurants", prompt: "What are the restaurant recommendations?" },
+          { label: "\uD83D\uDCFA Watch", prompt: "What should I watch?" },
+          { label: "\uD83C\uDFB5 Listen", prompt: "What should I listen to?" },
+          { label: "\uD83D\uDCD6 Read", prompt: "What should I read?" },
+          { label: "\uD83C\uDF7D Visit", prompt: "What places should I visit?" },
         ].map(chip => (
           <button key={chip.label} onClick={() => setInput(chip.prompt)} style={{
             padding: "8px 14px", borderRadius: 20, border: `1px solid ${V.chipBdr}`, background: V.chip,

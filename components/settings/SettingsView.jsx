@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { useRouter } from "next/navigation"
-import { T, F, S } from "@/lib/constants"
+import { T, F, S, MN } from "@/lib/constants"
 import { supabase } from "@/lib/supabase"
+import { CuratorContext } from "@/context/CuratorContext"
 
 function Toggle({ on, onToggle }) {
   return (
@@ -28,16 +29,26 @@ function Toggle({ on, onToggle }) {
 
 export default function SettingsView() {
   const router = useRouter()
+  const { profileId } = useContext(CuratorContext)
   const [email, setEmail] = useState("")
   const [weeklyDigest, setWeeklyDigest] = useState(true)
   const [newSubscriber, setNewSubscriber] = useState(true)
   const [networkActivity, setNetworkActivity] = useState(false)
+  const [inviteHistory, setInviteHistory] = useState([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.email) setEmail(data.user.email)
     })
   }, [])
+
+  useEffect(() => {
+    if (!profileId) return
+    fetch(`/api/invite?profileId=${profileId}&history=1`)
+      .then(r => r.json())
+      .then(data => { if (data.history) setInviteHistory(data.history) })
+      .catch(() => {})
+  }, [profileId])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -94,6 +105,40 @@ export default function SettingsView() {
               <Toggle on={networkActivity} onToggle={() => setNetworkActivity(!networkActivity)} />
             )}
           </div>
+
+          {/* Your Invites */}
+          {inviteHistory.length > 0 && (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                Your Invites
+              </div>
+              {inviteHistory.map(inv => (
+                <div key={inv.id} style={{
+                  padding: "12px 0", borderBottom: `1px solid ${T.bdr}`,
+                  display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: MN, fontSize: 13, color: T.ink, letterSpacing: ".04em" }}>{inv.code}</div>
+                    {inv.inviter_note && (
+                      <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 4, fontStyle: "italic" }}>
+                        {inv.inviter_note}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    padding: "3px 10px", borderRadius: 6, flexShrink: 0,
+                    background: inv.used_at ? T.accSoft : T.s,
+                    fontFamily: F, fontSize: 11, fontWeight: 600,
+                    color: inv.used_at ? T.acc : T.ink3,
+                  }}>
+                    {inv.used_at
+                      ? (inv.profile_handle ? `Used by @${inv.profile_handle}` : "Used")
+                      : "Pending"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Account */}
           <div>
