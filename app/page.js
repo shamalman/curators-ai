@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { T, F, S } from "@/lib/constants"
 
 export default function SplashPage() {
@@ -17,18 +16,14 @@ export default function SplashPage() {
     setError("")
     setLoading(true)
     try {
-      const { error: insertErr } = await supabase
-        .from("waitlist")
-        .insert({ email: email.trim().toLowerCase() })
-      if (insertErr) {
-        if (insertErr.code === "23505") {
-          setSubmitted(true)
-        } else {
-          throw insertErr
-        }
-      } else {
-        setSubmitted(true)
-      }
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Something went wrong")
+      setSubmitted(true)
     } catch (err) {
       setError(err.message || "Something went wrong")
     } finally {
