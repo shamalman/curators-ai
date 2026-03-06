@@ -43,6 +43,11 @@ export function CuratorProvider({ children }) {
       if (!prof) { setDbLoaded(true); return; }
 
       setProfileId(prof.id);
+      console.log('TRACKING: app opened, profileId:', prof.id);
+      const { error: trackingError } = await supabase.from('profiles').update({
+        last_seen_at: new Date().toISOString()
+      }).eq('id', prof.id);
+      if (trackingError) console.error('TRACKING ERROR:', trackingError);
       setProfile({
         name: prof.name, handle: "@" + prof.handle,
         bio: prof.bio, location: prof.location || "",
@@ -247,6 +252,13 @@ export function CuratorProvider({ children }) {
         earnable_mode: "none",
       }).select().single();
       if (error) throw error;
+      console.log('TRACKING: saved a rec, profileId:', profileId);
+      const { error: trackingError } = await supabase.from('profiles').update({
+        last_seen_at: new Date().toISOString(),
+        last_action: 'saved a rec',
+        last_action_at: new Date().toISOString()
+      }).eq('id', profileId);
+      if (trackingError) console.error('TRACKING ERROR:', trackingError);
       const saved = { ...item, id: data.id };
       setTasteItems(prev => [saved, ...prev]);
       return saved;
@@ -262,6 +274,15 @@ export function CuratorProvider({ children }) {
     if (error) throw error;
     const { error: revErr } = await supabase.from("revisions").delete().eq("rec_id", id);
     if (revErr) throw revErr;
+    if (profileId) {
+      console.log('TRACKING: deleted a rec, profileId:', profileId);
+      const { error: trackingError } = await supabase.from('profiles').update({
+        last_seen_at: new Date().toISOString(),
+        last_action: 'deleted a rec',
+        last_action_at: new Date().toISOString()
+      }).eq('id', profileId);
+      if (trackingError) console.error('TRACKING ERROR:', trackingError);
+    }
     setTasteItems(items => items.filter(i => i.id !== id));
   };
 

@@ -119,6 +119,14 @@ export async function GET(request) {
       return NextResponse.json({ error: "Failed to generate code" }, { status: 500 });
     }
 
+    console.log('TRACKING: sent an invite (GET), profileId:', profileId);
+    const { error: trackingError } = await sb.from('profiles').update({
+      last_seen_at: new Date().toISOString(),
+      last_action: 'sent an invite',
+      last_action_at: new Date().toISOString()
+    }).eq('id', profileId);
+    if (trackingError) console.error('TRACKING ERROR:', trackingError);
+
     return NextResponse.json({ code: created, unusedCount: 1 });
   } catch (error) {
     console.error("Invite fetch error:", error);
@@ -159,6 +167,14 @@ export async function POST(request) {
         console.error("Failed to create invite code:", insertErr);
         return NextResponse.json({ error: "Failed to generate code" }, { status: 500 });
       }
+
+      console.log('TRACKING: sent an invite (POST), profileId:', profileId);
+      const { error: trackingError } = await sb.from('profiles').update({
+        last_seen_at: new Date().toISOString(),
+        last_action: 'sent an invite',
+        last_action_at: new Date().toISOString()
+      }).eq('id', profileId);
+      if (trackingError) console.error('TRACKING ERROR:', trackingError);
 
       return NextResponse.json({ code: created });
     }

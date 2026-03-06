@@ -725,6 +725,17 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
+    if (profileId) {
+      console.log('TRACKING: sent a message, profileId:', profileId);
+      const sb = getSupabaseAdmin();
+      const { error: trackingError } = await sb.from('profiles').update({
+        last_seen_at: new Date().toISOString(),
+        last_action: 'sent a message',
+        last_action_at: new Date().toISOString()
+      }).eq('id', profileId);
+      if (trackingError) console.error('TRACKING ERROR:', trackingError);
+    }
+
     return NextResponse.json({ message: aiMessage });
   } catch (error) {
     console.error("Chat API error:", error);
