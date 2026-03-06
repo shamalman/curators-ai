@@ -265,9 +265,9 @@ export default function ChatView({ variant }) {
       let text = data.message;
 
       // Parse and submit feedback capture blocks
-      const feedbackMatch = text.match(/FEEDBACK_CAPTURE:(\{.*?\})/s);
+      const feedbackMatch = text.match(/\n?FEEDBACK_CAPTURE:(\{[\s\S]*\})\s*$/);
       if (feedbackMatch) {
-        text = text.replace(/FEEDBACK_CAPTURE:\{.*?\}/s, '').trim();
+        text = text.replace(/\n?FEEDBACK_CAPTURE:\{[\s\S]*\}\s*$/, '').trim();
         try {
           const feedbackData = JSON.parse(feedbackMatch[1]);
           fetch('/api/feedback', {

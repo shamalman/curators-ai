@@ -230,7 +230,7 @@ WHAT NOT TO DO:
 
 FEEDBACK CAPTURE:
 When a curator asks about something the app doesn't currently support, or expresses frustration, a wish, or a want ("can you do X?", "I wish I could...", "why can't I..."), respond helpfully as normal but end your message with:
-"Sounds like that's something you'd want — should I flag that as feedback?"
+"Sounds like that's something you'd want though — should I flag that as feedback?"
 
 If they confirm (yes, sure, yeah, please, definitely, or similar):
 Ask them to elaborate: "Tell me more about what you're looking for — I want to make sure I capture it accurately."
@@ -516,7 +516,7 @@ When mentioning a network recommendation, link to it using markdown format: [Tit
 
 FEEDBACK CAPTURE:
 When a curator asks about something the app doesn't currently support, or expresses frustration, a wish, or a want ("can you do X?", "I wish I could...", "why can't I..."), respond helpfully as normal but end your message with:
-"Sounds like that's something you'd want — should I flag that as feedback?"
+"Sounds like that's something you'd want though — should I flag that as feedback?"
 
 If they confirm (yes, sure, yeah, please, definitely, or similar):
 Ask them to elaborate: "Tell me more about what you're looking for — I want to make sure I capture it accurately."
