@@ -13,11 +13,14 @@ export default function BottomTabs() {
 
   const isAsk = pathname.startsWith("/myai");
 
+  const isShamal = handle === "shamal";
+
   const tabs = [
     { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai", active: pathname.startsWith("/myai"), activeColor: W.accent },
     { id: "recs", icon: "\u25C9", label: "Recs", path: "/recommendations", active: pathname.startsWith("/recommendations"), activeColor: T.acc },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs", active: pathname.startsWith("/subs"), activeColor: T.acc },
     { id: "profile", icon: "\u25C7", label: "Profile", path: handle ? `/${handle}` : "/myai", active: (handle && pathname === `/${handle}`) || pathname.startsWith("/settings"), activeColor: T.acc },
+    ...(isShamal ? [{ id: "feedback", icon: "\u25CB", label: "Feedback", path: "/admin/feedback", active: pathname.startsWith("/admin/feedback"), activeColor: T.acc }] : []),
   ];
 
   return (

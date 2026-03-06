@@ -63,8 +63,31 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Invite + Settings */}
+      {/* Invite + Settings + Feedback (admin) */}
       <div style={{ padding: "8px 12px 16px", borderTop: `1px solid ${T.bdr}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+        {profile?.handle?.replace("@", "") === "shamal" && (
+          <button
+            onClick={() => router.push("/admin/feedback")}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 12px", borderRadius: 8, border: "none",
+              background: pathname.startsWith("/admin/feedback") ? T.accSoft : "transparent",
+              color: pathname.startsWith("/admin/feedback") ? T.acc : T.ink3,
+              fontFamily: F, fontSize: 14, fontWeight: 500,
+              cursor: "pointer", textAlign: "left",
+              transition: "background .15s",
+            }}
+            onMouseEnter={e => { if (!pathname.startsWith("/admin/feedback")) e.currentTarget.style.background = T.s; }}
+            onMouseLeave={e => { if (!pathname.startsWith("/admin/feedback")) e.currentTarget.style.background = "transparent"; }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1, width: 20, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
+            <span>Feedback</span>
+          </button>
+        )}
         <button
           onClick={() => router.push("/invite")}
           style={{

@@ -262,7 +262,30 @@ export default function ChatView({ variant }) {
       const data = await response.json();
       setTyping(false);
 
-      const text = data.message;
+      let text = data.message;
+
+      // Parse and submit feedback capture blocks
+      const feedbackMatch = text.match(/FEEDBACK_CAPTURE:(\{.*?\})/s);
+      if (feedbackMatch) {
+        text = text.replace(/FEEDBACK_CAPTURE:\{.*?\}/s, '').trim();
+        try {
+          const feedbackData = JSON.parse(feedbackMatch[1]);
+          fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              profileId,
+              handle: profile.handle?.replace('@', ''),
+              originalMessage: feedbackData.originalMessage,
+              elaboration: feedbackData.elaboration,
+              summary: feedbackData.summary,
+            }),
+          }).catch(err => console.error('Feedback submit error:', err));
+        } catch (e) {
+          console.error('Failed to parse feedback JSON:', e);
+        }
+      }
+
       const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
       const isProfileDraft = text.includes('\u{1F4CB} PROFILE DRAFT') || text.includes('PROFILE DRAFT');
 
@@ -313,8 +336,8 @@ export default function ChatView({ variant }) {
         }
       }
 
-      setMessages(m => [...m, { role: "ai", text: data.message, capturedRec, capturedProfile }]);
-      saveMsgToDb("ai", data.message, capturedRec);
+      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile }]);
+      saveMsgToDb("ai", text, capturedRec);
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
