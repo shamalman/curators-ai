@@ -319,6 +319,33 @@ export default function VisitorProfile({ mode }) {
         </p>
       </div>
 
+      {/* Ask AI bar */}
+      {profile.aiEnabled && n >= 5 && (
+        <div style={{ padding: "16px 20px 0" }}>
+          <button onClick={onOpenAI} style={{
+            width: "100%", padding: "13px 16px", borderRadius: 14, border: `1px solid ${T.bdr}`,
+            cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12,
+            background: T.s, marginBottom: 0,
+          }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ fontFamily: S, fontSize: 14, color: T.acc, fontWeight: 400, fontStyle: "italic" }}>C</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                Ask {profile.name}'s AI
+              </div>
+              <div style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>
+                Where should I eat? What's worth watching?
+              </div>
+            </div>
+            <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>{"\u2192"}</span>
+          </button>
+        </div>
+      )}
+
       {/* Stats filter nav */}
       {stats.length > 1 && (
         <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "center", gap: 24 }}>
@@ -358,36 +385,6 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Ask AI banner — only in recs view */}
-      {activeView === "recs" && profile.aiEnabled && n >= 5 && (
-        <div style={{ padding: "16px 20px 0" }}>
-          <button onClick={onOpenAI} style={{
-            width: "100%", padding: "18px 20px", borderRadius: 16, border: `1px solid ${T.acc}30`,
-            cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 16,
-            background: `linear-gradient(135deg, ${T.acc}12, ${T.s})`, position: "relative", overflow: "hidden",
-          }}>
-            <div style={{
-              width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-              background: `linear-gradient(145deg, ${T.acc}25, ${T.acc}10)`, border: `1px solid ${T.acc}30`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ fontFamily: S, fontSize: 22, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 3 }}>
-                Chat with {profile.name}'s AI
-              </div>
-              <div style={{ fontFamily: F, fontSize: 12, color: T.ink2, lineHeight: 1.4 }}>
-                Ask about their recommendations — get personalized suggestions from their taste
-              </div>
-            </div>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.acc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M5 12h14" /><path d="M12 5l7 7-7 7" />
-            </svg>
-            <div style={{ position: "absolute", top: 14, right: 14, width: 6, height: 6, borderRadius: 3, background: T.acc, animation: "breathe 3s ease-in-out infinite" }} />
-          </button>
-        </div>
-      )}
 
       {/* Recs view */}
       {activeView === "recs" && n > 0 && profile.showRecs !== false ? (
