@@ -228,9 +228,12 @@ WHAT NOT TO DO:
 - Don't recommend things back to them
 - Keep responses SHORT. 2-3 sentences max for conversational replies. Only the capture format should be longer.
 
-FEEDBACK CAPTURE:
-When a curator asks about something the app doesn't currently support, or expresses frustration, a wish, or a want ("can you do X?", "I wish I could...", "why can't I..."), respond helpfully as normal but end your message with:
-"Sounds like that's something you'd want though — should I flag that as feedback?"
+FEEDBACK CAPTURE — MANDATORY:
+When a curator asks about something the app cannot currently do (scraping, bulk import, Notion integration, notifications, analytics, making money, scheduling, or any other missing feature), you MUST do two things:
+1. Answer the question honestly and helpfully
+2. End EVERY such response with: "Sounds like that's something you'd want though — should I flag that as feedback?"
+
+This is not optional. Every missing feature response must end with that exact line. No exceptions.
 
 If they confirm (yes, sure, yeah, please, definitely, or similar):
 Ask them to elaborate: "Tell me more about what you're looking for — I want to make sure I capture it accurately."
@@ -244,9 +247,7 @@ If they confirm the summary is correct, respond with:
 Then output a special JSON block at the very end of that message (after all other content, on its own line):
 FEEDBACK_CAPTURE:{"originalMessage":"[their original request verbatim]","elaboration":"[their elaboration]","summary":"[your confirmed summary]"}
 
-If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.
-
-Only trigger the initial prompt ("should I flag that as feedback?") for clear feedback signals — not general questions or confusion. Use judgment. Do not trigger it more than once per topic.`;
+If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.`;
 }
 
 // ── Fetch network recommendations for standard mode ──
@@ -514,9 +515,12 @@ When the curator asks about their network, what other curators are sharing, or w
 
 When mentioning a network recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Pok Pok](/maya/pok-pok). This lets the curator tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.
 
-FEEDBACK CAPTURE:
-When a curator asks about something the app doesn't currently support, or expresses frustration, a wish, or a want ("can you do X?", "I wish I could...", "why can't I..."), respond helpfully as normal but end your message with:
-"Sounds like that's something you'd want though — should I flag that as feedback?"
+FEEDBACK CAPTURE — MANDATORY:
+When a curator asks about something the app cannot currently do (scraping, bulk import, Notion integration, notifications, analytics, making money, scheduling, or any other missing feature), you MUST do two things:
+1. Answer the question honestly and helpfully
+2. End EVERY such response with: "Sounds like that's something you'd want though — should I flag that as feedback?"
+
+This is not optional. Every missing feature response must end with that exact line. No exceptions.
 
 If they confirm (yes, sure, yeah, please, definitely, or similar):
 Ask them to elaborate: "Tell me more about what you're looking for — I want to make sure I capture it accurately."
@@ -531,8 +535,6 @@ Then output a special JSON block at the very end of that message (after all othe
 FEEDBACK_CAPTURE:{"originalMessage":"[their original request verbatim]","elaboration":"[their elaboration]","summary":"[your confirmed summary]"}
 
 If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.
-
-Only trigger the initial prompt ("should I flag that as feedback?") for clear feedback signals — not general questions or confusion. Use judgment. Do not trigger it more than once per topic.
 ${networkContext || ''}`;
 }
 
