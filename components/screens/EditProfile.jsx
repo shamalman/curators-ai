@@ -71,6 +71,30 @@ export default function EditProfile() {
               </p>
             </div>
           )}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", borderTop: `1px solid ${T.bdr}` }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Show who I subscribe to</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>Display on your public profile</div>
+            </div>
+            <button onClick={() => setProfile(p => ({ ...p, showSubscriptions: !p.showSubscriptions }))} style={{
+              width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+              background: profile.showSubscriptions ? T.acc : T.bdr, transition: "background .2s",
+            }}>
+              <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: profile.showSubscriptions ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", borderTop: `1px solid ${T.bdr}` }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Show my subscribers</div>
+              <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>Display on your public profile</div>
+            </div>
+            <button onClick={() => setProfile(p => ({ ...p, showSubscribers: !p.showSubscribers }))} style={{
+              width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+              background: profile.showSubscribers ? T.acc : T.bdr, transition: "background .2s",
+            }}>
+              <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: profile.showSubscribers ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </button>
+          </div>
         </div>
 
         {/* Section: Interactions */}

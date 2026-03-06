@@ -30,6 +30,8 @@ export function VisitorProvider({ handle, children }) {
             name: prof.name, handle: "@" + prof.handle,
             bio: prof.bio, aiEnabled: prof.ai_enabled,
             acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
+            showSubscriptions: prof.show_subscriptions || false,
+            showSubscribers: prof.show_subscribers || false,
             cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
             walletFull: "",
             subscribers: 0, subsEnabled: true,

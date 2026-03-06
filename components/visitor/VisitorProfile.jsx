@@ -1,20 +1,29 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const ctx = useCurator();
   const { profile, profileId, tasteItems, isOwner } = ctx;
   const [subToggling, setSubToggling] = useState(false);
 
-  // Local subscription state for visitor mode (context may not provide these)
+  // Local subscription state for visitor mode
   const [localSubbed, setLocalSubbed] = useState(false);
   const [myProfileId, setMyProfileId] = useState(null);
+
+  // Network data
+  const [subscribedTo, setSubscribedTo] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
+  const [networkLoaded, setNetworkLoaded] = useState(false);
+
+  // My subscriptions (for showing sub status on curator rows)
+  const [mySubIds, setMySubIds] = useState(new Set());
 
   useEffect(() => {
     if (mode !== "visitor" || isOwner || !profileId) return;
@@ -35,8 +44,100 @@ export default function VisitorProfile({ mode }) {
     }
     checkSub();
   }, [mode, isOwner, profileId]);
+
+  // Fetch network data
+  useEffect(() => {
+    if (!profileId || !profile) return;
+    async function loadNetwork() {
+      try {
+        // Fetch logged-in user's subscriptions for sub status
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: myProf } = await supabase
+            .from("profiles").select("id").eq("auth_user_id", user.id).single();
+          if (myProf) {
+            setMyProfileId(myProf.id);
+            const { data: mySubs } = await supabase
+              .from("subscriptions").select("curator_id")
+              .eq("subscriber_id", myProf.id).is("unsubscribed_at", null);
+            if (mySubs) setMySubIds(new Set(mySubs.map(s => s.curator_id)));
+          }
+        }
+
+        if (profile.showSubscriptions) {
+          const { data: subRows } = await supabase
+            .from("subscriptions").select("curator_id")
+            .eq("subscriber_id", profileId).is("unsubscribed_at", null);
+          if (subRows && subRows.length > 0) {
+            const ids = subRows.map(s => s.curator_id);
+            const { data: profiles } = await supabase
+              .from("profiles").select("id, name, handle, bio").in("id", ids);
+            setSubscribedTo(profiles || []);
+          }
+        }
+
+        if (profile.showSubscribers) {
+          const { data: fanRows } = await supabase
+            .from("subscriptions").select("subscriber_id")
+            .eq("curator_id", profileId).is("unsubscribed_at", null);
+          if (fanRows && fanRows.length > 0) {
+            const ids = fanRows.map(s => s.subscriber_id);
+            const { data: profiles } = await supabase
+              .from("profiles").select("id, name, handle, bio").in("id", ids);
+            setSubscribers(profiles || []);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load network data:", err);
+      }
+      setNetworkLoaded(true);
+    }
+    loadNetwork();
+  }, [profileId, profile?.showSubscriptions, profile?.showSubscribers]);
+
   const [profileTab, setProfileTab] = useState("recent");
   const [profileCopied, setProfileCopied] = useState(false);
+
+  // Determine active view from query params
+  const viewParam = searchParams.get("view") || "recs";
+  const showSubsTo = profile?.showSubscriptions && subscribedTo.length > 0;
+  const showSubsOf = profile?.showSubscribers && subscribers.length > 0;
+
+  // Fall back to recs if view param points to hidden/empty data
+  const activeView = (viewParam === "subscribed-to" && showSubsTo) ? "subscribed-to"
+    : (viewParam === "subscribers" && showSubsOf) ? "subscribers"
+    : "recs";
+
+  const setView = (v) => {
+    const handle = profile.handle.replace("@", "");
+    if (v === "recs") {
+      router.replace(`/${handle}`, { scroll: false });
+    } else {
+      router.replace(`/${handle}?view=${v}`, { scroll: false });
+    }
+  };
+
+  const handleSubToCurator = async (curatorId) => {
+    if (!myProfileId) {
+      window.location.href = '/login';
+      return;
+    }
+    // Optimistic update
+    setMySubIds(prev => new Set([...prev, curatorId]));
+    try {
+      const { data: existing } = await supabase.from("subscriptions")
+        .select("*").eq("subscriber_id", myProfileId).eq("curator_id", curatorId)
+        .limit(1).maybeSingle();
+      if (existing) {
+        await supabase.from("subscriptions").update({ unsubscribed_at: null }).eq("id", existing.id);
+      } else {
+        await supabase.from("subscriptions").insert({ subscriber_id: myProfileId, curator_id: curatorId });
+      }
+    } catch (err) {
+      console.error("Subscribe failed:", err);
+      setMySubIds(prev => { const next = new Set(prev); next.delete(curatorId); return next; });
+    }
+  };
 
   if (!profile) return null;
 
@@ -74,6 +175,47 @@ export default function VisitorProfile({ mode }) {
       router.push(`/${handle}/ask`);
     }
   };
+
+  const CuratorRow = ({ curator }) => {
+    const isSubbed = mySubIds.has(curator.id);
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+        background: T.bg2, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 8,
+        cursor: "pointer",
+      }} onClick={() => router.push(`/${curator.handle}`)}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{ fontFamily: S, fontSize: 16, color: T.acc, fontWeight: 400, fontStyle: "italic" }}>{curator.name?.[0]}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: S, fontSize: 16, color: T.ink, fontWeight: 400 }}>{curator.name}</div>
+          <div style={{ fontSize: 11, color: T.ink3, fontFamily: F }}>@{curator.handle}</div>
+          {curator.bio && (
+            <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{curator.bio}</div>
+          )}
+        </div>
+        {curator.id !== myProfileId && (
+          isSubbed ? (
+            <span style={{ padding: "5px 12px", fontSize: 11, fontWeight: 600, fontFamily: F, color: T.ink3, whiteSpace: "nowrap" }}>Subscribed ✓</span>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); handleSubToCurator(curator.id); }} style={{
+              padding: "5px 12px", borderRadius: 20, border: `1px solid ${T.bdr}`,
+              background: "none", color: T.acc, fontSize: 11, fontWeight: 600,
+              fontFamily: F, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+            }}>+ Sub</button>
+          )
+        )}
+      </div>
+    );
+  };
+
+  // Build stats for the filter nav
+  const stats = [{ id: "recs", label: "Recs", count: n }];
+  if (showSubsTo) stats.push({ id: "subscribed-to", label: "Subscribed to", count: subscribedTo.length });
+  if (showSubsOf) stats.push({ id: "subscribers", label: "Subscribers", count: subscribers.length });
 
   return (
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
@@ -145,7 +287,6 @@ export default function VisitorProfile({ mode }) {
                   .is("unsubscribed_at", null);
                 setLocalSubbed(false);
               } else {
-                // Check if row already exists (previously unsubscribed)
                 const { data: existing } = await supabase.from("subscriptions")
                   .select("*")
                   .eq("subscriber_id", myProfileId)
@@ -178,8 +319,24 @@ export default function VisitorProfile({ mode }) {
         </p>
       </div>
 
-      {/* Taste spectrum — only when recs exist and showRecs is on */}
-      {n > 0 && profile.showRecs !== false && (
+      {/* Stats filter nav */}
+      {stats.length > 1 && (
+        <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "center", gap: 24 }}>
+          {stats.map(stat => (
+            <button key={stat.id} onClick={() => setView(stat.id)} style={{
+              background: "none", border: "none", cursor: "pointer", padding: "4px 0",
+              borderBottom: activeView === stat.id ? `2px solid ${T.acc}` : "2px solid transparent",
+              transition: "border-color .15s",
+            }}>
+              <div style={{ fontFamily: F, fontSize: 18, fontWeight: 700, color: activeView === stat.id ? T.acc : T.ink3 }}>{stat.count}</div>
+              <div style={{ fontFamily: F, fontSize: 11, color: activeView === stat.id ? T.acc : T.ink3, marginTop: 2 }}>{stat.label}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Taste spectrum — only when recs view and recs exist */}
+      {activeView === "recs" && n > 0 && profile.showRecs !== false && (
         <div style={{ padding: "24px 28px 0" }}>
           <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 4, background: T.s2 }}>
             {topCats.map(cat => {
@@ -201,8 +358,8 @@ export default function VisitorProfile({ mode }) {
         </div>
       )}
 
-      {/* Ask AI banner — only when AI enabled and 5+ public recs */}
-      {profile.aiEnabled && n >= 5 && (
+      {/* Ask AI banner — only in recs view */}
+      {activeView === "recs" && profile.aiEnabled && n >= 5 && (
         <div style={{ padding: "16px 20px 0" }}>
           <button onClick={onOpenAI} style={{
             width: "100%", padding: "18px 20px", borderRadius: 16, border: `1px solid ${T.acc}30`,
@@ -231,25 +388,9 @@ export default function VisitorProfile({ mode }) {
           </button>
         </div>
       )}
-      {/* TODO: Request a rec — hidden until end-to-end flow is built
-      {profile.acceptRequests && (
-        <button onClick={() => { mode === "visitor" ? router.push(`/${handle}/request`) : router.push('/recommendations/review'); }} style={{
-          flex: 1, padding: "22px 16px", borderRadius: 18, border: "1px solid " + T.bdr,
-          background: T.s, cursor: "pointer", textAlign: "left",
-        }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: "#9B8BC215", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <span style={{ fontSize: 18 }}>🙏</span>
-          </div>
-          <div style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 4 }}>Request a rec</div>
-          <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.45 }}>
-            Ask {profile.name} directly for a recommendation
-          </div>
-        </button>
-      )}
-      */}
 
-      {/* Taste preview */}
-      {n > 0 && profile.showRecs !== false ? (
+      {/* Recs view */}
+      {activeView === "recs" && n > 0 && profile.showRecs !== false ? (
         <>
           <div style={{ padding: "28px 20px 0" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -322,6 +463,26 @@ export default function VisitorProfile({ mode }) {
           )}
         </>
       ) : null}
+
+      {/* Subscribed to view */}
+      {activeView === "subscribed-to" && (
+        <div style={{ padding: "28px 20px 20px" }}>
+          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>
+            {profile.name} subscribes to
+          </div>
+          {subscribedTo.map(c => <CuratorRow key={c.id} curator={c} />)}
+        </div>
+      )}
+
+      {/* Subscribers view */}
+      {activeView === "subscribers" && (
+        <div style={{ padding: "28px 20px 20px" }}>
+          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>
+            Subscribed to {profile.name}
+          </div>
+          {subscribers.map(c => <CuratorRow key={c.id} curator={c} />)}
+        </div>
+      )}
 
       </div>
     </div>
