@@ -52,6 +52,7 @@ export default function LoginPage() {
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <span style={{ fontFamily: S, fontSize: 28, color: T.acc, fontWeight: 400 }}>curators</span>
+          <div style={{ fontSize: 12, color: "#A09888", textAlign: "center", marginBottom: 24, fontFamily: F }}>Early access — invite only</div>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
