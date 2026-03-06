@@ -51,7 +51,11 @@ export default function SettingsView() {
   }, [profileId])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error("Sign out error:", err)
+    }
     window.location.href = "/login"
   }
 

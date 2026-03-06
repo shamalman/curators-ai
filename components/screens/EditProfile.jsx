@@ -1,12 +1,13 @@
 'use client'
 
 import { useRouter } from "next/navigation";
+import { useContext } from "react";
 import { T, F, S, MN } from "@/lib/constants";
-import { useCurator } from "@/context/CuratorContext";
+import { CuratorContext } from "@/context/CuratorContext";
 
 export default function EditProfile() {
   const router = useRouter();
-  const { profile, setProfile, saveProfile, tasteItems } = useCurator();
+  const { profile, setProfile, saveProfile, tasteItems } = useContext(CuratorContext);
 
   if (!profile) return null;
 
