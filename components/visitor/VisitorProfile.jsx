@@ -40,11 +40,7 @@ const responsiveCss = `
   .desk-sub-wide { display: none !important; }
   .desk-sub-narrow { display: inline-flex !important; }
 }
-.ai-panel-inline { display: flex; }
-.ai-panel-aside { display: none; }
 @media (min-width: 720px) {
-  .ai-panel-inline { display: none; }
-  .ai-panel-aside { display: block; }
   .hero-cols { display: flex !important; gap: 28px; align-items: flex-start; }
   .hero-left { flex: 1; min-width: 260px; max-width: 440px; }
   .hero-right { width: 220px; flex-shrink: 0; }
@@ -63,6 +59,14 @@ export default function VisitorProfile({ mode }) {
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [filterCat, setFilterCat] = useState(null);
   const [socialHover, setSocialHover] = useState(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 720);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Check subscription status & counts
   useEffect(() => {
@@ -176,10 +180,10 @@ export default function VisitorProfile({ mode }) {
     );
   };
 
-  const AIPanelCompact = ({ className }) => {
+  const AIPanelCompact = () => {
     if (!profile.aiEnabled || n < 5) return null;
     return (
-      <div className={className} onClick={() => router.push(`/${handle}/ask`)} style={{
+      <div onClick={() => router.push(`/${handle}/ask`)} style={{
         display: "flex", alignItems: "center", gap: 12,
         background: T.s2, border: "1px solid rgba(212,149,107,0.2)", borderRadius: 12,
         padding: "12px 16px", cursor: "pointer",
@@ -199,10 +203,10 @@ export default function VisitorProfile({ mode }) {
     );
   };
 
-  const AIPanelFull = ({ className }) => {
+  const AIPanelFull = () => {
     if (!profile.aiEnabled || n < 5) return null;
     return (
-      <div className={className}>
+      <div>
         <div onClick={() => router.push(`/${handle}/ask`)} style={{
           background: T.s2, border: `1px solid rgba(212,149,107,0.2)`, borderRadius: 16,
           padding: 18, cursor: "pointer", transition: "border-color .15s",
@@ -274,7 +278,7 @@ export default function VisitorProfile({ mode }) {
             </div>
 
             {/* Below identity — padded to clear avatar */}
-            <div style={{ paddingLeft: 54 }}>
+            <div style={{ paddingLeft: 52 }}>
               {/* Bio */}
               {profile.bio && profile.bio.trim() && (
                 <p style={{ fontFamily: F, fontSize: 13, color: T.ink2, lineHeight: 1.6, marginTop: 10, marginBottom: 12 }}>
@@ -354,17 +358,21 @@ export default function VisitorProfile({ mode }) {
                 </div>
               )}
 
-              {/* AI panel — compact bar (mobile) */}
-              <div style={{ marginTop: 20 }}>
-                <AIPanelCompact className="ai-panel-inline" />
-              </div>
+              {/* AI panel — compact bar (mobile only) */}
+              {!isDesktop && (
+                <div style={{ marginTop: 20 }}>
+                  <AIPanelCompact />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right col — AI panel full card (desktop) */}
-          <div className="hero-right">
-            <AIPanelFull className="ai-panel-aside" />
-          </div>
+          {/* Right col — AI panel full card (desktop only) */}
+          {isDesktop && (
+            <div className="hero-right">
+              <AIPanelFull />
+            </div>
+          )}
         </div>
       </div>
 
