@@ -277,8 +277,8 @@ export default function VisitorProfile({ mode }) {
               </div>
             </div>
 
-            {/* Below identity — padded to clear avatar */}
-            <div style={{ paddingLeft: 52 }}>
+            {/* Below identity */}
+            <div>
               {/* Bio */}
               {profile.bio && profile.bio.trim() && (
                 <p style={{ fontFamily: F, fontSize: 13, color: T.ink2, lineHeight: 1.6, marginTop: 10, marginBottom: 12 }}>
