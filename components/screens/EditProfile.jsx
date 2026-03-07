@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useContext } from "react";
 import { T, F, S, MN } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
+import { VisitorContext } from "@/context/VisitorContext";
 
 const SOCIAL_PLATFORMS = [
   { key: "instagram", label: "Instagram", placeholder: "yourhandle" },
@@ -18,6 +19,7 @@ const SOCIAL_PLATFORMS = [
 export default function EditProfile() {
   const router = useRouter();
   const { profile, setProfile, saveProfile, tasteItems } = useContext(CuratorContext);
+  const visitor = useContext(VisitorContext);
 
   if (!profile) return null;
 
@@ -39,7 +41,7 @@ export default function EditProfile() {
         <button onClick={() => router.back()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
         </button>
-        <button onClick={async () => { await saveProfile(); const h = profile.handle.replace("@", ""); router.push(`/${h}`); }} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "8px 18px", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 700, color: T.accText }}>Save</button>
+        <button onClick={async () => { await saveProfile(); if (visitor?.refresh) await visitor.refresh(); const h = profile.handle.replace("@", ""); router.push(`/${h}`); }} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "8px 18px", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 700, color: T.accText }}>Save</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 24px 40px", WebkitOverflowScrolling: "touch" }}>
         <h2 style={{ fontFamily: S, fontSize: 26, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Edit Profile</h2>

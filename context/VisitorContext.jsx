@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
 export const VisitorContext = createContext(null);
@@ -14,62 +14,63 @@ export function VisitorProvider({ handle, children }) {
   const [isOwner, setIsOwner] = useState(false);
   const prevMsgCount = useRef(0);
 
+  const loadVisitorData = useCallback(async () => {
+    if (!handle) return;
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("handle", handle)
+        .single();
+      if (prof) {
+        setProfileId(prof.id);
+        setProfile({
+          name: prof.name, handle: "@" + prof.handle,
+          bio: prof.bio, aiEnabled: prof.ai_enabled,
+          acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
+          showSubscriptions: prof.show_subscriptions || false,
+          showSubscribers: prof.show_subscribers || false,
+          cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
+          walletFull: "",
+          socialLinks: prof.social_links || {},
+          subscribers: 0, subsEnabled: true,
+          subsText: "Curated recs straight to your inbox. Only things worth your time.",
+        });
+
+        // Check if logged-in user owns this profile
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && prof.auth_user_id === user.id) {
+          setIsOwner(true);
+        }
+
+        const { data: recs } = await supabase
+          .from("recommendations")
+          .select("*")
+          .eq("profile_id", prof.id)
+          .eq("visibility", "public")
+          .order("created_at", { ascending: false });
+        if (recs && recs.length > 0) {
+          setTasteItems(recs.map(r => ({
+            id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            title: r.title, category: r.category, context: r.context,
+            tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
+            visibility: r.visibility || "public", revision: r.revision || 1,
+            earnableMode: r.earnable_mode || "none",
+            revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
+          })));
+        }
+      }
+      setDbLoaded(true);
+    } catch (err) {
+      console.error("Failed to load visitor data:", err);
+      setDbLoaded(true);
+    }
+  }, [handle]);
+
   // Fetch profile + public recs by handle
   useEffect(() => {
-    if (!handle) return;
-    async function loadVisitorData() {
-      try {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("handle", handle)
-          .single();
-        if (prof) {
-          setProfileId(prof.id);
-          setProfile({
-            name: prof.name, handle: "@" + prof.handle,
-            bio: prof.bio, aiEnabled: prof.ai_enabled,
-            acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
-            showSubscriptions: prof.show_subscriptions || false,
-            showSubscribers: prof.show_subscribers || false,
-            cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
-            walletFull: "",
-            socialLinks: prof.social_links || {},
-            subscribers: 0, subsEnabled: true,
-            subsText: "Curated recs straight to your inbox. Only things worth your time.",
-          });
-
-          // Check if logged-in user owns this profile
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user && prof.auth_user_id === user.id) {
-            setIsOwner(true);
-          }
-
-          const { data: recs } = await supabase
-            .from("recommendations")
-            .select("*")
-            .eq("profile_id", prof.id)
-            .eq("visibility", "public")
-            .order("created_at", { ascending: false });
-          if (recs && recs.length > 0) {
-            setTasteItems(recs.map(r => ({
-              id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-              title: r.title, category: r.category, context: r.context,
-              tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
-              visibility: r.visibility || "public", revision: r.revision || 1,
-              earnableMode: r.earnable_mode || "none",
-              revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-            })));
-          }
-        }
-        setDbLoaded(true);
-      } catch (err) {
-        console.error("Failed to load visitor data:", err);
-        setDbLoaded(true);
-      }
-    }
     loadVisitorData();
-  }, [handle]);
+  }, [loadVisitorData]);
 
   // No-op stubs for curator-only functions
   const addRec = async () => {};
@@ -106,6 +107,7 @@ export function VisitorProvider({ handle, children }) {
       undoArchive,
       toggleVisibility,
       isOwner,
+      refresh: loadVisitorData,
     }}>
       {children}
     </VisitorContext.Provider>
