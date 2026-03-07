@@ -34,6 +34,7 @@ export function VisitorProvider({ handle, children }) {
             showSubscribers: prof.show_subscribers || false,
             cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
             walletFull: "",
+            socialLinks: prof.social_links || {},
             subscribers: 0, subsEnabled: true,
             subsText: "Curated recs straight to your inbox. Only things worth your time.",
           });

@@ -59,6 +59,7 @@ export function CuratorProvider({ children }) {
         showSubscribers: prof.show_subscribers || false,
         cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
         walletFull: "",
+        socialLinks: prof.social_links || {},
         subscribers: 0, subsEnabled: true,
         subsText: "Curated recs straight to your inbox. Only things worth your time.",
       });
@@ -183,6 +184,7 @@ export function CuratorProvider({ children }) {
         show_subscribers: profile.showSubscribers || false,
         crypto_enabled: profile.cryptoEnabled,
         wallet: profile.wallet || "",
+        social_links: profile.socialLinks || {},
       }).eq("id", profileId);
       if (error) throw error;
       // Re-fetch profile from DB to ensure context is fully in sync
@@ -200,6 +202,7 @@ export function CuratorProvider({ children }) {
           showSubscribers: prof.show_subscribers || false,
           cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
           walletFull: "",
+          socialLinks: prof.social_links || {},
           subscribers: 0, subsEnabled: true,
           subsText: "Curated recs straight to your inbox. Only things worth your time.",
         });
@@ -229,6 +232,7 @@ export function CuratorProvider({ children }) {
           showSubscribers: prof.show_subscribers || false,
           cryptoEnabled: prof.crypto_enabled, wallet: prof.wallet || "",
           walletFull: "",
+          socialLinks: prof.social_links || {},
           subscribers: 0, subsEnabled: true,
           subsText: "Curated recs straight to your inbox. Only things worth your time.",
         });

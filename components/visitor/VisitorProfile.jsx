@@ -6,159 +6,116 @@ import { supabase } from "@/lib/supabase";
 import { T, F, S, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
+const CAT_COLORS = {
+  watch: "#8B5CF6", listen: "#EC4899", read: "#6366F1", visit: "#10B981",
+  get: "#0EA5E9", other: "#6B6258",
+  restaurant: "#F59E0B", book: "#6366F1", music: "#EC4899",
+  tv: "#8B5CF6", film: "#8B5CF6", travel: "#10B981", product: "#0EA5E9",
+};
+
+const SOCIAL_URLS = {
+  instagram: (h) => `https://instagram.com/${h}`,
+  spotify: (h) => `https://open.spotify.com/user/${h}`,
+  substack: (h) => `https://substack.com/@${h}`,
+  x: (h) => `https://x.com/${h}`,
+  threads: (h) => `https://threads.net/@${h}`,
+  bluesky: (h) => `https://bsky.app/profile/${h}`,
+  website: (h) => h,
+};
+
+const SOCIAL_ICONS = {
+  instagram: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" fill="currentColor"/></svg>,
+  spotify: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" fill="currentColor"/></svg>,
+  substack: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.54 24V10.812H1.46zM22.54 0H1.46v2.836h21.08V0z" fill="currentColor"/></svg>,
+  x: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" fill="currentColor"/></svg>,
+  threads: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.343 3.616 8.878 3.589 12c.027 3.12.718 5.654 2.057 7.224 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.583-1.313-.877-2.39-.882h-.014c-.96 0-1.69.198-2.203.59-.48.37-.782.886-.918 1.553l-2.063-.421c.206-1.048.719-1.935 1.524-2.612.877-.733 2.01-1.116 3.67-1.116h.014c1.744.007 3.142.545 4.145 1.6 1.168 1.232 1.636 3.02 1.377 5.31.568.33 1.089.728 1.553 1.198 1.006 1.024 1.705 2.394 1.705 4.21 0 2.49-1.044 4.542-3.017 5.94-1.601 1.12-3.672 1.687-6.165 1.687H12.186zM13.56 14.326c.604-.05 1.136-.323 1.546-.796.545-.632.815-1.558.806-2.752a11.55 11.55 0 0 0-2.333-.122c-.931.056-1.682.327-2.193.784-.42.372-.636.843-.604 1.33.054.98.714 1.567 1.84 1.63.32.018.64.01.938-.074z" fill="currentColor"/></svg>,
+  bluesky: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8z" fill="currentColor"/></svg>,
+  website: <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/></svg>,
+};
+
+const responsiveCss = `
+.desk-sub-wide { display: inline-flex; }
+.desk-sub-narrow { display: none; }
+@media (max-width: 860px) {
+  .desk-sub-wide { display: none !important; }
+  .desk-sub-narrow { display: inline-flex !important; }
+}
+.ai-panel-inline { display: block; }
+.ai-panel-aside { display: none; }
+@media (min-width: 720px) {
+  .ai-panel-inline { display: none; }
+  .ai-panel-aside { display: block; }
+  .hero-cols { display: flex !important; gap: 28px; align-items: flex-start; }
+  .hero-left { flex: 1; min-width: 260px; max-width: 440px; }
+  .hero-right { width: 220px; flex-shrink: 0; }
+}
+`;
+
 export default function VisitorProfile({ mode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ctx = useCurator();
   const { profile, profileId, tasteItems, isOwner } = ctx;
   const [subToggling, setSubToggling] = useState(false);
-
-  // Local subscription state for visitor mode
   const [localSubbed, setLocalSubbed] = useState(false);
   const [myProfileId, setMyProfileId] = useState(null);
+  const [subscribedToCount, setSubscribedToCount] = useState(0);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+  const [filterCat, setFilterCat] = useState(null);
+  const [socialHover, setSocialHover] = useState(null);
 
-  // Network data
-  const [subscribedTo, setSubscribedTo] = useState([]);
-  const [subscribers, setSubscribers] = useState([]);
-  const [networkLoaded, setNetworkLoaded] = useState(false);
-
-  // My subscriptions (for showing sub status on curator rows)
-  const [mySubIds, setMySubIds] = useState(new Set());
-
-  useEffect(() => {
-    if (mode !== "visitor" || isOwner || !profileId) return;
-    async function checkSub() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: myProf } = await supabase
-        .from("profiles").select("id").eq("auth_user_id", user.id).single();
-      if (!myProf) return;
-      setMyProfileId(myProf.id);
-      try {
-        const { data } = await supabase
-          .from("subscriptions").select("id")
-          .eq("subscriber_id", myProf.id).eq("curator_id", profileId)
-          .is("unsubscribed_at", null).limit(1);
-        if (data && data.length > 0) setLocalSubbed(true);
-      } catch { /* subscriptions table may not exist */ }
-    }
-    checkSub();
-  }, [mode, isOwner, profileId]);
-
-  // Fetch network data
+  // Check subscription status & counts
   useEffect(() => {
     if (!profileId || !profile) return;
-    async function loadNetwork() {
+    async function loadSubData() {
       try {
-        // Fetch logged-in user's subscriptions for sub status
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: myProf } = await supabase
             .from("profiles").select("id").eq("auth_user_id", user.id).single();
           if (myProf) {
             setMyProfileId(myProf.id);
-            const { data: mySubs } = await supabase
-              .from("subscriptions").select("curator_id")
-              .eq("subscriber_id", myProf.id).is("unsubscribed_at", null);
-            if (mySubs) setMySubIds(new Set(mySubs.map(s => s.curator_id)));
+            if (mode === "visitor" && !isOwner) {
+              const { data } = await supabase
+                .from("subscriptions").select("id")
+                .eq("subscriber_id", myProf.id).eq("curator_id", profileId)
+                .is("unsubscribed_at", null).limit(1);
+              if (data && data.length > 0) setLocalSubbed(true);
+            }
           }
         }
 
-        if (profile.showSubscriptions) {
-          const { data: subRows } = await supabase
-            .from("subscriptions").select("curator_id")
-            .eq("subscriber_id", profileId).is("unsubscribed_at", null);
-          if (subRows && subRows.length > 0) {
-            const ids = subRows.map(s => s.curator_id);
-            const { data: profiles } = await supabase
-              .from("profiles").select("id, name, handle, bio").in("id", ids);
-            setSubscribedTo(profiles || []);
-          }
-        }
+        // Subscriber count
+        const { count: subCount } = await supabase
+          .from("subscriptions").select("id", { count: "exact", head: true })
+          .eq("curator_id", profileId).is("unsubscribed_at", null);
+        setSubscriberCount(subCount || 0);
 
-        if (profile.showSubscribers) {
-          const { data: fanRows } = await supabase
-            .from("subscriptions").select("subscriber_id")
-            .eq("curator_id", profileId).is("unsubscribed_at", null);
-          if (fanRows && fanRows.length > 0) {
-            const ids = fanRows.map(s => s.subscriber_id);
-            const { data: profiles } = await supabase
-              .from("profiles").select("id, name, handle, bio").in("id", ids);
-            setSubscribers(profiles || []);
-          }
-        }
+        // Subscribed-to count
+        const { count: subToCount } = await supabase
+          .from("subscriptions").select("id", { count: "exact", head: true })
+          .eq("subscriber_id", profileId).is("unsubscribed_at", null);
+        setSubscribedToCount(subToCount || 0);
       } catch (err) {
-        console.warn("Failed to load network data:", err);
+        console.warn("Failed to load sub data:", err);
       }
-      setNetworkLoaded(true);
     }
-    loadNetwork();
-  }, [profileId, profile?.showSubscriptions, profile?.showSubscribers]);
-
-  const [profileTab, setProfileTab] = useState("recent");
-  const [profileCopied, setProfileCopied] = useState(false);
-
-  // Determine active view from query params
-  const viewParam = searchParams.get("view") || "recs";
-  const showSubsTo = profile?.showSubscriptions && subscribedTo.length > 0;
-  const showSubsOf = profile?.showSubscribers && subscribers.length > 0;
-
-  // Fall back to recs if view param points to hidden/empty data
-  const activeView = (viewParam === "subscribed-to" && showSubsTo) ? "subscribed-to"
-    : (viewParam === "subscribers" && showSubsOf) ? "subscribers"
-    : "recs";
-
-  const setView = (v) => {
-    const handle = profile.handle.replace("@", "");
-    if (v === "recs") {
-      router.replace(`/${handle}`, { scroll: false });
-    } else {
-      router.replace(`/${handle}?view=${v}`, { scroll: false });
-    }
-  };
-
-  const handleSubToCurator = async (curatorId) => {
-    if (!myProfileId) {
-      window.location.href = '/login';
-      return;
-    }
-    // Optimistic update
-    setMySubIds(prev => new Set([...prev, curatorId]));
-    try {
-      const { data: existing } = await supabase.from("subscriptions")
-        .select("*").eq("subscriber_id", myProfileId).eq("curator_id", curatorId)
-        .limit(1).maybeSingle();
-      if (existing) {
-        await supabase.from("subscriptions").update({ unsubscribed_at: null }).eq("id", existing.id);
-      } else {
-        await supabase.from("subscriptions").insert({ subscriber_id: myProfileId, curator_id: curatorId });
-      }
-    } catch (err) {
-      console.error("Subscribe failed:", err);
-      setMySubIds(prev => { const next = new Set(prev); next.delete(curatorId); return next; });
-    }
-  };
+    loadSubData();
+  }, [profileId, profile, mode, isOwner]);
 
   if (!profile) return null;
 
   const handle = profile.handle.replace("@", "");
   const items = tasteItems;
   const n = items.length;
-  const activeItems = items;
-  const cats = [...new Set(activeItems.map(i => i.category))];
-  const cc = {}; cats.forEach(c => { cc[c] = activeItems.filter(i => i.category === c).length; });
+  const publicItems = items.filter(i => mode === "curator" || i.visibility === "public");
+  const filteredItems = filterCat ? publicItems.filter(i => i.category === filterCat) : publicItems;
+  const cats = [...new Set(publicItems.map(i => i.category))];
+  const cc = {}; cats.forEach(c => { cc[c] = publicItems.filter(i => i.category === c).length; });
   const topCats = [...cats].sort((a, b) => (cc[b] || 0) - (cc[a] || 0));
-
-  const shareProfile = () => {
-    const url = `curators.com/${handle}`;
-    if (navigator.share) {
-      navigator.share({ title: `${profile.name} on Curators`, url: `https://${url}` }).catch(() => {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(`https://${url}`);
-    }
-    setProfileCopied(true);
-    setTimeout(() => setProfileCopied(false), 2200);
-  };
+  const firstName = profile.name.split(" ")[0];
+  const socialLinks = profile.socialLinks || {};
+  const hasSocials = Object.values(socialLinks).some(v => v && v.trim());
 
   const onSelectItem = (item) => {
     if (mode === "curator") {
@@ -168,60 +125,89 @@ export default function VisitorProfile({ mode }) {
     }
   };
 
-  const onOpenAI = () => {
-    if (mode === "curator") {
-      router.push('/myai');
-    } else {
-      router.push(`/${handle}/ask`);
-    }
+  const handleSubscribe = async () => {
+    if (!myProfileId) { window.location.href = '/login'; return; }
+    if (subToggling || localSubbed) return;
+    setSubToggling(true);
+    try {
+      const { data: existing } = await supabase.from("subscriptions")
+        .select("*").eq("subscriber_id", myProfileId).eq("curator_id", profileId)
+        .limit(1).maybeSingle();
+      if (existing) {
+        await supabase.from("subscriptions").update({ unsubscribed_at: null }).eq("id", existing.id);
+      } else {
+        await supabase.from("subscriptions").insert({ subscriber_id: myProfileId, curator_id: profileId });
+      }
+      setLocalSubbed(true);
+      setSubscriberCount(c => c + 1);
+    } catch (err) { console.error("Subscribe failed:", err); }
+    finally { setSubToggling(false); }
   };
 
-  const CuratorRow = ({ curator }) => {
-    const isSubbed = mySubIds.has(curator.id);
+  const SubscribeBtn = ({ className }) => {
+    if (isOwner) {
+      return (
+        <button className={className} onClick={() => router.push(`/${handle}/edit`)} style={{
+          background: "transparent", border: `1.5px solid ${T.bdr}`, borderRadius: 20,
+          padding: "7px 16px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
+        }}>Edit profile</button>
+      );
+    }
+    if (mode !== "visitor") return null;
+    if (localSubbed) {
+      return (
+        <span className={className} style={{
+          background: "transparent", border: `1.5px solid ${T.ink3}`, borderRadius: 20,
+          padding: "7px 16px", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.ink2,
+          display: "inline-flex", alignItems: "center",
+        }}>Subscribed ✓</span>
+      );
+    }
     return (
-      <div style={{
-        display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
-        background: T.bg2, borderRadius: 14, border: `1px solid ${T.bdr}`, marginBottom: 8,
-        cursor: "pointer",
-      }} onClick={() => router.push(`/${curator.handle}`)}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <span style={{ fontFamily: S, fontSize: 16, color: T.acc, fontWeight: 400, fontStyle: "italic" }}>{curator.name?.[0]}</span>
+      <button className={className} onClick={handleSubscribe} style={{
+        background: T.acc, border: "none", borderRadius: 20,
+        padding: "7px 16px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
+      }}>Subscribe</button>
+    );
+  };
+
+  const AIPanel = ({ className }) => {
+    if (!profile.aiEnabled || n < 5) return null;
+    return (
+      <div className={className}>
+        <div onClick={() => router.push(`/${handle}/ask`)} style={{
+          background: T.s2, border: `1px solid rgba(212,149,107,0.2)`, borderRadius: 16,
+          padding: 18, cursor: "pointer", transition: "border-color .15s",
+        }} onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(212,149,107,0.4)"}
+           onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(212,149,107,0.2)"}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: "rgba(212,149,107,0.12)",
+            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12,
+          }}>
+            <span style={{ fontFamily: S, fontSize: 16, color: T.acc, fontWeight: 700, fontStyle: "italic" }}>C</span>
+          </div>
+          <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink, marginBottom: 4 }}>
+            Ask {firstName}'s AI
+          </div>
+          <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, lineHeight: 1.5, marginBottom: 16 }}>
+            Knows their taste across {publicItems.length} recs
+          </div>
+          <div style={{
+            width: "100%", padding: "10px 14px", background: T.acc, borderRadius: 10,
+            fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText, textAlign: "center",
+            border: "none", cursor: "pointer",
+          }}>Start chatting →</div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: S, fontSize: 16, color: T.ink, fontWeight: 400 }}>{curator.name}</div>
-          <div style={{ fontSize: 11, color: T.ink3, fontFamily: F }}>@{curator.handle}</div>
-          {curator.bio && (
-            <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{curator.bio}</div>
-          )}
-        </div>
-        {curator.id !== myProfileId && (
-          isSubbed ? (
-            <span style={{ padding: "5px 12px", fontSize: 11, fontWeight: 600, fontFamily: F, color: T.ink3, whiteSpace: "nowrap" }}>Subscribed ✓</span>
-          ) : (
-            <button onClick={(e) => { e.stopPropagation(); handleSubToCurator(curator.id); }} style={{
-              padding: "5px 12px", borderRadius: 20, border: `1px solid ${T.bdr}`,
-              background: "none", color: T.acc, fontSize: 11, fontWeight: 600,
-              fontFamily: F, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-            }}>+ Sub</button>
-          )
-        )}
       </div>
     );
   };
 
-  // Build stats for the filter nav
-  const stats = [{ id: "recs", label: "Recs", count: n }];
-  if (showSubsTo) stats.push({ id: "subscribed-to", label: "Subscribed to", count: subscribedTo.length });
-  if (showSubsOf) stats.push({ id: "subscribers", label: "Subscribers", count: subscribers.length });
-
   return (
     <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
+      <style>{responsiveCss}</style>
       <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
 
-      {/* Back arrow for visitor mode (viewing another curator) */}
+      {/* Back arrow for visitor mode */}
       {mode === "visitor" && !isOwner && (
         <div style={{ padding: "48px 20px 0" }}>
           <button onClick={() => router.back()} style={{
@@ -229,255 +215,188 @@ export default function VisitorProfile({ mode }) {
             display: "flex", alignItems: "center",
           }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.ink3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5" />
-              <path d="M12 19l-7-7 7-7" />
+              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
             </svg>
           </button>
         </div>
       )}
 
-      {/* Edit banner for owner */}
-      {isOwner && (
-        <div style={{
-          margin: "48px 16px 0", padding: "12px 16px", borderRadius: 12,
-          background: T.acc + "15", border: `1px solid ${T.acc}30`,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <span style={{ fontFamily: F, fontSize: 13, color: T.acc, fontWeight: 500 }}>
-            This is your public profile
-          </span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={shareProfile} style={{
-              background: "none", border: `1px solid ${T.acc}50`, borderRadius: 8, padding: "6px 14px",
-              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.acc,
-              display: "flex", alignItems: "center", gap: 5,
-            }}>{profileCopied ? "Copied \u2713" : "Share \u2197"}</button>
-            <button onClick={() => router.push(`/${handle}/edit`)} style={{
-              background: T.acc, border: "none", borderRadius: 8, padding: "6px 14px",
-              cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
-            }}>Edit</button>
+      {/* Hero */}
+      <div style={{ background: T.bg2, padding: isOwner ? "16px 20px 20px" : "36px 20px 20px" }}>
+        <div className="hero-cols">
+          <div className="hero-left">
+            {/* Identity row */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, background: T.s2, flexShrink: 0, marginTop: 3,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ fontFamily: S, fontSize: 18, color: T.acc, fontWeight: 400, fontStyle: "italic" }}>{profile.name[0]}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
+                  <span style={{ fontFamily: S, fontSize: 24, color: T.ink, lineHeight: 1.1 }}>{profile.name}</span>
+                  <SubscribeBtn className="desk-sub-wide" />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>{profile.handle}</span>
+                  <SubscribeBtn className="desk-sub-narrow" />
+                </div>
+              </div>
+            </div>
+
+            {/* Below identity — padded to clear avatar */}
+            <div style={{ paddingLeft: 54 }}>
+              {/* Bio */}
+              {profile.bio && profile.bio.trim() && (
+                <p style={{ fontFamily: F, fontSize: 13, color: T.ink2, lineHeight: 1.6, marginTop: 10, marginBottom: 12 }}>
+                  {profile.bio}
+                </p>
+              )}
+
+              {/* Social links */}
+              {hasSocials && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+                  {Object.entries(socialLinks).map(([key, val]) => {
+                    if (!val || !val.trim()) return null;
+                    const url = SOCIAL_URLS[key]?.(val);
+                    if (!url) return null;
+                    const isHovered = socialHover === key;
+                    return (
+                      <a key={key} href={url} target="_blank" rel="noopener noreferrer"
+                        onMouseEnter={() => setSocialHover(key)}
+                        onMouseLeave={() => setSocialHover(null)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: isHovered ? T.s3 : T.s2,
+                          border: `1px solid ${isHovered ? T.ink3 : T.bdr}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: T.ink3, transition: "all .15s", textDecoration: "none",
+                        }}>
+                        {SOCIAL_ICONS[key]}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Stats row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16 }}>
+                <button onClick={() => setFilterCat(null)} style={{
+                  background: "none", border: "none", cursor: "pointer", padding: "0 16px 0 0",
+                  display: "flex", flexDirection: "column", gap: 2,
+                }}>
+                  <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: !filterCat ? T.acc : T.ink }}>{publicItems.length}</span>
+                  <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Recs</span>
+                </button>
+                <div style={{ width: 1, height: 28, background: T.bdr }} />
+                <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscribedToCount}</span>
+                  <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribed to</span>
+                </div>
+                <div style={{ width: 1, height: 28, background: T.bdr }} />
+                <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscriberCount}</span>
+                  <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribers</span>
+                </div>
+              </div>
+
+              {/* Category bar graph */}
+              {n > 0 && profile.showRecs !== false && (
+                <div style={{ maxWidth: 340, marginTop: 12 }}>
+                  <div style={{ display: "flex", gap: 2, height: 4, borderRadius: 2 }}>
+                    {topCats.map(cat => (
+                      <div key={cat} style={{
+                        flex: cc[cat], height: 4, borderRadius: 2,
+                        background: CAT_COLORS[cat] || CAT_COLORS.other,
+                      }} />
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                    {topCats.map(cat => {
+                      const c = CAT[cat] || CAT.other;
+                      return (
+                        <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: T.ink3, fontFamily: F }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 3, background: CAT_COLORS[cat] || CAT_COLORS.other }} />
+                          {cc[cat]} {c.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AI panel — inline (mobile) */}
+              <div style={{ marginTop: 20 }}>
+                <AIPanel className="ai-panel-inline" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right col — AI panel (desktop) */}
+          <div className="hero-right">
+            <AIPanel className="ai-panel-aside" />
           </div>
         </div>
-      )}
-
-      {/* Hero */}
-      <div style={{ padding: isOwner ? "20px 24px 0" : "36px 24px 0", textAlign: "center" }}>
-        <div style={{
-          width: 92, height: 92, borderRadius: 26, margin: "0 auto 18px",
-          background: `linear-gradient(145deg, ${T.s2}, ${T.s})`,
-          border: `2px solid ${T.bdr}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 8px 32px rgba(0,0,0,0.3)`,
-        }}>
-          <span style={{ fontFamily: S, fontSize: 38, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
-        </div>
-        <h1 style={{ fontFamily: S, fontSize: 34, color: T.ink, fontWeight: 400, lineHeight: 1.1, marginBottom: 6 }}>{profile.name}</h1>
-        <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, marginBottom: 14 }}>
-          {profile.handle}
-        </p>
-        {mode === "visitor" && !isOwner && myProfileId && (
-          <button onClick={async () => {
-            if (subToggling) return;
-            setSubToggling(true);
-            try {
-              if (localSubbed) {
-                await supabase.from("subscriptions")
-                  .update({ unsubscribed_at: new Date().toISOString() })
-                  .eq("subscriber_id", myProfileId).eq("curator_id", profileId)
-                  .is("unsubscribed_at", null);
-                setLocalSubbed(false);
-              } else {
-                const { data: existing } = await supabase.from("subscriptions")
-                  .select("*")
-                  .eq("subscriber_id", myProfileId)
-                  .eq("curator_id", profileId)
-                  .limit(1)
-                  .maybeSingle();
-                if (existing) {
-                  await supabase.from("subscriptions")
-                    .update({ unsubscribed_at: null })
-                    .eq("id", existing.id);
-                } else {
-                  await supabase.from("subscriptions")
-                    .insert({ subscriber_id: myProfileId, curator_id: profileId });
-                }
-                setLocalSubbed(true);
-              }
-            } catch (err) { console.error("Subscribe toggle failed:", err); }
-            finally { setSubToggling(false); }
-          }} style={{
-            background: localSubbed ? "transparent" : T.acc,
-            border: localSubbed ? `1px solid ${T.bdr}` : "none",
-            borderRadius: 8, padding: "6px 18px", cursor: "pointer",
-            fontFamily: F, fontSize: 12, fontWeight: 600,
-            color: localSubbed ? T.ink3 : "#fff",
-            marginBottom: 10, transition: "all .15s",
-          }}>{localSubbed ? "Subscribed" : "Subscribe"}</button>
-        )}
-        <p style={{ fontFamily: F, fontSize: 14, color: T.ink2, lineHeight: 1.65, maxWidth: 300, margin: "0 auto" }}>
-          {profile.bio}
-        </p>
       </div>
 
-      {/* Ask AI bar */}
-      {profile.aiEnabled && n >= 5 && (
-        <div style={{ padding: "16px 20px 0" }}>
-          <button onClick={onOpenAI} style={{
-            width: "100%", padding: "13px 16px", borderRadius: 14, border: `1px solid ${T.bdr}`,
-            cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12,
-            background: T.s, marginBottom: 0,
-          }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-              background: T.accSoft, display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ fontFamily: S, fontSize: 14, color: T.acc, fontWeight: 400, fontStyle: "italic" }}>C</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink }}>
-                Ask {profile.name}'s AI
-              </div>
-              <div style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>
-                Where should I eat? What's worth watching?
-              </div>
-            </div>
-            <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>{"\u2192"}</span>
-          </button>
-        </div>
-      )}
-
-      {/* Stats filter nav */}
-      {stats.length > 1 && (
-        <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "center", gap: 24 }}>
-          {stats.map(stat => (
-            <button key={stat.id} onClick={() => setView(stat.id)} style={{
-              background: "none", border: "none", cursor: "pointer", padding: "4px 0",
-              borderBottom: activeView === stat.id ? `2px solid ${T.acc}` : "2px solid transparent",
-              transition: "border-color .15s",
-            }}>
-              <div style={{ fontFamily: F, fontSize: 18, fontWeight: 700, color: activeView === stat.id ? T.acc : T.ink3 }}>{stat.count}</div>
-              <div style={{ fontFamily: F, fontSize: 11, color: activeView === stat.id ? T.acc : T.ink3, marginTop: 2 }}>{stat.label}</div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Taste spectrum — only when recs view and recs exist */}
-      {activeView === "recs" && n > 0 && profile.showRecs !== false && (
-        <div style={{ padding: "24px 28px 0" }}>
-          <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 4, background: T.s2 }}>
+      {/* Content section */}
+      {profile.showRecs !== false && publicItems.length > 0 && (
+        <div style={{ background: T.bg, padding: "16px 20px 40px" }}>
+          {/* Category filter pills */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            <button onClick={() => setFilterCat(null)} style={{
+              padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600,
+              background: !filterCat ? T.acc : "transparent",
+              color: !filterCat ? T.accText : T.ink3,
+              border: !filterCat ? "none" : `1px solid ${T.bdr}`,
+            }}>All</button>
             {topCats.map(cat => {
               const c = CAT[cat] || CAT.other;
-              return <div key={cat} style={{ width: `${((cc[cat] || 0) / n) * 100}%`, background: c.color, minWidth: 3 }} />;
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
-            {topCats.map(cat => {
-              const c = CAT[cat] || CAT.other;
+              const active = filterCat === cat;
               return (
-                <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: T.ink2, fontFamily: F }}>
-                  <span style={{ width: 5, height: 5, borderRadius: 3, background: c.color }} />
-                  {cc[cat]} {c.label}
-                </span>
+                <button key={cat} onClick={() => setFilterCat(active ? null : cat)} style={{
+                  padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600,
+                  background: active ? T.acc : "transparent",
+                  color: active ? T.accText : T.ink3,
+                  border: active ? "none" : `1px solid ${T.bdr}`,
+                }}>{c.label}</button>
               );
             })}
           </div>
-        </div>
-      )}
 
-
-      {/* Recs view */}
-      {activeView === "recs" && n > 0 && profile.showRecs !== false ? (
-        <>
-          <div style={{ padding: "28px 20px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em" }}>
-                What {profile.name} recommends
-              </span>
-              <div style={{ display: "flex", gap: 2, background: T.s, borderRadius: 8, padding: 2 }}>
-                {["recent", "categories"].map(tab => (
-                  <button key={tab} onClick={() => setProfileTab(tab)} style={{
-                    padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
-                    background: profileTab === tab ? T.s2 : "transparent", color: profileTab === tab ? T.ink : T.ink3,
-                    fontSize: 10, fontWeight: 600, fontFamily: F,
-                  }}>{tab === "recent" ? "Recent" : "By Category"}</button>
-                ))}
-              </div>
-            </div>
-
-            {profileTab === "recent" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {items.filter(i => mode === "curator" || i.visibility === "public").map((item, i) => {
-                  const c = CAT[item.category] || CAT.other;
-                  return (
-                    <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
-                      display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
-                      background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .05}s`,
-                      cursor: "pointer", transition: "border-color .15s",
-                    }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context}</div>
-                      </div>
-                      <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>›</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {profileTab === "categories" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {topCats.map((cat, i) => {
-                  const c = CAT[cat] || CAT.other;
-                  const ci = items.filter(x => x.category === cat);
-                  return (
-                    <div key={cat} className="fu" style={{ padding: "16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, animationDelay: `${i * .06}s` }}>
-                      <div style={{ fontSize: 22, marginBottom: 8 }}>{c.emoji}</div>
-                      <div style={{ fontFamily: F, fontSize: 14, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{c.label}</div>
-                      <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginBottom: 8 }}>{cc[cat]} rec{cc[cat] !== 1 ? "s" : ""}</div>
-                      <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, lineHeight: 1.4 }}>
-                        {ci.slice(0, 2).map(x => x.title).join(", ")}{ci.length > 2 ? `, +${ci.length - 2}` : ""}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Rec list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {filteredItems.map((item, i) => {
+              const c = CAT[item.category] || CAT.other;
+              return (
+                <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
+                  display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
+                  background: T.s, borderRadius: 14, border: "1px solid " + T.bdr,
+                  cursor: "pointer", transition: "border-color .15s", animationDelay: `${i * .05}s`,
+                }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                    <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context}</div>
+                  </div>
+                  <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>›</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Pull quote */}
-          {items[3] && (
-            <div style={{ padding: "28px 20px 20px" }}>
+          {publicItems[3] && (
+            <div style={{ marginTop: 28 }}>
               <div style={{ background: T.s, borderRadius: 16, padding: "22px 20px", borderLeft: `3px solid ${T.acc}` }}>
                 <div style={{ fontFamily: S, fontSize: 17, fontStyle: "italic", color: T.ink, lineHeight: 1.55, marginBottom: 8 }}>
-                  {items[3]?.context}
+                  {publicItems[3]?.context}
                 </div>
-                <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {items[3]?.title}</div>
+                <div style={{ fontSize: 12, color: T.ink3, fontFamily: F }}>— on {publicItems[3]?.title}</div>
               </div>
             </div>
           )}
-        </>
-      ) : null}
-
-      {/* Subscribed to view */}
-      {activeView === "subscribed-to" && (
-        <div style={{ padding: "28px 20px 20px" }}>
-          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>
-            {profile.name} subscribes to
-          </div>
-          {subscribedTo.map(c => <CuratorRow key={c.id} curator={c} />)}
-        </div>
-      )}
-
-      {/* Subscribers view */}
-      {activeView === "subscribers" && (
-        <div style={{ padding: "28px 20px 20px" }}>
-          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>
-            Subscribed to {profile.name}
-          </div>
-          {subscribers.map(c => <CuratorRow key={c.id} curator={c} />)}
         </div>
       )}
 

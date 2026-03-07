@@ -1,15 +1,36 @@
 'use client'
 
 import { useRouter } from "next/navigation";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { T, F, S, MN } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
+
+const SOCIAL_PLATFORMS = [
+  { key: "instagram", label: "Instagram", placeholder: "yourhandle" },
+  { key: "spotify", label: "Spotify", placeholder: "yourhandle" },
+  { key: "substack", label: "Substack", placeholder: "yourhandle" },
+  { key: "x", label: "X", placeholder: "yourhandle" },
+  { key: "threads", label: "Threads", placeholder: "yourhandle" },
+  { key: "bluesky", label: "Bluesky", placeholder: "yourhandle" },
+  { key: "website", label: "Website", placeholder: "https://yoursite.com" },
+];
 
 export default function EditProfile() {
   const router = useRouter();
   const { profile, setProfile, saveProfile, tasteItems } = useContext(CuratorContext);
 
   if (!profile) return null;
+
+  const socialLinks = profile.socialLinks || {};
+
+  const setSocialLink = (key, value) => {
+    // Strip leading @ for handle-based platforms
+    const cleaned = key !== "website" ? value.replace(/^@/, "") : value;
+    setProfile(p => ({
+      ...p,
+      socialLinks: { ...p.socialLinks, [key]: cleaned },
+    }));
+  };
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -31,13 +52,20 @@ export default function EditProfile() {
 
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 8 }}>Display name</label>
-          <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 15, fontFamily: F, outline: "none", background: T.s, color: T.ink }} />
+          <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value.slice(0, 30) }))} maxLength={30} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 15, fontFamily: F, outline: "none", background: T.s, color: T.ink }} />
+          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{profile.name.length}/30</p>
         </div>
 
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 8 }}>Username</label>
-          <input value={profile.handle} onChange={e => setProfile(p => ({ ...p, handle: e.target.value }))} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 15, fontFamily: F, outline: "none", background: T.s, color: T.ink }} />
-          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6 }}>curators.com/{profile.handle.replace("@", "")}</p>
+          <input value={profile.handle} onChange={e => {
+            const v = e.target.value.slice(0, 21); // +1 for @ prefix
+            setProfile(p => ({ ...p, handle: v }));
+          }} maxLength={21} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 15, fontFamily: F, outline: "none", background: T.s, color: T.ink }} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+            <p style={{ fontSize: 11, color: T.ink3, fontFamily: F }}>curators.com/{profile.handle.replace("@", "")}</p>
+            <p style={{ fontSize: 11, color: T.ink3, fontFamily: F }}>{profile.handle.replace("@", "").length}/20</p>
+          </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -46,6 +74,23 @@ export default function EditProfile() {
             style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 14, fontFamily: F, outline: "none", resize: "none", background: T.s, color: T.ink, lineHeight: 1.6 }}
           />
           <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{profile.bio.length}/160</p>
+        </div>
+
+        {/* Section: Social Links */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Social Links</div>
+
+        <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
+          {SOCIAL_PLATFORMS.map((platform, i) => (
+            <div key={platform.key} style={{ padding: "12px 16px", borderTop: i > 0 ? `1px solid ${T.bdr}` : "none" }}>
+              <label style={{ fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink, display: "block", marginBottom: 6 }}>{platform.label}</label>
+              <input
+                value={socialLinks[platform.key] || ""}
+                onChange={e => setSocialLink(platform.key, e.target.value)}
+                placeholder={platform.placeholder}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, fontSize: 13, fontFamily: F, outline: "none", background: T.bg, color: T.ink }}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Section: Profile display */}

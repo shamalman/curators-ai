@@ -31,7 +31,7 @@ export default function OnboardingPage() {
   const checkHandle = useCallback((value) => {
     const h = value.toLowerCase().replace(/[^a-z0-9-]/g, "")
     if (h.length < 3) { setHandleStatus(null); return }
-    if (h.length > 30) { setHandleStatus("invalid"); return }
+    if (h.length > 20) { setHandleStatus("invalid"); return }
     if (!handleRegex.test(h)) { setHandleStatus("invalid"); return }
     if (RESERVED.includes(h)) { setHandleStatus("reserved"); return }
 
@@ -52,7 +52,7 @@ export default function OnboardingPage() {
   }, [])
 
   const onHandleChange = (e) => {
-    const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+    const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20)
     setHandle(v)
     checkHandle(v)
   }
@@ -100,7 +100,7 @@ export default function OnboardingPage() {
     checking: { text: "Checking...", color: T.ink3 },
     available: { text: "\u2713 Available", color: "#6BAA8E" },
     taken: { text: "\u2717 Already taken", color: "#EF4444" },
-    invalid: { text: "Lowercase letters, numbers, hyphens only (3-30 chars)", color: "#EF4444" },
+    invalid: { text: "Lowercase letters, numbers, hyphens only (3-20 chars)", color: "#EF4444" },
     reserved: { text: "\u2717 Reserved", color: "#EF4444" },
   }
 
@@ -117,8 +117,8 @@ export default function OnboardingPage() {
             <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 6 }}>Name</label>
             <input
               type="text" name="name" autoComplete="name"
-              value={name} onChange={e => setName(e.target.value)}
-              required placeholder="Your display name"
+              value={name} onChange={e => setName(e.target.value.slice(0, 30))}
+              required placeholder="Your display name" maxLength={30}
               style={inputStyle}
             />
           </div>
