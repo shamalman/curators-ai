@@ -313,7 +313,9 @@ export default function VisitorProfile({ mode }) {
               )}
 
               {/* Stats row */}
+              {(profile.showRecs !== false || profile.showSubscriptions || profile.showSubscribers) && (
               <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16 }}>
+                {profile.showRecs !== false && (
                 <button onClick={() => setFilterCat(null)} style={{
                   background: "none", border: "none", cursor: "pointer", padding: "0 16px 0 0",
                   display: "flex", flexDirection: "column", gap: 2,
@@ -321,21 +323,23 @@ export default function VisitorProfile({ mode }) {
                   <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: !filterCat ? T.acc : T.ink }}>{publicItems.length}</span>
                   <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Recs</span>
                 </button>
+                )}
                 {profile.showSubscriptions && <>
-                  <div style={{ width: 1, height: 28, background: T.bdr }} />
+                  {profile.showRecs !== false && <div style={{ width: 1, height: 28, background: T.bdr }} />}
                   <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscribedToCount}</span>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribed to</span>
                   </div>
                 </>}
                 {profile.showSubscribers && <>
-                  <div style={{ width: 1, height: 28, background: T.bdr }} />
+                  {(profile.showRecs !== false || profile.showSubscriptions) && <div style={{ width: 1, height: 28, background: T.bdr }} />}
                   <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscriberCount}</span>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribers</span>
                   </div>
                 </>}
               </div>
+              )}
 
               {/* Category bar graph */}
               {n > 0 && profile.showRecs !== false && (
