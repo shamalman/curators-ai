@@ -40,7 +40,7 @@ const responsiveCss = `
   .desk-sub-wide { display: none !important; }
   .desk-sub-narrow { display: inline-flex !important; }
 }
-.ai-panel-inline { display: block; }
+.ai-panel-inline { display: flex; }
 .ai-panel-aside { display: none; }
 @media (min-width: 720px) {
   .ai-panel-inline { display: none; }
@@ -145,9 +145,12 @@ export default function VisitorProfile({ mode }) {
   };
 
   const SubscribeBtn = ({ className }) => {
+    const isNarrow = className === "desk-sub-narrow";
+    const hideStyle = isNarrow ? { display: "none" } : {};
     if (isOwner) {
       return (
         <button className={className} onClick={() => router.push(`/${handle}/edit`)} style={{
+          ...hideStyle,
           background: "transparent", border: `1.5px solid ${T.bdr}`, borderRadius: 20,
           padding: "7px 16px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
         }}>Edit profile</button>
@@ -157,21 +160,46 @@ export default function VisitorProfile({ mode }) {
     if (localSubbed) {
       return (
         <span className={className} style={{
+          ...hideStyle,
           background: "transparent", border: `1.5px solid ${T.ink3}`, borderRadius: 20,
           padding: "7px 16px", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.ink2,
-          display: "inline-flex", alignItems: "center",
+          alignItems: "center",
         }}>Subscribed ✓</span>
       );
     }
     return (
       <button className={className} onClick={handleSubscribe} style={{
+        ...hideStyle,
         background: T.acc, border: "none", borderRadius: 20,
         padding: "7px 16px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.accText,
       }}>Subscribe</button>
     );
   };
 
-  const AIPanel = ({ className }) => {
+  const AIPanelCompact = ({ className }) => {
+    if (!profile.aiEnabled || n < 5) return null;
+    return (
+      <div className={className} onClick={() => router.push(`/${handle}/ask`)} style={{
+        display: "flex", alignItems: "center", gap: 12,
+        background: T.s2, border: "1px solid rgba(212,149,107,0.2)", borderRadius: 12,
+        padding: "12px 16px", cursor: "pointer",
+      }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8, background: "rgba(212,149,107,0.12)",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <span style={{ fontFamily: S, fontSize: 13, color: T.acc, fontWeight: 700, fontStyle: "italic" }}>C</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink }}>Ask {firstName}'s AI</div>
+          <div style={{ fontFamily: F, fontSize: 11, color: T.ink2, marginTop: 1 }}>Knows their taste across {publicItems.length} recs</div>
+        </div>
+        <span style={{ fontSize: 16, color: T.acc, flexShrink: 0 }}>{"\u2192"}</span>
+      </div>
+    );
+  };
+
+  const AIPanelFull = ({ className }) => {
     if (!profile.aiEnabled || n < 5) return null;
     return (
       <div className={className}>
@@ -326,16 +354,16 @@ export default function VisitorProfile({ mode }) {
                 </div>
               )}
 
-              {/* AI panel — inline (mobile) */}
+              {/* AI panel — compact bar (mobile) */}
               <div style={{ marginTop: 20 }}>
-                <AIPanel className="ai-panel-inline" />
+                <AIPanelCompact className="ai-panel-inline" />
               </div>
             </div>
           </div>
 
-          {/* Right col — AI panel (desktop) */}
+          {/* Right col — AI panel full card (desktop) */}
           <div className="hero-right">
-            <AIPanel className="ai-panel-aside" />
+            <AIPanelFull className="ai-panel-aside" />
           </div>
         </div>
       </div>

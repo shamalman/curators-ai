@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { T, F, S, MN } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 
@@ -18,6 +18,7 @@ const SOCIAL_PLATFORMS = [
 export default function EditProfile() {
   const router = useRouter();
   const { profile, setProfile, saveProfile, tasteItems } = useContext(CuratorContext);
+  const [saveToast, setSaveToast] = useState(false);
 
   if (!profile) return null;
 
@@ -37,7 +38,7 @@ export default function EditProfile() {
       <div style={{ maxWidth: 600, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ padding: "52px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <button onClick={() => router.back()} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Cancel</button>
-        <button onClick={async () => { await saveProfile(); router.back(); }} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "8px 18px", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 700, color: T.accText }}>Save</button>
+        <button onClick={async () => { await saveProfile(); setSaveToast(true); setTimeout(() => setSaveToast(false), 2500); }} style={{ background: T.acc, border: "none", borderRadius: 10, padding: "8px 18px", cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 700, color: T.accText }}>Save</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 24px 40px", WebkitOverflowScrolling: "touch" }}>
         <h2 style={{ fontFamily: S, fontSize: 26, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Edit Profile</h2>
@@ -214,6 +215,14 @@ export default function EditProfile() {
         </div>
       </div>
       </div>
+      {saveToast && (
+        <div style={{
+          position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)",
+          background: T.s2, border: `1px solid ${T.bdr}`, borderRadius: 10,
+          padding: "10px 20px", fontFamily: F, fontSize: 13, fontWeight: 600,
+          color: T.ink, boxShadow: "0 4px 16px rgba(0,0,0,0.4)", zIndex: 100,
+        }}>Profile saved</div>
+      )}
     </div>
   );
 }
