@@ -2,7 +2,7 @@
 
 import { T, F, CAT } from "@/lib/constants";
 
-export default function RecCard({ item, onClick, showCurator, curatorName, curatorHandle, onBookmark, isBookmarked }) {
+export default function RecCard({ item, onClick, showCurator, curatorName, curatorHandle, onHandleClick, onBookmark, isBookmarked }) {
   const ct = CAT[item.category] || CAT.other;
   const fmtDate = (d) => {
     if (!d) return "";
@@ -18,7 +18,7 @@ export default function RecCard({ item, onClick, showCurator, curatorName, curat
         {item.context && <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context.length > 90 ? item.context.slice(0, 90) + "…" : item.context}</div>}
         <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 1 }}>
           {ct.label} · {fmtDate(item.date || item.created_at)}
-          {showCurator && curatorHandle ? ` · @${curatorHandle}` : ""}
+          {showCurator && curatorHandle ? <>{" · "}<span onClick={(e) => { if (onHandleClick) { e.stopPropagation(); onHandleClick(); } }} style={{ color: T.acc, fontWeight: 600, cursor: onHandleClick ? "pointer" : "inherit" }}>@{curatorHandle}</span></> : ""}
         </div>
       </div>
       {onBookmark && (

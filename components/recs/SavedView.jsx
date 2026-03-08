@@ -115,6 +115,7 @@ export default function SavedView({ onSwitchToNetwork }) {
             showCurator
             curatorName={rec.profiles?.name}
             curatorHandle={rec.profiles?.handle}
+            onHandleClick={() => router.push(`/${rec.profiles?.handle}`)}
             onBookmark={() => unsaveRec(rec.id)}
             isBookmarked={true}
           />

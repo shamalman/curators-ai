@@ -119,6 +119,7 @@ export default function NetworkView() {
             showCurator
             curatorName={rec.profiles?.name}
             curatorHandle={rec.profiles?.handle}
+            onHandleClick={() => router.push(`/${rec.profiles?.handle}`)}
             onBookmark={() => savedRecIds.has(rec.id) ? unsaveRec(rec.id) : saveRec(rec.id)}
             isBookmarked={savedRecIds.has(rec.id)}
           />
