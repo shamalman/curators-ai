@@ -63,6 +63,11 @@ export default function VisitorProfile({ mode }) {
   const [filterCat, setFilterCat] = useState(null);
   const [socialHover, setSocialHover] = useState(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [profileView, setProfileView] = useState("recs");
+  const [subsList, setSubsList] = useState(null);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [subscribersList, setSubscribersList] = useState(null);
+  const [subscribersLoading, setSubscribersLoading] = useState(false);
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 720);
@@ -164,6 +169,42 @@ export default function VisitorProfile({ mode }) {
       setSubscriberCount(c => Math.max(0, c - 1));
     } catch (err) { console.error("Unsubscribe failed:", err); }
     finally { setSubToggling(false); }
+  };
+
+  const loadSubscriptions = async () => {
+    if (subsList || subsLoading) return;
+    setSubsLoading(true);
+    try {
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("id, created_at, curator:curator_id(id, name, handle)")
+        .eq("subscriber_id", profileId)
+        .is("unsubscribed_at", null)
+        .order("created_at", { ascending: false });
+      setSubsList(data || []);
+    } catch (err) { console.error("Failed to load subscriptions:", err); setSubsList([]); }
+    finally { setSubsLoading(false); }
+  };
+
+  const loadSubscribers = async () => {
+    if (subscribersList || subscribersLoading) return;
+    setSubscribersLoading(true);
+    try {
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("id, created_at, subscriber:subscriber_id(id, name, handle)")
+        .eq("curator_id", profileId)
+        .is("unsubscribed_at", null)
+        .order("created_at", { ascending: false });
+      setSubscribersList(data || []);
+    } catch (err) { console.error("Failed to load subscribers:", err); setSubscribersList([]); }
+    finally { setSubscribersLoading(false); }
+  };
+
+  const handleStatClick = (view) => {
+    setProfileView(view);
+    if (view === "subscriptions") loadSubscriptions();
+    if (view === "subscribers") loadSubscribers();
   };
 
   const SubscribeBtn = ({ className }) => {
@@ -334,33 +375,39 @@ export default function VisitorProfile({ mode }) {
               {(profile.showRecs !== false || profile.showSubscriptions || profile.showSubscribers) && (
               <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 16 }}>
                 {profile.showRecs !== false && (
-                <button onClick={() => setFilterCat(null)} style={{
+                <button onClick={() => handleStatClick("recs")} style={{
                   background: "none", border: "none", cursor: "pointer", padding: "0 16px 0 0",
                   display: "flex", flexDirection: "column", gap: 2,
                 }}>
-                  <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: !filterCat ? T.acc : T.ink }}>{publicItems.length}</span>
+                  <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: profileView === "recs" ? T.acc : T.ink }}>{publicItems.length}</span>
                   <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Recs</span>
                 </button>
                 )}
                 {profile.showSubscriptions && <>
                   {profile.showRecs !== false && <div style={{ width: 1, height: 28, background: T.bdr }} />}
-                  <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscribedToCount}</span>
+                  <button onClick={() => handleStatClick("subscriptions")} style={{
+                    background: "none", border: "none", cursor: "pointer", padding: "0 16px",
+                    display: "flex", flexDirection: "column", gap: 2,
+                  }}>
+                    <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: profileView === "subscriptions" ? T.acc : T.ink }}>{subscribedToCount}</span>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribed to</span>
-                  </div>
+                  </button>
                 </>}
                 {profile.showSubscribers && <>
                   {(profile.showRecs !== false || profile.showSubscriptions) && <div style={{ width: 1, height: 28, background: T.bdr }} />}
-                  <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: T.ink }}>{subscriberCount}</span>
+                  <button onClick={() => handleStatClick("subscribers")} style={{
+                    background: "none", border: "none", cursor: "pointer", padding: "0 16px",
+                    display: "flex", flexDirection: "column", gap: 2,
+                  }}>
+                    <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, color: profileView === "subscribers" ? T.acc : T.ink }}>{subscriberCount}</span>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: T.ink3 }}>Subscribers</span>
-                  </div>
+                  </button>
                 </>}
               </div>
               )}
 
               {/* Category bar graph */}
-              {n > 0 && profile.showRecs !== false && (
+              {profileView === "recs" && n > 0 && profile.showRecs !== false && (
                 <div style={{ maxWidth: 340, marginTop: 12 }}>
                   <div style={{ display: "flex", height: 4, borderRadius: 4, overflow: "hidden" }}>
                     {topCats.map((cat, i) => (
@@ -404,7 +451,7 @@ export default function VisitorProfile({ mode }) {
       </div>
 
       {/* Content section */}
-      {profile.showRecs !== false && publicItems.length > 0 && (
+      {profileView === "recs" && profile.showRecs !== false && publicItems.length > 0 && (
         <div style={{ background: T.bg, padding: "16px 20px 40px" }}>
           {/* Category filter pills */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
@@ -454,6 +501,92 @@ export default function VisitorProfile({ mode }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Subscriptions list */}
+      {profileView === "subscriptions" && (
+        <div style={{ background: T.bg, padding: "16px 20px 40px" }}>
+          {subsLoading && (
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <div style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Loading...</div>
+            </div>
+          )}
+          {!subsLoading && subsList && subsList.length === 0 && (
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u25C6"}</div>
+              <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No subscriptions yet</p>
+            </div>
+          )}
+          {!subsLoading && subsList && subsList.length > 0 && subsList.map(sub => {
+            const curator = sub.curator || {};
+            return (
+              <div key={sub.id} onClick={() => router.push(`/${curator.handle}`)} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
+                borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12, background: T.s2,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
+                    {curator.name?.[0] || "?"}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {curator.name}
+                  </div>
+                  <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
+                    @{curator.handle}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Subscribers list */}
+      {profileView === "subscribers" && (
+        <div style={{ background: T.bg, padding: "16px 20px 40px" }}>
+          {subscribersLoading && (
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <div style={{ fontSize: 13, color: T.ink3, fontFamily: F }}>Loading...</div>
+            </div>
+          )}
+          {!subscribersLoading && subscribersList && subscribersList.length === 0 && (
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u25C6"}</div>
+              <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No subscribers yet</p>
+            </div>
+          )}
+          {!subscribersLoading && subscribersList && subscribersList.length > 0 && subscribersList.map(sub => {
+            const subscriber = sub.subscriber || {};
+            return (
+              <div key={sub.id} onClick={() => router.push(`/${subscriber.handle}`)} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
+                borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+              }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12, background: T.s2,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
+                    {subscriber.name?.[0] || "?"}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {subscriber.name}
+                  </div>
+                  <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
+                    @{subscriber.handle}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
