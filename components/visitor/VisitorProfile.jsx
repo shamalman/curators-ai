@@ -432,8 +432,8 @@ export default function VisitorProfile({ mode }) {
                   item={{ ...rec, date: rec.created_at?.split("T")[0] || rec.date }}
                   onClick={() => onSelectItem(rec)}
                   showCurator={false}
-                  onBookmark={!isOwner ? () => savedRecIds.has(rec.id) ? unsaveRec(rec.id) : saveRec(rec.id) : null}
-                  isBookmarked={savedRecIds.has(rec.id)}
+                  onBookmark={!isOwner ? () => savedRecIds?.has(rec.id) ? unsaveRec(rec.id) : saveRec(rec.id) : null}
+                  isBookmarked={savedRecIds?.has(rec.id) || false}
                 />
               </div>
             ))}
