@@ -14,6 +14,7 @@ export default function InviteModal({ profileId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [unusedCount, setUnusedCount] = useState(0);
   const [generating, setGenerating] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
 
   useEffect(() => {
     if (!profileId) return;
@@ -61,16 +62,11 @@ export default function InviteModal({ profileId, onClose }) {
     setTimeout(() => setNoteSaved(false), 2000);
   };
 
-  const buildShareText = () => {
-    const header = note.trim()
-      ? `Join me on Curators \u2014 ${note.trim()}`
-      : "Join me on Curators";
-    return `${header}\nInvite code: ${inviteCode}\nhttps://curators-ai.vercel.app/signup`;
-  };
+  const shareMessage = `Join me on curators.ai with this exclusive invite code: ${inviteCode}`;
 
   const copyCode = () => {
     if (!inviteCode) return;
-    navigator.clipboard?.writeText(buildShareText());
+    navigator.clipboard?.writeText(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -78,9 +74,11 @@ export default function InviteModal({ profileId, onClose }) {
   const shareCode = async () => {
     if (!inviteCode) return;
     if (navigator.share) {
-      try { await navigator.share({ title: "Curators Invite", text: buildShareText() }); } catch {}
+      try { await navigator.share({ text: shareMessage }); } catch {}
     } else {
-      copyCode();
+      navigator.clipboard?.writeText(shareMessage);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 2500);
     }
   };
 
@@ -161,6 +159,10 @@ export default function InviteModal({ profileId, onClose }) {
                   fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F,
                 }}>Share</button>
               </div>
+
+              {shareToast && (
+                <div style={{ fontSize: 12, color: T.acc, fontFamily: F, textAlign: "center", marginBottom: 8, fontWeight: 500 }}>{"\u2713"} Message copied — paste it anywhere to share.</div>
+              )}
 
               {/* New invite button */}
               {unusedCount < MAX_UNUSED ? (
