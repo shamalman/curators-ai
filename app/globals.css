@@ -39,12 +39,14 @@ body {
   background: rgba(212, 149, 107, 0.3);
 }
 
-.user-bubble::selection {
+.user-bubble::selection,
+.user-bubble::-webkit-selection {
   background: rgba(255, 255, 255, 0.35) !important;
   color: #131210 !important;
 }
 
-.user-bubble *::selection {
+.user-bubble *::selection,
+.user-bubble *::-webkit-selection {
   background: rgba(255, 255, 255, 0.35) !important;
   color: #131210 !important;
 }

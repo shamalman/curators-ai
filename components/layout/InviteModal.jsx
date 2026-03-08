@@ -64,19 +64,33 @@ export default function InviteModal({ profileId, onClose }) {
 
   const shareMessage = `Join me on curators.ai with this exclusive invite code: ${inviteCode}`;
 
+  const copyToClipboard = (text) => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;opacity:0;left:-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  };
+
   const copyCode = () => {
     if (!inviteCode) return;
-    navigator.clipboard?.writeText(inviteCode);
+    copyToClipboard(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const shareCode = async () => {
+  const shareCode = () => {
     if (!inviteCode) return;
     if (navigator.share) {
-      try { await navigator.share({ text: shareMessage }); } catch {}
+      navigator.share({ text: shareMessage }).catch(() => {});
     } else {
-      navigator.clipboard?.writeText(shareMessage);
+      copyToClipboard(shareMessage);
       setShareToast(true);
       setTimeout(() => setShareToast(false), 2500);
     }
