@@ -15,6 +15,7 @@ export default function RecCard({ item, onClick, showCurator, curatorName, curat
       <div style={{ width: 38, height: 38, borderRadius: 10, background: ct.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{ct.emoji}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+        {item.context && <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context.length > 90 ? item.context.slice(0, 90) + "…" : item.context}</div>}
         <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 1 }}>
           {ct.label} · {fmtDate(item.date || item.created_at)}
           {showCurator && curatorHandle ? ` · @${curatorHandle}` : ""}
