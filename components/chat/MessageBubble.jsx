@@ -34,12 +34,6 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
   return <div key={i} style={{ marginBottom: line === "" ? 8 : 2 }}>{content}</div>;
 });
 
-const selectionCSS = typeof document !== "undefined" && !document.getElementById("user-bubble-sel") ? (() => {
-  const s = document.createElement("style"); s.id = "user-bubble-sel";
-  s.textContent = `.user-bubble::selection, .user-bubble *::selection { background: rgba(255,255,255,0.4); color: #131210; }`;
-  document.head.appendChild(s); return true;
-})() : true;
-
 export default function MessageBubble({ msg, variant, profileInitial }) {
   const isCurator = variant === "curator";
 
