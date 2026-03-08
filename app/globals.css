@@ -37,17 +37,18 @@ body {
 
 ::selection {
   background: rgba(212, 149, 107, 0.3);
+  color: #E8E2D6;
 }
 
 .user-bubble::selection,
 .user-bubble::-webkit-selection {
-  background: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
   color: #131210 !important;
 }
 
 .user-bubble *::selection,
 .user-bubble *::-webkit-selection {
-  background: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
   color: #131210 !important;
 }
 
