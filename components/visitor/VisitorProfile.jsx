@@ -146,6 +146,21 @@ export default function VisitorProfile({ mode }) {
     finally { setSubToggling(false); }
   };
 
+  const handleUnsubscribe = async () => {
+    if (!myProfileId || subToggling || !localSubbed) return;
+    setSubToggling(true);
+    try {
+      await supabase.from("subscriptions")
+        .update({ unsubscribed_at: new Date().toISOString() })
+        .eq("subscriber_id", myProfileId)
+        .eq("curator_id", profileId)
+        .is("unsubscribed_at", null);
+      setLocalSubbed(false);
+      setSubscriberCount(c => Math.max(0, c - 1));
+    } catch (err) { console.error("Unsubscribe failed:", err); }
+    finally { setSubToggling(false); }
+  };
+
   const SubscribeBtn = ({ className }) => {
     const isNarrow = className === "desk-sub-narrow";
     const hideStyle = isNarrow ? { display: "none" } : {};
@@ -161,12 +176,12 @@ export default function VisitorProfile({ mode }) {
     if (mode !== "visitor") return null;
     if (localSubbed) {
       return (
-        <span className={className} style={{
+        <button className={className} onClick={handleUnsubscribe} style={{
           ...hideStyle,
           background: "transparent", border: `1.5px solid ${T.ink3}`, borderRadius: 20,
-          padding: "7px 16px", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.ink2,
+          padding: "7px 16px", cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 700, color: T.ink2,
           alignItems: "center",
-        }}>Subscribed ✓</span>
+        }}>Subscribed ✓</button>
       );
     }
     return (
