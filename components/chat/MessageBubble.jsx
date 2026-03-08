@@ -34,6 +34,12 @@ const renderMd = (text) => text.split("\n").map((line, i) => {
   return <div key={i} style={{ marginBottom: line === "" ? 8 : 2 }}>{content}</div>;
 });
 
+const selectionCSS = typeof document !== "undefined" && !document.getElementById("user-bubble-sel") ? (() => {
+  const s = document.createElement("style"); s.id = "user-bubble-sel";
+  s.textContent = `.user-bub::selection, .user-bub *::selection { background: rgba(255,255,255,0.45); color: #131210; }`;
+  document.head.appendChild(s); return true;
+})() : true;
+
 export default function MessageBubble({ msg, variant, profileInitial }) {
   const isCurator = variant === "curator";
 
@@ -70,7 +76,7 @@ export default function MessageBubble({ msg, variant, profileInitial }) {
     <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: isCurator ? 12 : 14 }}>
       {msg.role === "ai" && avatar}
       <div style={{ maxWidth: "82%" }}>
-        <div style={bubbleStyle}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
+        <div className={msg.role === "user" ? "user-bub" : undefined} style={bubbleStyle}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
       </div>
     </div>
   );
