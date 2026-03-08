@@ -92,18 +92,21 @@ export default function SavedView({ onSwitchToNetwork }) {
 
       {/* Empty state */}
       {recs.length === 0 && (
-        <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u2661"}</div>
-          <div style={{ fontFamily: S, fontSize: 18, color: T.ink, fontWeight: 400, marginBottom: 8 }}>No saved recs yet</div>
-          <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, lineHeight: 1.6, marginBottom: 20 }}>
-            Bookmark recs from the Network to save them here.
+        <div style={{ padding: "48px 20px" }}>
+          <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
+            No saved recs yet. Bookmark recommendations from the{" "}
+            <span onClick={onSwitchToNetwork} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>
+            {" "}or a curator's profile, and they'll appear here.
           </p>
-          {onSwitchToNetwork && (
-            <button onClick={onSwitchToNetwork} style={{
-              background: T.acc, border: "none", borderRadius: 8, padding: "10px 20px",
-              cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
-            }}>Browse Network</button>
-          )}
+          <button onClick={onSwitchToNetwork} style={{
+            background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
+            cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
+            marginBottom: 28,
+          }}>Browse Network</button>
+
+          <p style={{ fontFamily: F, fontSize: 12, color: T.ink3, lineHeight: 1.6 }}>
+            Everything you save helps your AI understand your taste and make better recommendations for you.
+          </p>
         </div>
       )}
 
