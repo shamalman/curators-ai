@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, CAT, FEATURES } from "@/lib/constants";
-import { useCurator } from "@/context/CuratorContext";
+import { useCurator, CuratorContext } from "@/context/CuratorContext";
 import RecCard from "@/components/recs/RecCard";
 
 const CAT_COLORS = {
@@ -50,7 +50,11 @@ export default function VisitorProfile({ mode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ctx = useCurator();
-  const { profile, profileId, tasteItems, isOwner, savedRecIds, saveRec, unsaveRec } = ctx;
+  const curatorCtx = useContext(CuratorContext);
+  const { profile, profileId, tasteItems, isOwner } = ctx;
+  const savedRecIds = curatorCtx?.savedRecIds;
+  const saveRec = curatorCtx?.saveRec;
+  const unsaveRec = curatorCtx?.unsaveRec;
   const [subToggling, setSubToggling] = useState(false);
   const [localSubbed, setLocalSubbed] = useState(false);
   const [myProfileId, setMyProfileId] = useState(null);
