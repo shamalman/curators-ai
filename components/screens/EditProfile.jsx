@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useContext } from "react";
-import { T, F, S, MN } from "@/lib/constants";
+import { T, F, S, MN, FEATURES } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 import { VisitorContext } from "@/context/VisitorContext";
 
@@ -81,6 +81,7 @@ export default function EditProfile() {
         </div>
 
         {/* Section: Social Links */}
+        {FEATURES.socialLinks && <>
         <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Social Links</div>
 
         <div style={{ background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16, overflow: "hidden" }}>
@@ -96,6 +97,7 @@ export default function EditProfile() {
             </div>
           ))}
         </div>
+        </>}
 
         {/* Section: Profile display */}
         <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F }}>Profile Display</div>

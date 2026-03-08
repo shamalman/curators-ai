@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { T, F, S, CAT } from "@/lib/constants";
+import { T, F, S, CAT, FEATURES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
 const CAT_COLORS = {
@@ -300,7 +300,7 @@ export default function VisitorProfile({ mode }) {
               )}
 
               {/* Social links */}
-              {hasSocials && (
+              {FEATURES.socialLinks && hasSocials && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
                   {Object.entries(socialLinks).map(([key, val]) => {
                     if (!val || !val.trim()) return null;
