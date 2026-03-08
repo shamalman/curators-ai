@@ -71,17 +71,27 @@ export default function FansView() {
         {/* List */}
         <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", WebkitOverflowScrolling: "touch" }}>
           {loaded && subscribers.length === 0 && (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u2661"}</div>
-              <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, maxWidth: 280, margin: "0 auto 20px" }}>
-                No subscribers yet. Share your profile to start building your audience.
+            <div style={{ padding: "48px 20px" }}>
+              {/* Primary section */}
+              <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
+                No subscribers yet. Make recommendations, and people will discover you in the{" "}
+                <span onClick={() => router.push("/recommendations")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>.
               </p>
-              {handle && (
-                <button onClick={() => router.push(`/${handle}`)} style={{
-                  background: T.acc, border: "none", borderRadius: 8, padding: "10px 20px",
-                  cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
-                }}>View your profile</button>
-              )}
+              <button onClick={() => router.push("/myai")} style={{
+                background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
+                cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
+              }}>Make a recommendation</button>
+
+              <div style={{ height: 1, background: T.bdr, margin: "28px 0" }} />
+
+              {/* Secondary section */}
+              <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
+                Know someone with great taste? Invite them to Curators.ai.
+              </p>
+              <button onClick={() => router.push("/invite")} style={{
+                background: "none", border: `1px solid ${T.bdr}`, borderRadius: 10, padding: "12px 20px",
+                cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink2,
+              }}>Invite a curator</button>
             </div>
           )}
 
