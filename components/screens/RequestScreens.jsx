@@ -31,7 +31,7 @@ export function RequestScreen() {
             <p style={{ fontSize: 13, color: T.ink2, fontFamily: F, lineHeight: 1.6, marginBottom: 28 }}>Be specific. {profileName} personally reviews every request.</p>
             <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>Category</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
-              {["watch", "listen", "read", "visit", "get", "other"].map(cat => {
+              {["watch", "listen", "read", "visit", "get", "wear", "play", "other"].map(cat => {
                 const c = CAT[cat]; const sel = requestCat === cat;
                 return <button key={cat} onClick={() => setRequestCat(sel ? null : cat)} style={{ padding: "8px 14px", borderRadius: 20, border: "none", background: sel ? c.color : c.bg, color: sel ? "#fff" : c.color, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: F }}>{c.emoji} {c.label}</button>;
               })}

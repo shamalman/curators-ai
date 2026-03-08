@@ -204,7 +204,7 @@ export function CuratorRecDetail({ slug }) {
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {["watch", "listen", "read", "visit", "get", "other"].map(cat => (
+                {["watch", "listen", "read", "visit", "get", "wear", "play", "other"].map(cat => (
                   <button key={cat} onClick={() => setEditingItem(p => ({ ...p, category: cat }))}
                     style={{
                       padding: "8px 14px", borderRadius: 10, border: editingItem.category === cat ? "none" : "1px solid " + T.bdr,

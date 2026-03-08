@@ -307,7 +307,7 @@ export default function ChatView({ variant }) {
         const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
         const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
         const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
-        const validCategories = ["watch", "listen", "read", "visit", "get", "other"];
+        const validCategories = ["watch", "listen", "read", "visit", "get", "wear", "play", "other"];
         const parseCategory = (match) => {
           if (!match) return 'other';
           const raw = match[1].toLowerCase();

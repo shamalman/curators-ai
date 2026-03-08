@@ -22,7 +22,7 @@ export default function CaptureCard({ capture, onSave, onEdit, onCancel, onUpdat
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Category</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["watch", "listen", "read", "visit", "get", "other"].map(cat => (
+          {["watch", "listen", "read", "visit", "get", "wear", "play", "other"].map(cat => (
             <button key={cat} onClick={() => onUpdate({ ...capture, category: cat })}
               style={{
                 padding: "6px 12px", borderRadius: 8, border: capture.category === cat ? "none" : "1px solid " + T.bdr,

@@ -31,15 +31,17 @@ export default function NetworkView() {
   }, []);
 
   const q = search.toLowerCase().trim();
+  const qAlt = q.endsWith("s") ? q.slice(0, -1) : q + "s";
+  const matches = (text) => text?.toLowerCase().includes(q) || text?.toLowerCase().includes(qAlt);
   let filtered = recs;
   if (q) {
     filtered = filtered.filter(r => {
       const cat = CAT[r.category] || CAT.other;
-      return r.title?.toLowerCase().includes(q) ||
-        r.context?.toLowerCase().includes(q) ||
-        (r.tags || []).some(t => t.toLowerCase().includes(q)) ||
-        r.category?.toLowerCase().includes(q) ||
-        cat.label?.toLowerCase().includes(q);
+      return matches(r.title) ||
+        matches(r.context) ||
+        (r.tags || []).some(t => matches(t)) ||
+        matches(r.category) ||
+        matches(cat.label);
     });
   }
   if (filterCat) {
