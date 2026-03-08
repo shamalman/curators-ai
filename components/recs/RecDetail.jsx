@@ -284,6 +284,15 @@ export function CuratorRecDetail({ slug }) {
               }}>+ Add link</button>
             </div>
           )}
+          {isEditing && (
+            <div style={{ marginTop: 12 }}>
+              {!!archived[selectedItem.id] ? (
+                <button onClick={() => restoreItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #6BAA8E30", background: "#6BAA8E10", color: "#6BAA8E", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Restore to taste</button>
+              ) : (
+                <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
+              )}
+            </div>
+          )}
 
           {/* Links */}
           {!isEditing && selectedItem.links?.length > 0 && (
@@ -296,26 +305,6 @@ export function CuratorRecDetail({ slug }) {
           {/* Settings section */}
           {!isEditing && (
             <>
-              {/* Visibility toggle */}
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, fontFamily: F, marginTop: 4 }}>Visibility</div>
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "14px 16px", background: T.s, borderRadius: 14, border: "1px solid " + T.bdr, marginBottom: 16,
-              }}>
-                <div>
-                  <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{isPublic ? "Public" : "Private"}</div>
-                  <div style={{ fontFamily: F, fontSize: 11, color: T.ink3, marginTop: 2 }}>
-                    {isPublic ? "Visible on your profile and via link" : "Only you can see this"}
-                  </div>
-                </div>
-                <button onClick={() => toggleVisibility(selectedItem.id)} style={{
-                  width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
-                  background: isPublic ? "#6BAA8E" : T.bdr, transition: "background .2s",
-                }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: isPublic ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                </button>
-              </div>
-
               {/* TODO: Unhide when earnings features are real */}
               {false && <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -623,12 +612,6 @@ export function CuratorRecDetail({ slug }) {
                 ))}
               </div>
 
-              {/* Remove */}
-              {!!archived[selectedItem.id] ? (
-                <button onClick={() => restoreItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #6BAA8E30", background: "#6BAA8E10", color: "#6BAA8E", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Restore to taste</button>
-              ) : (
-                <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
-              )}
             </>
           )}
         </div>
