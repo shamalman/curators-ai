@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, CAT, FEATURES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
+import RecCard from "@/components/recs/RecCard";
 
 const CAT_COLORS = {
   watch: "#8E80B5", listen: "#4B92CC", read: "#CC6658", visit: "#5E9E82",
@@ -49,7 +50,7 @@ export default function VisitorProfile({ mode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ctx = useCurator();
-  const { profile, profileId, tasteItems, isOwner } = ctx;
+  const { profile, profileId, tasteItems, isOwner, savedRecIds, saveRec, unsaveRec } = ctx;
   const [subToggling, setSubToggling] = useState(false);
   const [localSubbed, setLocalSubbed] = useState(false);
   const [myProfileId, setMyProfileId] = useState(null);
@@ -425,23 +426,17 @@ export default function VisitorProfile({ mode }) {
 
           {/* Rec list */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {filteredItems.map((item, i) => {
-              const c = CAT[item.category] || CAT.other;
-              return (
-                <div key={item.id} className="fu" onClick={() => onSelectItem(item)} style={{
-                  display: "flex", alignItems: "center", gap: 14, padding: "14px 15px",
-                  background: T.s, borderRadius: 14, border: "1px solid " + T.bdr,
-                  cursor: "pointer", transition: "border-color .15s", animationDelay: `${i * .05}s`,
-                }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{c.emoji}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                    <div style={{ fontSize: 12, color: T.ink2, fontFamily: F, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.context}</div>
-                  </div>
-                  <span style={{ color: T.ink3, fontSize: 14, flexShrink: 0 }}>›</span>
-                </div>
-              );
-            })}
+            {filteredItems.map((rec, i) => (
+              <div key={rec.id} className="fu" style={{ animationDelay: `${i * .05}s` }}>
+                <RecCard
+                  item={{ ...rec, date: rec.created_at?.split("T")[0] || rec.date }}
+                  onClick={() => onSelectItem(rec)}
+                  showCurator={false}
+                  onBookmark={!isOwner ? () => savedRecIds.has(rec.id) ? unsaveRec(rec.id) : saveRec(rec.id) : null}
+                  isBookmarked={savedRecIds.has(rec.id)}
+                />
+              </div>
+            ))}
           </div>
 
           {/* Pull quote */}
