@@ -30,6 +30,7 @@ export function CuratorRecDetail({ slug }) {
 
   // Local state for editing
   const [editingItem, setEditingItem] = useState(null);
+  const [editVisibility, setEditVisibility] = useState("public");
   const [itemCopied, setItemCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -75,7 +76,7 @@ export function CuratorRecDetail({ slug }) {
       { rev: newRev, date: new Date().toISOString().split("T")[0], change: "Updated context and tags" },
       ...(selectedItem.revisions || []),
     ];
-    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, links: editingItem.links || [], revision: newRev, revisions: newRevisions };
+    const updated = { ...selectedItem, title: editingItem.title, context: editingItem.context, tags: editingItem.tags, category: editingItem.category, links: editingItem.links || [], visibility: editVisibility, revision: newRev, revisions: newRevisions };
     setEditingItem(null);
     await updateRec(updated);
   };
@@ -137,7 +138,7 @@ export function CuratorRecDetail({ slug }) {
           </svg>
         </button>
         {!isEditing && (
-          <button onClick={() => setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category, links: [...(selectedItem.links || [])] })} style={{
+          <button onClick={() => { setEditingItem({ title: selectedItem.title, context: selectedItem.context, tags: [...(selectedItem.tags || [])], category: selectedItem.category, links: [...(selectedItem.links || [])] }); setEditVisibility(selectedItem.visibility || "public"); }} style={{
             background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px",
             cursor: "pointer", fontFamily: F, fontSize: 12, fontWeight: 600, color: T.ink2,
           }}>Edit</button>
@@ -213,6 +214,20 @@ export function CuratorRecDetail({ slug }) {
                     }}>{cat}</button>
                 ))}
               </div>
+            </div>
+          )}
+          {isEditing && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Visibility</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{editVisibility === "public" ? "Visible on your profile" : "Only you can see this"}</div>
+              </div>
+              <button onClick={() => setEditVisibility(v => v === "public" ? "private" : "public")} style={{
+                width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+                background: editVisibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: editVisibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
             </div>
           )}
           {isEditing && (

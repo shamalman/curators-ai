@@ -306,6 +306,7 @@ export function CuratorProvider({ children }) {
           title: updated.title, context: updated.context,
           tags: updated.tags, category: updated.category,
           links: updated.links, revision: updated.revision,
+          visibility: updated.visibility,
         }).eq("id", updated.id);
       } catch (err) { console.error("Failed to update rec:", err); }
     }
