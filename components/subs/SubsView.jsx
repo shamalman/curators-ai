@@ -89,18 +89,33 @@ export default function SubsView() {
           {/* === Subscriptions tab === */}
           {tab === "subscriptions" && (
             <>
-              <p style={{ fontSize: 13, color: T.ink3, fontFamily: F, marginBottom: 16 }}>
-                {mySubscriptions.length > 0
-                  ? `You subscribe to ${mySubscriptions.length} curator${mySubscriptions.length !== 1 ? "s" : ""}`
-                  : "You haven't subscribed to any curators yet"}
-              </p>
+              {mySubscriptions.length > 0 && (
+                <p style={{ fontSize: 13, color: T.ink3, fontFamily: F, marginBottom: 16 }}>
+                  {`You subscribe to ${mySubscriptions.length} curator${mySubscriptions.length !== 1 ? "s" : ""}`}
+                </p>
+              )}
 
               {mySubscriptions.length === 0 && (
-                <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                  <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u25C7"}</div>
-                  <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, maxWidth: 280, margin: "0 auto" }}>
-                    Subscribe to curators to see their latest recommendations here.
+                <div style={{ padding: "48px 20px" }}>
+                  <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
+                    You haven't subscribed to any curators yet. Browse the{" "}
+                    <span onClick={() => router.push("/recommendations")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>
+                    {" "}to find curators you trust.
                   </p>
+                  <button onClick={() => router.push("/recommendations")} style={{
+                    background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
+                    cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
+                  }}>Browse recommendations</button>
+
+                  <div style={{ height: 1, background: T.bdr, margin: "28px 0" }} />
+
+                  <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
+                    Know someone with great taste? Invite them to Curators.ai and subscribe to them.
+                  </p>
+                  <button onClick={() => router.push("/invite")} style={{
+                    background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
+                    cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
+                  }}>Invite a curator</button>
                 </div>
               )}
 
