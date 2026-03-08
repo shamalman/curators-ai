@@ -929,6 +929,7 @@ export function NetworkRecDetail({ slug }) {
         .select("*, profiles(id, name, handle)")
         .eq("slug", slug)
         .eq("status", "approved")
+        .eq("visibility", "public")
         .limit(1)
         .maybeSingle();
       if (!data) {
@@ -936,6 +937,7 @@ export function NetworkRecDetail({ slug }) {
           .from("recommendations")
           .select("*, profiles(id, name, handle)")
           .eq("id", slug)
+          .eq("visibility", "public")
           .limit(1)
           .maybeSingle();
         data = res.data;

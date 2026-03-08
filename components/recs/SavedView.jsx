@@ -23,7 +23,8 @@ export default function SavedView({ onSwitchToNetwork }) {
       const { data, error } = await supabase
         .from("recommendations")
         .select("*, profiles(id, name, handle)")
-        .in("id", ids);
+        .in("id", ids)
+        .eq("visibility", "public");
       if (error) console.error("Failed to load saved recs:", error);
       setRecs(data || []);
       setLoading(false);

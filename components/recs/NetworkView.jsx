@@ -22,6 +22,7 @@ export default function NetworkView() {
         .from("recommendations")
         .select("*, profiles(id, name, handle)")
         .eq("status", "approved")
+        .eq("visibility", "public")
         .order("created_at", { ascending: false });
       if (error) console.error("Failed to load network recs:", error);
       setRecs(data || []);
