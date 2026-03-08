@@ -172,7 +172,7 @@ export function CuratorProvider({ children }) {
   const saveProfile = async () => {
     if (!profileId || !profile) return;
     try {
-      const { data, error } = await supabase.from("profiles").update({
+      const { error } = await supabase.from("profiles").update({
         name: profile.name,
         handle: profile.handle.replace("@", ""),
         bio: profile.bio,
@@ -186,7 +186,6 @@ export function CuratorProvider({ children }) {
         wallet: profile.wallet || "",
         social_links: profile.socialLinks || {},
       }).eq("id", profileId);
-      console.log("saveProfile result:", data, error);
       if (error) throw error;
       // Re-fetch profile from DB to ensure context is fully in sync
       const { data: prof } = await supabase
