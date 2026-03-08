@@ -7,10 +7,8 @@ import { T, F, S, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 
 const CAT_COLORS = {
-  watch: "#8B5CF6", listen: "#EC4899", read: "#6366F1", visit: "#10B981",
-  get: "#0EA5E9", other: "#6B6258",
-  restaurant: "#F59E0B", book: "#6366F1", music: "#EC4899",
-  tv: "#8B5CF6", film: "#8B5CF6", travel: "#10B981", product: "#0EA5E9",
+  watch: "#8E80B5", listen: "#4B92CC", read: "#CC6658", visit: "#5E9E82",
+  get: "#C27850", wear: "#CC7090", play: "#D4B340", other: "#B08860",
 };
 
 const SOCIAL_URLS = {
@@ -344,11 +342,12 @@ export default function VisitorProfile({ mode }) {
               {/* Category bar graph */}
               {n > 0 && profile.showRecs !== false && (
                 <div style={{ maxWidth: 340, marginTop: 12 }}>
-                  <div style={{ display: "flex", gap: 2, height: 4, borderRadius: 2 }}>
-                    {topCats.map(cat => (
+                  <div style={{ display: "flex", height: 4, borderRadius: 4, overflow: "hidden" }}>
+                    {topCats.map((cat, i) => (
                       <div key={cat} style={{
-                        flex: cc[cat], height: 4, borderRadius: 2,
+                        flex: cc[cat], height: 4,
                         background: CAT_COLORS[cat] || CAT_COLORS.other,
+                        borderRadius: i === 0 && topCats.length === 1 ? 4 : i === 0 ? "4px 0 0 4px" : i === topCats.length - 1 ? "0 4px 4px 0" : 0,
                       }} />
                     ))}
                   </div>

@@ -171,7 +171,7 @@ This mapping exists in **4 places** in CuratorContext (loadData, saveProfile wri
 - All inline styles — no Tailwind, no CSS modules
 - `<style>` tags in components only for responsive media queries (e.g., VisitorProfile subscribe button)
 - Dark theme (#131210 base) with warm gold accent (#D4956B)
-- Category colors: watch (#9B8BC2), listen (#C27BA0), read (#8B8BDB), visit (#6BAA8E), get (#6B9EC2), wear (#C2956B), play (#8BC29B), other (#8B8B8B)
+- Category colors: watch (#8E80B5), listen (#4B92CC), read (#CC6658), visit (#5E9E82), get (#C27850), wear (#CC7090), play (#D4B340), other (#B08860)
 
 ### Responsive Patterns
 - VisitorProfile uses JS-based `isDesktop` state (`window.innerWidth >= 720`) with resize listener for AI panel conditional rendering — avoids SSR hydration issues with CSS media queries
