@@ -16,6 +16,7 @@ export default function InvitePage() {
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [shareToast, setShareToast] = useState(null);
   const [showAllUsed, setShowAllUsed] = useState(false);
 
   const fetchCodes = async () => {
@@ -61,23 +62,34 @@ export default function InvitePage() {
     setTimeout(() => setNoteSaved(null), 2000);
   };
 
-  const buildShareText = (code) => {
-    const note = code.inviter_note;
-    const header = note ? `Join me on Curators \u2014 ${note}` : "Join me on Curators";
-    return `${header}\nInvite code: ${code.code}\nhttps://curators-ai.vercel.app/signup`;
+  const copyToClipboard = (text) => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;opacity:0;left:-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
   };
 
   const copyCode = (code) => {
-    navigator.clipboard?.writeText(buildShareText(code));
+    copyToClipboard(code.code);
     setCopiedId(code.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const shareCode = async (code) => {
+  const shareCode = (code) => {
+    const shareMessage = `Join me on curators.ai with this exclusive invite code: ${code.code}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Curators Invite", text: buildShareText(code) }); } catch {}
+      navigator.share({ text: shareMessage }).catch(() => {});
     } else {
-      copyCode(code);
+      copyToClipboard(shareMessage);
+      setShareToast(code.id);
+      setTimeout(() => setShareToast(null), 2500);
     }
   };
 
@@ -155,6 +167,10 @@ export default function InvitePage() {
                   }}>Share</button>
                 </div>
               </div>
+
+              {shareToast === code.id && (
+                <div style={{ fontFamily: F, fontSize: 11, color: T.acc, textAlign: "center", marginTop: 6, fontWeight: 500 }}>{"\u2713"} Message copied — paste it anywhere to share.</div>
+              )}
 
               {code.inviter_note && showNoteFor !== code.id && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
