@@ -235,8 +235,8 @@ export default function SubsView() {
                     Know someone with great taste? Invite them to Curators.ai.
                   </p>
                   <button onClick={() => router.push("/invite")} style={{
-                    background: "none", border: `1px solid ${T.bdr}`, borderRadius: 10, padding: "12px 20px",
-                    cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink2,
+                    background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
+                    cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
                   }}>Invite a curator</button>
                 </div>
               )}
