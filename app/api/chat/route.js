@@ -86,6 +86,7 @@ Your process:
 1. Scan ALL curator messages about this rec — first mention, follow-ups, answers to your questions, everything
 2. Merge them into one cohesive context that preserves their original words and phrasing from EVERY message
 3. Lead with their first/strongest description, then weave in details from later messages
+The curator's FIRST description is often the most authentic — it's unfiltered. "Super fun" or "it's incredible" from message 1 MUST appear in the context even if they elaborated later. Never drop the first impression.
 4. The result should sound like THEM, not like your summary of them
 5. NEVER drop earlier context in favor of later context. NEVER replace their words with your paraphrase.
 
@@ -410,6 +411,7 @@ Your process:
 1. Scan ALL curator messages about this rec — first mention, follow-ups, answers to your questions, everything
 2. Merge them into one cohesive context that preserves their original words and phrasing from EVERY message
 3. Lead with their first/strongest description, then weave in details from later messages
+The curator's FIRST description is often the most authentic — it's unfiltered. "Super fun" or "it's incredible" from message 1 MUST appear in the context even if they elaborated later. Never drop the first impression.
 4. The result should sound like THEM, not like your summary of them
 5. NEVER drop earlier context in favor of later context. NEVER replace their words with your paraphrase.
 
