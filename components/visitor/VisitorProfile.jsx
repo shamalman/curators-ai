@@ -175,12 +175,15 @@ export default function VisitorProfile({ mode }) {
     if (subsList || subsLoading) return;
     setSubsLoading(true);
     try {
-      const { data } = await supabase
+      console.log("[loadSubscriptions] profileId:", profileId);
+      const { data, error } = await supabase
         .from("subscriptions")
         .select("id, created_at, curator:curator_id(id, name, handle)")
         .eq("subscriber_id", profileId)
         .is("unsubscribed_at", null)
         .order("created_at", { ascending: false });
+      console.log("[loadSubscriptions] data:", data, "error:", error);
+      if (error) console.error("Subscriptions query error:", error);
       setSubsList(data || []);
     } catch (err) { console.error("Failed to load subscriptions:", err); setSubsList([]); }
     finally { setSubsLoading(false); }
