@@ -106,17 +106,25 @@ export default function ChatView({ variant }) {
   // Visitor opening message
   useEffect(() => {
     if (!isCurator && profile && dbLoaded && messages.length === 0) {
-      // Top categories by volume
-      const catCounts = {};
-      items.forEach(i => { catCounts[i.category] = (catCounts[i.category] || 0) + 1; });
-      const topCats = Object.entries(catCounts)
+      // Top content-type tags by volume
+      const CONTENT_TYPE_TAGS = ["album","song","podcast","playlist","mix","ep","audiobook","book","article","substack","essay","newsletter","blog post","paper","film","series","documentary","short film","anime","standup special","restaurant","bar","cafe","hotel","park","museum","city","neighborhood","app","tool","gadget","gear","product","software","clothing","shoes","accessories","fashion","beauty","game","sport","activity","hobby","videogame","boardgame"];
+      const tagCounts = {};
+      items.forEach(item => {
+        (item.tags || []).forEach(tag => {
+          const t = tag.toLowerCase();
+          if (CONTENT_TYPE_TAGS.includes(t)) {
+            tagCounts[t] = (tagCounts[t] || 0) + 1;
+          }
+        });
+      });
+      const topTags = Object.entries(tagCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
-        .map(([c]) => (CAT[c] || CAT.other).label.toLowerCase());
-      const catStr = topCats.length === 0 ? "their favorites"
-        : topCats.length === 1 ? topCats[0]
-        : topCats.length === 2 ? `${topCats[0]} and ${topCats[1]}`
-        : `${topCats[0]}, ${topCats[1]}, and ${topCats[2]}`;
+        .map(([t]) => t + "s");
+      const catStr = topTags.length === 0 ? "their favorites"
+        : topTags.length === 1 ? topTags[0]
+        : topTags.length === 2 ? `${topTags[0]} and ${topTags[1]}`
+        : `${topTags[0]}, ${topTags[1]}, and ${topTags[2]}`;
 
       // Style-informed second sentence
       const voice = (profile.styleSummary?.voice || "").toLowerCase();
