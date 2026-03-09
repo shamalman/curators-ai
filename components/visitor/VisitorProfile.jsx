@@ -175,17 +175,20 @@ export default function VisitorProfile({ mode }) {
     if (subsList || subsLoading) return;
     setSubsLoading(true);
     try {
-      console.log("[loadSubscriptions] profileId:", profileId);
       const { data, error } = await supabase
         .from("subscriptions")
-        .select("id, created_at, curator:curator_id(id, name, handle)")
+        .select("id, curator_id")
         .eq("subscriber_id", profileId)
-        .is("unsubscribed_at", null)
-        .order("created_at", { ascending: false });
-      console.log("[loadSubscriptions] data:", data, "error:", error);
-      if (error) console.error("Subscriptions query error:", error);
-      setSubsList(data || []);
-    } catch (err) { console.error("Failed to load subscriptions:", err); setSubsList([]); }
+        .is("unsubscribed_at", null);
+      if (error) throw error;
+      const ids = (data || []).map(r => r.curator_id);
+      if (ids.length === 0) { setSubsList([]); return; }
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, name, handle")
+        .in("id", ids);
+      setSubsList(profiles || []);
+    } catch (err) { console.error(err); setSubsList([]); }
     finally { setSubsLoading(false); }
   };
 
@@ -193,14 +196,20 @@ export default function VisitorProfile({ mode }) {
     if (subscribersList || subscribersLoading) return;
     setSubscribersLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("subscriptions")
-        .select("id, created_at, subscriber:subscriber_id(id, name, handle)")
+        .select("id, subscriber_id")
         .eq("curator_id", profileId)
-        .is("unsubscribed_at", null)
-        .order("created_at", { ascending: false });
-      setSubscribersList(data || []);
-    } catch (err) { console.error("Failed to load subscribers:", err); setSubscribersList([]); }
+        .is("unsubscribed_at", null);
+      if (error) throw error;
+      const ids = (data || []).map(r => r.subscriber_id);
+      if (ids.length === 0) { setSubscribersList([]); return; }
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, name, handle")
+        .in("id", ids);
+      setSubscribersList(profiles || []);
+    } catch (err) { console.error(err); setSubscribersList([]); }
     finally { setSubscribersLoading(false); }
   };
 
@@ -521,32 +530,29 @@ export default function VisitorProfile({ mode }) {
               <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No subscriptions yet</p>
             </div>
           )}
-          {!subsLoading && subsList && subsList.length > 0 && subsList.map(sub => {
-            const curator = sub.curator || {};
-            return (
-              <div key={sub.id} onClick={() => router.push(`/${curator.handle}`)} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
-                borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+          {!subsLoading && subsList && subsList.length > 0 && subsList.map(p => (
+            <div key={p.id} onClick={() => router.push(`/${p.handle}`)} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
+              borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12, background: T.s2,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 12, background: T.s2,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
-                    {curator.name?.[0] || "?"}
-                  </span>
+                <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
+                  {p.name?.[0] || "?"}
+                </span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {curator.name}
-                  </div>
-                  <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
-                    @{curator.handle}
-                  </div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
+                  @{p.handle}
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -564,32 +570,29 @@ export default function VisitorProfile({ mode }) {
               <p style={{ fontFamily: F, fontSize: 14, color: T.ink3 }}>No subscribers yet</p>
             </div>
           )}
-          {!subscribersLoading && subscribersList && subscribersList.length > 0 && subscribersList.map(sub => {
-            const subscriber = sub.subscriber || {};
-            return (
-              <div key={sub.id} onClick={() => router.push(`/${subscriber.handle}`)} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
-                borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+          {!subscribersLoading && subscribersList && subscribersList.length > 0 && subscribersList.map(p => (
+            <div key={p.id} onClick={() => router.push(`/${p.handle}`)} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "14px 4px",
+              borderBottom: `1px solid ${T.bdr}`, cursor: "pointer",
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12, background: T.s2,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 12, background: T.s2,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>
-                  <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
-                    {subscriber.name?.[0] || "?"}
-                  </span>
+                <span style={{ fontFamily: S, fontSize: 17, color: T.ink, fontWeight: 400 }}>
+                  {p.name?.[0] || "?"}
+                </span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: S, fontSize: 15, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {subscriber.name}
-                  </div>
-                  <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
-                    @{subscriber.handle}
-                  </div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>
+                  @{p.handle}
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
