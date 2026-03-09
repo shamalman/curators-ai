@@ -180,6 +180,7 @@ export default function VisitorProfile({ mode }) {
         .select("id, curator_id")
         .eq("subscriber_id", profileId)
         .is("unsubscribed_at", null);
+      console.log("[loadSubscriptions] error:", JSON.stringify(error), "data:", JSON.stringify(data));
       if (error) throw error;
       const ids = (data || []).map(r => r.curator_id);
       if (ids.length === 0) { setSubsList([]); return; }
