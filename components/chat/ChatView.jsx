@@ -106,7 +106,32 @@ export default function ChatView({ variant }) {
   // Visitor opening message
   useEffect(() => {
     if (!isCurator && profile && dbLoaded && messages.length === 0) {
-      setMessages([{ role: "ai", text: `I'm ${profile.name}'s taste AI \u2014 trained on ${n} personal recommendations.\n\nI know what ${profile.name} loves, why they love it, and who it's for. Ask me anything.` }]);
+      // Top categories by volume
+      const catCounts = {};
+      items.forEach(i => { catCounts[i.category] = (catCounts[i.category] || 0) + 1; });
+      const topCats = Object.entries(catCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([c]) => (CAT[c] || CAT.other).label.toLowerCase());
+      const catStr = topCats.length === 0 ? "their favorites"
+        : topCats.length === 1 ? topCats[0]
+        : topCats.length === 2 ? `${topCats[0]} and ${topCats[1]}`
+        : `${topCats[0]}, ${topCats[1]}, and ${topCats[2]}`;
+
+      // Style-informed second sentence
+      const voice = (profile.styleSummary?.voice || "").toLowerCase();
+      let styleLine;
+      if (/precise|specific|detailed|exact/.test(voice)) {
+        styleLine = "Ask me about the exact spot, the right time to go, or what to order.";
+      } else if (/broad|experiential|expansive/.test(voice)) {
+        styleLine = "Ask me anything \u2014 places, music, things worth your time.";
+      } else if (/thoughtful|measured|reflective|considered/.test(voice)) {
+        styleLine = `I know what ${profile.name} recommends and why. Ask me anything.`;
+      } else {
+        styleLine = `Ask me anything about ${profile.name}'s taste.`;
+      }
+
+      setMessages([{ role: "ai", text: `I'm ${profile.name}'s taste AI, trained on recommendations across ${catStr}. ${styleLine}` }]);
     }
   }, [isCurator, profile, dbLoaded]);
 
