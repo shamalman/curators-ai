@@ -91,11 +91,12 @@ export default function OnboardingPage() {
       try {
         const ctx = JSON.parse(localStorage.getItem("invite_context"))
         if (ctx?.invite_id) {
+          console.log("updating invite:", ctx.invite_id, "with used_by:", newProfile.id)
           await supabase.from("invite_codes").update({
             used_by: newProfile.id,
           }).eq("id", ctx.invite_id)
         }
-      } catch {}
+      } catch (err) { console.error("invite update failed:", err) }
 
       localStorage.removeItem("invite_context")
       router.push("/myai")
