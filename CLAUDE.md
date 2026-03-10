@@ -8,7 +8,7 @@ Mobile-first web app for tastemakers to capture, structure, and share recommenda
 - No TypeScript — plain JavaScript only
 - No local dev server — all changes deploy directly via git push to Vercel (~60s)
 - All styling is inline (no Tailwind, no CSS modules). Only exception: `<style>` tags in components for responsive CSS classes (media queries)
-- Resend v6.9.3 installed for transactional email (no emails sent yet — next priority)
+- Resend v6.9.3 for transactional email (new subscriber alerts, weekly digest)
 
 ## Critical Rules (Read First)
 
@@ -70,6 +70,12 @@ app/
     link-metadata/    # URL metadata fetcher
     generate-style-summary/  # AI curator personality
     feedback/         # User feedback
+    notify/new-subscriber/   # Email notification on new subscriber
+    email-action/     # Signed token handler (unsubscribe, save rec)
+    cron/weekly-digest/      # Weekly rec digest cron (Thursdays 2pm UTC)
+  email/
+    unsubscribed/     # Confirmation page after email unsubscribe
+    saved/            # Confirmation page after saving rec from email
   login/, signup/, onboarding/, forgot-password/, reset-password/
 
 components/
@@ -94,6 +100,8 @@ lib/
   supabase.js         # Supabase browser client
   supabase-server.js  # Server-side Supabase client
   resend.js           # Email (Resend) client
+  email-tokens.js     # Signed token generate/validate/consume for email actions
+  email-templates.js  # HTML email templates (new subscriber, weekly digest)
 ```
 
 ## Key Files
@@ -103,6 +111,9 @@ lib/
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
 - `app/api/generate-style-summary/route.js` — AI-generated curator style/personality JSON
+- `app/api/notify/new-subscriber/route.js` — Sends new subscriber email via Resend (checks new_subscriber_email_enabled)
+- `app/api/email-action/route.js` — Handles signed token URLs from emails (unsubscribe, save rec). Supports GET (browser click) + POST (RFC 8058 one-click)
+- `app/api/cron/weekly-digest/route.js` — Vercel cron (Thursdays 2pm UTC). Sends digest of new recs from subscribed curators. Requires CRON_SECRET auth header
 
 ### Auth Flow Files
 - `app/signup/page.js` — Validates invite code, creates auth user, stores invite_context in localStorage, sets used_at on invite code
@@ -149,6 +160,8 @@ ai_enabled BOOLEAN
 accept_requests BOOLEAN
 crypto_enabled BOOLEAN
 wallet TEXT
+weekly_digest_enabled BOOLEAN DEFAULT true
+new_subscriber_email_enabled BOOLEAN DEFAULT true
 last_seen_at TIMESTAMPTZ
 created_at TIMESTAMPTZ
 ```
@@ -177,6 +190,8 @@ subscriber_id UUID → profiles
 curator_id UUID → profiles
 subscribed_at TIMESTAMPTZ   ← USE THIS, not created_at (does not exist)
 unsubscribed_at TIMESTAMPTZ (nullable — soft delete)
+digest_frequency TEXT DEFAULT 'weekly'
+last_notified_at TIMESTAMPTZ
 ```
 ⚠️ NO created_at column. Never use .order("created_at") on this table.
 
@@ -199,7 +214,35 @@ curator_id UUID → profiles
 email TEXT
 subscribed_at TIMESTAMPTZ
 tier TEXT
+digest_frequency TEXT DEFAULT 'weekly'
+last_notified_at TIMESTAMPTZ
+unsubscribed_at TIMESTAMPTZ
 ```
+
+### notification_log
+```
+id UUID PK
+type TEXT (new_subscriber | new_rec_digest)
+recipient_id UUID → profiles (nullable)
+recipient_email TEXT
+curator_id UUID → profiles
+rec_ids UUID[]
+sent_at TIMESTAMPTZ DEFAULT now()
+```
+RLS: service role only (no client access)
+
+### email_tokens
+```
+id UUID PK
+token TEXT UNIQUE
+profile_id UUID → profiles
+action TEXT (unsubscribe | save_rec | update_settings)
+payload JSONB DEFAULT '{}'
+expires_at TIMESTAMPTZ
+used_at TIMESTAMPTZ (null until used)
+created_at TIMESTAMPTZ DEFAULT now()
+```
+RLS: service role only (no client access)
 
 ### Other tables
 - chat_messages: id, profile_id, role, text, captured_rec JSONB, created_at
@@ -214,6 +257,8 @@ Before adding any new write operation, verify RLS policy exists:
 - subscriptions: auth.uid() IS NOT NULL for SELECT; owners can INSERT/UPDATE
 - invite_codes: Anyone can read (SELECT true); owners can INSERT; UPDATE policy exists for setting used_by/used_at
 - saved_recs: Owners only
+- notification_log: Service role only (no client policies)
+- email_tokens: Service role only (no client policies)
 
 ---
 
@@ -335,6 +380,7 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
 - RESEND_API_KEY
+- CRON_SECRET (for Vercel cron auth)
 
 ---
 
@@ -354,9 +400,12 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Dynamic visitor AI opening message (content-type tags + style summary)
 - Personalized first-time curator opening (inviter name + note)
 - Empty states with actionable CTAs
+- Email notifications: new subscriber alert (instant) + weekly rec digest (Thursdays 2pm UTC)
+- Signed email token system for one-click unsubscribe/save from emails (RFC 8058)
+- Settings toggles persist to DB (weekly_digest_enabled, new_subscriber_email_enabled)
+- Vercel cron for weekly digest via vercel.json
 
 ### Next Up
-- Transactional email via Resend (new subscriber digest, new rec digest)
 - In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
