@@ -472,7 +472,7 @@ export function CuratorProvider({ children }) {
   };
 
   // First-time curator: 0 recs and no bio yet
-  const isFirstTime = dbLoaded && tasteItems.length === 0 && (!profile?.bio || profile.bio.trim() === '');
+  const isFirstTime = dbLoaded && tasteItems.length === 0 && (!profile?.bio || profile.bio.trim() === '' || profile.bio.startsWith('[note'));
 
   return (
     <CuratorContext.Provider value={{
