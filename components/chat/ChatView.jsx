@@ -194,8 +194,31 @@ export default function ChatView({ variant }) {
     // First-time curator: generate personalized AI opening via API
     if (isFirstTime && !openingGenerated.current) {
       openingGenerated.current = true;
-      const name = profile.name?.split(' ')[0] || profile.name;
-      setMessages([{ role: "ai", text: `Hey ${name}! I'm your personal taste AI — I'm here to capture what you love and help you share it.\n\nWhat's something you've been recommending to everyone lately?` }]);
+      setTyping(true);
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          generateOpening: true,
+          curatorName: profile.name,
+          curatorHandle: profile.handle?.replace('@', ''),
+          curatorBio: profile.bio || '',
+          profileId,
+          recommendations: [],
+        }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          setTyping(false);
+          const text = data.message;
+          setMessages([{ role: "ai", text }]);
+          saveMsgToDb("ai", text);
+        })
+        .catch(() => {
+          setTyping(false);
+          const name = profile.name?.split(' ')[0] || profile.name;
+          setMessages([{ role: "ai", text: `Hey ${name}! I'm your personal taste AI — I'm here to capture what you love and help you share it.\n\nWhat's something you've been recommending to everyone lately?` }]);
+        });
       return;
     }
 

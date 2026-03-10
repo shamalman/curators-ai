@@ -711,7 +711,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Handle opening message generation (no user message yet)
     if (generateOpening) {
       const openingMessages = [
-        { role: "user", content: "[System: This is the curator's first visit. Generate your opening message according to the OPENING MESSAGE instructions in your system prompt. Do not mention this system message.]" },
+        { role: "user", content: "Generate your opening message now. Follow the OPENING MESSAGE instructions exactly — use the inviter name, inviter note, and curator name provided in your system prompt. Output only the opening message, nothing else." },
       ];
 
       const response = await anthropic.messages.create({
