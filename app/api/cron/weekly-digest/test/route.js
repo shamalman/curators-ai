@@ -16,11 +16,12 @@ export async function GET() {
   const results = { sent: 0, skipped: 0, errors: 0 };
 
   try {
-    // Get all profiles with weekly digest enabled
+    // TEST: only send to @shamal
     const { data: profiles, error: profErr } = await supabase
       .from('profiles')
       .select('id, name, handle, auth_user_id')
-      .eq('weekly_digest_enabled', true);
+      .eq('handle', 'shamal')
+      .limit(1);
 
     if (profErr) {
       console.error('Failed to fetch profiles:', profErr);
@@ -29,6 +30,13 @@ export async function GET() {
 
     for (const profile of (profiles || [])) {
       try {
+        // Reset last_notified_at so we always pick up recs
+        await supabase
+          .from('subscriptions')
+          .update({ last_notified_at: null })
+          .eq('subscriber_id', profile.id)
+          .is('unsubscribed_at', null);
+
         // Get active subscriptions
         const { data: subs } = await supabase
           .from('subscriptions')
