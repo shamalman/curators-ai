@@ -617,10 +617,7 @@ async function getInviterContext(profileId) {
     const { data: inviteCode } = await sb
       .from("invite_codes")
       .select("inviter_note")
-      .eq("created_by", profile.invited_by)
-      .not("used_at", "is", null)
-      .order("used_at", { ascending: false })
-      .limit(1)
+      .eq("used_by", profileId)
       .single();
 
     return {
