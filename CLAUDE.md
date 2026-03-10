@@ -1,17 +1,54 @@
 # Curators.AI — Project Context
 
 ## What This Is
-Mobile-first web app for tastemakers to capture, structure, and share recommendations via AI chat (Claude API). Live at https://curators-ai.vercel.app
+Mobile-first web app for tastemakers to capture, structure, and share recommendations via AI chat (Claude API). Live at https://curators.ai
 
 ## Tech Stack
 - Next.js App Router (React), Supabase (PostgreSQL), Claude API, Vercel
 - No TypeScript — plain JavaScript only
-- No local dev server — all changes deploy directly via git push to Vercel
+- No local dev server — all changes deploy directly via git push to Vercel (~60s)
 - All styling is inline (no Tailwind, no CSS modules). Only exception: `<style>` tags in components for responsive CSS classes (media queries)
 - Resend v6.9.3 installed for transactional email (no emails sent yet — next priority)
 
-## Directory Structure
+## Critical Rules (Read First)
 
+### Never Use Silent catch {}
+ALWAYS log errors. Silent catches hide bugs for days.
+```js
+// WRONG
+try { ... } catch {}
+
+// CORRECT
+try { ... } catch (err) { console.error("context:", err) }
+```
+
+### Always Check Schema Before Writing Queries
+Before writing any Supabase query, verify the column exists in the schema below. Never assume. The subscriptions table has no `created_at` column — use `subscribed_at` instead.
+
+### Always Add RLS Policies for New Write Operations
+Any time a new UPDATE/INSERT/DELETE is added to a table, check that an RLS policy covers it. Supabase silently rejects writes without policies — no error thrown, no rows affected.
+
+### Never Use Supabase Join Aliases
+`select("curator:curator_id(id, name)")` returns 400 errors. Always use two-step queries:
+```js
+// Step 1: fetch IDs
+const { data } = await supabase.from("subscriptions").select("curator_id").eq(...)
+// Step 2: fetch profiles
+const { data: profiles } = await supabase.from("profiles").select("id, name, handle").in("id", ids)
+```
+
+### Diagnose From Code, Not Screenshots
+Before fixing any layout or behavior bug, cat the relevant file first. Never diagnose from screenshots alone.
+
+### Ask Claude Code to Output Full File Contents
+When Claude Code reads a file, explicitly ask "output the full contents as text" — it will summarize otherwise.
+
+### Don't Trust AI for Critical UI Text
+For opening messages, greetings, and onboarding copy — hardcode client-side where possible. Don't rely on the AI to follow prompt instructions precisely for user-facing strings.
+
+---
+
+## Directory Structure
 ```
 app/
   (curator)/          # Protected curator routes (requires auth)
@@ -26,7 +63,6 @@ app/
     ask/              # → Visitor AI chat
     edit/             # → EditProfile (owner only)
     [slug]/           # → Rec detail page
-    request/          # → Request a rec (hidden)
   api/
     chat/             # Claude API integration
     auth/             # Signup, callback
@@ -34,9 +70,7 @@ app/
     link-metadata/    # URL metadata fetcher
     generate-style-summary/  # AI curator personality
     feedback/         # User feedback
-    waitlist/         # Waitlist
   login/, signup/, onboarding/, forgot-password/, reset-password/
-  admin/              # Admin views
 
 components/
   chat/               # ChatView, MessageBubble, CaptureCard, ProfileCaptureCard
@@ -56,9 +90,8 @@ context/
   VisitorContext.jsx  # Visitor data for /[handle] routes, refresh()
 
 lib/
-  constants.js        # Theme tokens, fonts, category config, feature flags, mock data
+  constants.js        # Theme tokens, fonts, category config, feature flags
   supabase.js         # Supabase browser client
-  supabase-browser.js # Alternative browser client
   supabase-server.js  # Server-side Supabase client
   resend.js           # Email (Resend) client
 ```
@@ -66,10 +99,16 @@ lib/
 ## Key Files
 
 ### API Routes
-- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection
+- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
 - `app/api/generate-style-summary/route.js` — AI-generated curator style/personality JSON
+
+### Auth Flow Files
+- `app/signup/page.js` — Validates invite code, creates auth user, stores invite_context in localStorage, sets used_at on invite code
+- `app/onboarding/page.js` — Creates profile, sets used_by on invite code using invite_id from localStorage
+- `app/api/auth/callback/route.js` — Handles both `code` (OAuth) and `token_hash` + `type` (password reset) flows
+- `app/reset-password/page.js` — Listens for PASSWORD_RECOVERY event via onAuthStateChange before allowing updateUser()
 
 ### Layouts & Routing
 - `app/[handle]/layout.js` — Routing logic: logged-in → CuratorProvider + CuratorShell + VisitorProvider; anonymous → VisitorProvider only
@@ -77,196 +116,253 @@ lib/
 - `middleware.js` — Auth protection; visitor routes (/[handle]/*) always public, curator routes require session
 
 ### Components
-- `components/visitor/VisitorProfile.jsx` — Public profile page. Hero (avatar + name/handle + subscribe button), bio, conditional stats row (clickable — toggles between recs/subscriptions/subscribers views), category bar graph, AI panels (compact mobile bar + full desktop card), rec list using RecCard, bookmark support via CuratorContext
-- `components/recs/RecCard.jsx` — Shared rec row component with category emoji, title, context, date, optional curator handle, optional bookmark button
-- `components/screens/EditProfile.jsx` — Edit profile. Uses `useContext(CuratorContext)` directly + `useContext(VisitorContext)` for refresh. Social links editing (7 platforms), toggle fields, SVG back arrow, navigates to /${handle} on save
-- `components/chat/ChatView.jsx` — Chat UI for both curator and visitor variants. Visitor opening message uses content-type tags and style summary for dynamic greeting
-- `components/chat/MessageBubble.jsx` — Message rendering with markdown link parsing
-- `components/layout/CuratorShell.jsx` — Navigation shell (sidebar on desktop, bottom tabs + header on mobile)
-- `components/layout/BottomTabs.jsx` / `Sidebar.jsx` — Nav components, use `useContext(CuratorContext)` directly
-- `components/settings/SettingsView.jsx` — Settings page with notifications, invite history, account
+- `components/visitor/VisitorProfile.jsx` — Public profile page. Stats row clickable (toggles recs/subscriptions/subscribers). Bookmarks pulled from CuratorContext directly (NOT useCurator())
+- `components/recs/RecCard.jsx` — Shared rec row with category emoji, title, context, date, optional curator handle, optional bookmark
+- `components/screens/EditProfile.jsx` — Uses useContext(CuratorContext) directly + useContext(VisitorContext) for refresh
+- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary
+- `components/layout/BottomTabs.jsx` / `Sidebar.jsx` — Feedback tab shown only for handle === "shamal" (hardcoded)
 
 ### Context
-- `context/CuratorContext.jsx` — Curator data, `saveProfile()` (writes to DB + re-fetches), `useCurator()` hook (prefers VisitorContext when both present). Exposes `savedRecIds` (Set), `saveRec`, `unsaveRec`
-- `context/VisitorContext.jsx` — Visitor data for /[handle] routes, detects `isOwner` via auth check, exposes `refresh()` to re-fetch profile data. Does NOT expose savedRecIds/saveRec/unsaveRec
+- `context/CuratorContext.jsx` — Exposes savedRecIds (Set, never null), saveRec, unsaveRec. isFirstTime = dbLoaded && tasteItems.length === 0 && (!bio || bio starts with "[note")
+- `context/VisitorContext.jsx` — Does NOT expose savedRecIds/saveRec/unsaveRec. Exposes refresh()
 
-### Config
-- `lib/constants.js` — Theme tokens (T, W, V), fonts (F, S, MN), category config (CAT), feature flags (FEATURES), mock earnings/tiers/bundles data
-- `app/onboarding/page.js` — New user setup (name max 30, handle max 20, handle availability check)
+---
 
-## Database (Supabase)
+## Database Schema
 
-### Tables
-profiles, recommendations, chat_messages, subscribers, subscriptions, invite_codes, saved_recs, revisions
+### profiles
+```
+id UUID PK
+name TEXT (max 30)
+handle TEXT (max 20, unique)
+bio TEXT
+location TEXT
+auth_user_id UUID (references auth.users)
+onboarding_complete BOOLEAN
+invited_by UUID → profiles(id)
+style_summary JSONB
+social_links JSONB DEFAULT '{}'
+show_recs BOOLEAN
+show_subscriptions BOOLEAN
+show_subscribers BOOLEAN
+ai_enabled BOOLEAN
+accept_requests BOOLEAN
+crypto_enabled BOOLEAN
+wallet TEXT
+last_seen_at TIMESTAMPTZ
+created_at TIMESTAMPTZ
+```
 
-### Key Schemas
+### recommendations
+```
+id UUID PK
+profile_id UUID FK → profiles(id)
+title TEXT
+category TEXT  -- watch|listen|read|visit|get|wear|play|other
+context TEXT
+tags TEXT[]    -- always includes a content-type tag (album, restaurant, book, etc.)
+links JSONB    -- [{url, title/label, type}] — check both link.label and link.title
+slug TEXT
+visibility TEXT (public/private)
+status TEXT (approved/archived)
+revision INTEGER
+earnable_mode TEXT (default: 'none')
+created_at TIMESTAMPTZ (immutable)
+```
 
-**profiles:**
-- `name` (max 30), `handle` (max 20, lowercase, 3-20 chars, letters/numbers/hyphens)
-- `bio`, `location`
-- `social_links` (JSONB — keys: instagram, spotify, substack, x, threads, bluesky, website)
-- `show_recs`, `show_subscriptions`, `show_subscribers` (booleans, control stats row visibility)
-- `ai_enabled`, `accept_requests`, `crypto_enabled`, `wallet`
-- `style_summary` (JSONB — AI-generated curator personality)
-- `invited_by` (UUID), `auth_user_id` (UUID), `onboarding_complete`
-- `last_seen_at` (timestamp, updated on app open)
+### subscriptions
+```
+id UUID PK
+subscriber_id UUID → profiles
+curator_id UUID → profiles
+subscribed_at TIMESTAMPTZ   ← USE THIS, not created_at (does not exist)
+unsubscribed_at TIMESTAMPTZ (nullable — soft delete)
+```
+⚠️ NO created_at column. Never use .order("created_at") on this table.
 
-**recommendations:**
-- `title`, `category` (watch/listen/read/visit/get/wear/play/other), `context`, `tags` (array — includes content-type tags like "restaurant", "album", "book"), `links` (JSONB: [{url, title/label, type}])
-- `slug`, `status`, `visibility` (public/private), `revision`, `profile_id`
-- `earnable_mode` (none/tip/etc)
+### invite_codes
+```
+id UUID PK
+code TEXT (unique) -- format: CURATORS-XXXXXX
+created_by UUID → profiles
+used_by UUID → profiles  -- set in onboarding (not signup)
+inviter_note TEXT
+used_at TIMESTAMPTZ      -- set in signup
+created_at TIMESTAMPTZ
+```
+Invite flow: signup sets used_at → onboarding sets used_by (profile doesn't exist at signup time)
 
-**subscriptions:** curator-to-curator via `subscriber_id`/`curator_id` (both profile UUIDs), soft-delete with `unsubscribed_at`. NOTE: no `created_at` column — do not use `.order("created_at", ...)` on this table
+### subscribers (legacy email-only)
+```
+id UUID PK
+curator_id UUID → profiles
+email TEXT
+subscribed_at TIMESTAMPTZ
+tier TEXT
+```
 
-**subscribers:** legacy email-only subscribers table
+### Other tables
+- chat_messages: id, profile_id, role, text, captured_rec JSONB, created_at
+- saved_recs: id, profile_id, rec_id, created_at
+- revisions: id, recommendation_id, revision_number, context, tags, links, created_at
 
-- Auth via Supabase Auth (email/password)
+### RLS Policy Checklist
+Before adding any new write operation, verify RLS policy exists:
+- profiles: Anyone can read, owner can update
+- recommendations: Public can read approved+public, owners can CRUD
+- chat_messages: Owners only
+- subscriptions: auth.uid() IS NOT NULL for SELECT; owners can INSERT/UPDATE
+- invite_codes: Anyone can read (SELECT true); owners can INSERT; UPDATE policy exists for setting used_by/used_at
+- saved_recs: Owners only
+
+---
 
 ## Architecture
 
 ### Context Model (Critical)
 - `useCurator()` returns `visitor || curator` — **always prefers VisitorContext when both are present**
-- CuratorShell/BottomTabs/Sidebar use `useContext(CuratorContext)` directly for nav data
-- On /[handle] routes, logged-in users get **both** providers: `CuratorProvider` (shell) + `VisitorProvider` (content)
-- **Bookmark pattern on visitor routes**: VisitorProfile pulls `savedRecIds`/`saveRec`/`unsaveRec` directly from `useContext(CuratorContext)`, NOT from `useCurator()` — because `useCurator()` returns VisitorContext which doesn't expose these fields
-- EditProfile uses `useContext(CuratorContext)` directly (not `useCurator()`) because it needs curator data on a visitor route
-- EditProfile also reads `useContext(VisitorContext)` for `refresh` — calls it after `saveProfile()` to sync visitor data before navigation
-- VisitorContext `loadVisitorData` depends on `[handle]` — won't re-fetch on same-handle navigation, hence the `refresh()` pattern
+- On /[handle] routes, logged-in users get **both** providers
+- **CRITICAL**: VisitorProfile pulls `savedRecIds`/`saveRec`/`unsaveRec` directly from `useContext(CuratorContext)`, NOT from `useCurator()` — VisitorContext doesn't expose these
+- EditProfile uses `useContext(CuratorContext)` directly, plus `useContext(VisitorContext)` for refresh
 
 ### DB Field Mapping (snake_case → camelCase)
-All DB columns use snake_case. JS state uses camelCase. This mapping happens in every `setProfile()` call:
-- `show_subscriptions` → `showSubscriptions`
-- `show_subscribers` → `showSubscribers`
-- `show_recs` → `showRecs`
-- `social_links` → `socialLinks`
-- `ai_enabled` → `aiEnabled`
-- `accept_requests` → `acceptRequests`
-- `crypto_enabled` → `cryptoEnabled`
-- `style_summary` → `styleSummary`
-- `invited_by` → `invitedBy`
-- `auth_user_id` → (not mapped to state, used for queries)
+Mapping happens in CuratorContext (4 places) and VisitorContext (1 place). Keep in sync when adding new profile fields:
+- show_subscriptions → showSubscriptions
+- show_subscribers → showSubscribers
+- show_recs → showRecs
+- social_links → socialLinks
+- ai_enabled → aiEnabled
+- accept_requests → acceptRequests
+- crypto_enabled → cryptoEnabled
+- style_summary → styleSummary
+- invited_by → invitedBy
 
-This mapping exists in **4 places** in CuratorContext (loadData, saveProfile write, saveProfile re-fetch, saveProfileFromChat re-fetch) and **1 place** in VisitorContext (loadVisitorData). Keep all in sync when adding new profile fields.
+### Three AI System Prompt Modes
+1. **Onboarding** — isFirstTime (0 recs + no bio). Uses inviter name + note from getInviterContext(). Opening generated via generateOpening:true API call.
+2. **Standard** — Established curator. Rec capture, timeline queries, network recs.
+3. **Visitor** — Read-only, channels curator personality via style_summary.
 
-### Three System Prompt Modes (route.js)
-1. **Onboarding** — New curator (<3 recs or no bio). Inviter context, profile extraction, milestone acknowledgment
-2. **Standard** — Established curator. Rec capture, timeline queries, network recs from subscriptions + broader network
-3. **Visitor** — Third-person AI representing curator to visitors
+### First-Time Curator Opening Message
+- Client calls `/api/chat` with `generateOpening: true`
+- Server fetches inviter context via `getInviterContext(profileId)` — queries invite_codes WHERE used_by = profileId
+- Falls back to warm hardcoded message on error
+- isFirstTime = dbLoaded && tasteItems.length === 0 && (!bio || bio.trim() === '' || bio.startsWith('[note'))
 
-### Auth Flow
-- Middleware checks session for protected routes, allows visitor routes through
-- Root `/` redirects authed users to `/myai`, shows splash for unauthed
-- `/login`, `/signup` redirect to `/myai` if already authed
-- Curator-only paths: /myai, /profile, /recommendations, /settings, /subs, /invite, /admin
+### Password Reset Flow
+1. User requests reset → Supabase sends email with token_hash link
+2. Link → `/api/auth/callback?token_hash=X&type=recovery&next=/reset-password`
+3. Callback calls `supabase.auth.verifyOtp({ token_hash, type })`
+4. Redirects to `/reset-password`
+5. Page listens for `PASSWORD_RECOVERY` event via `onAuthStateChange` before enabling form
+
+---
 
 ## Categories & Tags
 
-### 8 Categories
-watch, listen, read, visit, get, wear, play, other — defined in `CAT` object in `lib/constants.js`
+### 8 Categories (lib/constants.js CAT object)
+| Category | Emoji | Color |
+|----------|-------|-------|
+| watch | 📺 | #8E80B5 |
+| listen | 🎧 | #4B92CC |
+| read | 📖 | #CC6658 |
+| visit | 📍 | #5E9E82 |
+| get | 📦 | #C27850 |
+| wear | 🛍️ | #CC7090 |
+| play | ⚡ | #D4B340 |
+| other | ◆ | #B08860 |
 
-### Category Colors
-watch (#8E80B5), listen (#4B92CC), read (#CC6658), visit (#5E9E82), get (#C27850), wear (#CC7090), play (#D4B340), other (#B08860)
+### Content-Type Tags (always include one per rec)
+- listen → album, song, podcast, playlist, mix, ep, audiobook
+- read → book, article, substack, essay, newsletter, blog post, paper
+- watch → film, series, documentary, short film, anime, standup special
+- visit → restaurant, bar, cafe, hotel, park, museum, city, neighborhood
+- get → app, tool, gadget, gear, product, software
+- wear → clothing, shoes, accessories, fashion, beauty
+- play → game, sport, activity, hobby, videogame, boardgame
 
-### Content-Type Tags
-Recs have a `tags` array that includes content-type tags for specificity within categories. Examples: "restaurant", "bar", "cafe" (within visit), "album", "song", "podcast" (within listen), "book", "article", "essay" (within read). Used in visitor AI opening message to describe what the curator recommends.
-
-### Feature Flags
-`FEATURES` object in `lib/constants.js`:
+### Feature Flags (lib/constants.js)
 - `socialLinks: false` — hides social links in VisitorProfile and EditProfile
 - `cryptoTips: false` — hides crypto/wallet fields
 
+---
+
 ## Design System
 
-### Theme Tokens (`lib/constants.js`)
-- **T** — Base theme: `bg` (dark), `ink` (light text), `ink2`/`ink3` (muted), `acc` (warm gold #D4956B), `bdr` (borders)
-- **W** — Workspace/curator chat: cooler blue-shifted palette, `aiBdr` (#3B7BF6)
+### Theme Tokens (lib/constants.js)
+- **T** — Base theme: bg (#131210), ink (#E8E2D6), ink2 (#A09888), ink3 (#6B6258), acc (#D4956B), bdr (#302B25)
+- **W** — Workspace/curator chat: cooler blue-shifted palette
 - **V** — Visitor AI chat: warm palette
-- **F** — `'Manrope', sans-serif` (body text, UI)
-- **S** — `'Newsreader', serif` (headings, brand)
-- **MN** — `'JetBrains Mono', monospace` (code/mono text)
-- **CAT** — Category config with emoji, color, bg, label for each of 8 categories
+- **F** — 'Manrope', sans-serif (body)
+- **S** — 'Newsreader', serif (headings/brand)
+- **MN** — 'JetBrains Mono', monospace
 
 ### Styling Rules
 - All inline styles — no Tailwind, no CSS modules
-- `<style>` tags in components only for responsive media queries (e.g., VisitorProfile subscribe button)
+- `<style>` tags only for responsive media queries
 - Dark theme (#131210 base) with warm gold accent (#D4956B)
 
-### Responsive Patterns
-- VisitorProfile uses JS-based `isDesktop` state (`window.innerWidth >= 720`) with resize listener for AI panel conditional rendering — avoids SSR hydration issues with CSS media queries
-- CuratorShell uses media query matching for sidebar vs bottom tabs
-- Subscribe button uses CSS classes with inline `display: "none"` on narrow variant + CSS `!important` override to prevent SSR flash
+---
+
+## Invite System
+- Format: `CURATORS-XXXXXX`, charset `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
+- Max 5 unused codes per curator
+- Inviter writes a note explaining why they're inviting this person
+- Flow: signup validates code + sets used_at → onboarding creates profile + sets used_by
+- getInviterContext() fetches note via: `invite_codes WHERE used_by = profileId`
+
+## Style Summary
+- Stored as JSONB in profiles.style_summary
+- Generated via /api/generate-style-summary at milestones [3, 6, 10, 15, 20 recs]
+- styleSummary.voice used in visitor opening message keyword matching
+
+## Vocabulary (Never Break)
+- "subscribe" not "follow"
+- "curator" not "user/creator"
+- "taste" not "preferences"
+- "recommendations/recs" not "content/posts"
+
+---
 
 ## Deployment
-`git add -A && git commit -m "message" && git push` → Vercel auto-deploys in ~60s
+```
+git add -A && git commit -m "message" && git push
+```
+Vercel auto-deploys in ~60s. No local dev environment — all changes go directly to production.
 
-## Env Vars (set in Vercel, not local)
-- `ANTHROPIC_API_KEY`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (server-side only, for admin queries in route.js)
+## Env Vars (Vercel only, not local)
+- ANTHROPIC_API_KEY
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE_KEY
+- RESEND_API_KEY
 
-## Known Patterns & Gotchas
-
-### Supabase
-- **Join aliases don't work** — `select("curator:curator_id(id, name)")` returns 400 errors. Use two-step queries instead: fetch IDs first, then fetch profiles with `.in("id", ids)`
-- Subscriptions table has NO `created_at` column — don't use `.order("created_at", ...)` on it
-
-### Data
-- Links stored as JSONB: `[{url, title/label, type}]` — check both `link.label` and `link.title` in display code
-- `whiteSpace: "pre-line"` needed on context/bio displays
-- Chat loads last 50 messages from DB, sends last 10 to API
-- Category regex uses Unicode flag (`/u`) for emoji matching
-- Visibility system: "public"/"private" on recommendations table. Network/Saved/visitor queries filter `.eq("visibility", "public")`. Curator's own recs are unfiltered. Private recs show "🔒 Private" on metadata line in TasteManager
-
-### Context & State
-- `isOwner` detection happens in VisitorContext (auth check against `prof.auth_user_id`), not in layout
-- VisitorContext `loadVisitorData` dependency is `[handle]` — won't re-fetch on same-handle navigation. Use `refresh()` when data changes need to be reflected
-- `saveProfile()` in CuratorContext writes to DB then re-fetches — but VisitorProfile reads from VisitorContext which has its own independent fetch. EditProfile calls `visitor.refresh()` after save to bridge this gap
-- Profile handle in state includes "@" prefix (e.g., `"@shamal"`). Strip with `.replace("@", "")` before DB writes or URL construction
-- `savedRecIds` initialized as `new Set()` in CuratorContext (never null) — safe to call `.has()` without null checks
-
-### Components
-- Markdown links: ChatView and MessageBubble each have their own `parseLinks`/`renderMd` — keep both in sync if changing link rendering
-- Stats row in VisitorProfile is clickable: toggles `profileView` between "recs", "subscriptions", "subscribers". Active stat gets T.acc color. Subscriptions/subscribers lists fetched on demand (two-step Supabase queries)
-- Social links: 7 platforms (instagram, spotify, substack, x, threads, bluesky, website) with SVG icons in VisitorProfile — hidden behind `FEATURES.socialLinks` flag
-- VisitorProfile uses RecCard for rec list (same component as NetworkView/SavedView)
-
-### Invite System
-- Auto-generated on demand (not pre-assigned), format `CURATORS-XXXXXX`, charset `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
-- Max 5 unused codes per curator
-- History in Settings matches used codes to profiles by timestamp proximity (within 24h)
-
-### Style Summary
-- Stored as JSONB in `profiles.style_summary`
-- Generated via `/api/generate-style-summary` at milestones [3, 6, 10, 15, 20 recs]
-- Injected into visitor AI system prompt
-- `styleSummary.voice` used in visitor opening message to select style-appropriate greeting
+---
 
 ## Implementation Status
 
 ### Complete
 - Core platform: chat, recs, profiles, subscriptions, visitor AI
-- Network recs injected into AI prompt with hyperlinks (`[link: /handle/slug]`)
+- Password reset (token_hash flow via Supabase callback)
+- Network recs injected into AI prompt with hyperlinks
 - Style summary generation at milestones
-- Invite system with codes, notes, history
-- Profile hero with conditional stats (clickable toggle for recs/subscriptions/subscribers views), category bar graph, responsive AI panels
-- EditProfile with social links editing, toggle fields, refresh-before-navigate pattern
-- Character limits (name 30, handle 20) in EditProfile and onboarding
-- Public/private visibility toggle on recs (edit form in RecDetail)
-- Bookmark support on VisitorProfile, NetworkView, SavedView via RecCard
-- Feature flags system (FEATURES in constants.js)
+- Invite system with codes, notes, history, used_by tracking
+- Profile hero with clickable stats toggle (recs/subscriptions/subscribers)
+- EditProfile with social links, toggle fields, refresh-before-navigate
+- Public/private visibility toggle on recs
+- Bookmark support on VisitorProfile, NetworkView, SavedView
+- Feature flags system
 - Dynamic visitor AI opening message (content-type tags + style summary)
-- Empty states with actionable CTAs (Saved, Subscriptions, Subscribers, Fans tabs)
-- Unsubscribe from VisitorProfile "Subscribed ✓" button
+- Personalized first-time curator opening (inviter name + note)
+- Empty states with actionable CTAs
 
 ### Next Up
-- Transactional email via Resend (subscription notifications, etc.)
-- End-to-end polish pass
-- Port to curators.ai domain
-- Invite real testers
+- Transactional email via Resend (new subscriber digest, new rec digest)
+- In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
-- AI can update existing recs (add links, edit context via chat)
-- AI reads link content
-- Request a rec (UI hidden, code preserved with TODO)
-- Image attachments (v1.5)
+- AI can update existing recs via chat
+- Google OAuth
+- PWA / add to home screen
+- Network/discovery layer
+- Paid subscriptions
+- Crypto payments
