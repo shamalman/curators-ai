@@ -152,6 +152,12 @@ export default function VisitorProfile({ mode }) {
       }
       setLocalSubbed(true);
       setSubscriberCount(c => c + 1);
+      // Fire and forget — notify curator of new subscriber
+      fetch('/api/notify/new-subscriber', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ curatorId: profileId, subscriberId: myProfileId }),
+      }).catch(() => {});
     } catch (err) { console.error("Subscribe failed:", err); }
     finally { setSubToggling(false); }
   };
@@ -180,7 +186,6 @@ export default function VisitorProfile({ mode }) {
         .select("id, curator_id")
         .eq("subscriber_id", profileId)
         .is("unsubscribed_at", null);
-      console.log("[loadSubscriptions] error:", JSON.stringify(error), "data:", JSON.stringify(data));
       if (error) throw error;
       const ids = (data || []).map(r => r.curator_id);
       if (ids.length === 0) { setSubsList([]); return; }

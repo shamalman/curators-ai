@@ -384,6 +384,12 @@ export function CuratorProvider({ children }) {
         });
       }
       setMySubscriptionIds(prev => new Set([...prev, curatorId]));
+      // Notify curator of new subscriber (fire and forget)
+      fetch('/api/notify/new-subscriber', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ curatorId, subscriberId: profileId }),
+      }).catch(() => {});
       // Refresh to get full data with profiles
       await refreshSubscriptions();
     } catch (err) { console.error("Failed to subscribe:", err); }

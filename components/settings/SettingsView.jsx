@@ -33,14 +33,35 @@ export default function SettingsView() {
   const [email, setEmail] = useState("")
   const [weeklyDigest, setWeeklyDigest] = useState(true)
   const [newSubscriber, setNewSubscriber] = useState(true)
-  const [networkActivity, setNetworkActivity] = useState(false)
   const [inviteHistory, setInviteHistory] = useState([])
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.email) setEmail(data.user.email)
     })
   }, [])
+
+  // Load notification preferences from profile
+  useEffect(() => {
+    if (!profileId) return
+    supabase
+      .from("profiles")
+      .select("weekly_digest_enabled, new_subscriber_email_enabled")
+      .eq("id", profileId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setWeeklyDigest(data.weekly_digest_enabled !== false)
+          setNewSubscriber(data.new_subscriber_email_enabled !== false)
+        }
+        setPrefsLoaded(true)
+      })
+      .catch((err) => {
+        console.error("Failed to load notification prefs:", err)
+        setPrefsLoaded(true)
+      })
+  }, [profileId])
 
   useEffect(() => {
     if (!profileId) return
@@ -49,6 +70,32 @@ export default function SettingsView() {
       .then(data => { if (data.history) setInviteHistory(data.history) })
       .catch(() => {})
   }, [profileId])
+
+  const toggleWeeklyDigest = async () => {
+    const next = !weeklyDigest
+    setWeeklyDigest(next)
+    const { error } = await supabase
+      .from("profiles")
+      .update({ weekly_digest_enabled: next })
+      .eq("id", profileId)
+    if (error) {
+      console.error("Failed to update weekly_digest_enabled:", error)
+      setWeeklyDigest(!next)
+    }
+  }
+
+  const toggleNewSubscriber = async () => {
+    const next = !newSubscriber
+    setNewSubscriber(next)
+    const { error } = await supabase
+      .from("profiles")
+      .update({ new_subscriber_email_enabled: next })
+      .eq("id", profileId)
+    if (error) {
+      console.error("Failed to update new_subscriber_email_enabled:", error)
+      setNewSubscriber(!next)
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -99,14 +146,11 @@ export default function SettingsView() {
             <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
               Notifications
             </div>
-            {settingRow("Weekly digest", "Summary of your activity each week",
-              <Toggle on={weeklyDigest} onToggle={() => setWeeklyDigest(!weeklyDigest)} />
+            {settingRow("Weekly digest", "New recs from curators you subscribe to",
+              <Toggle on={weeklyDigest} onToggle={toggleWeeklyDigest} />
             )}
             {settingRow("New subscriber", "When someone subscribes to you",
-              <Toggle on={newSubscriber} onToggle={() => setNewSubscriber(!newSubscriber)} />
-            )}
-            {settingRow("Network activity", "When curators you follow post",
-              <Toggle on={networkActivity} onToggle={() => setNetworkActivity(!networkActivity)} />
+              <Toggle on={newSubscriber} onToggle={toggleNewSubscriber} />
             )}
           </div>
 
