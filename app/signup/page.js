@@ -71,6 +71,7 @@ export default function SignupPage() {
       // Store invite context for onboarding to set invited_by
       if (invite.created_by) {
         localStorage.setItem("invite_context", JSON.stringify({
+          invite_id: invite.id,
           invited_by: invite.created_by,
           inviter_note: invite.inviter_note || null,
         }))

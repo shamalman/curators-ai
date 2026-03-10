@@ -87,6 +87,16 @@ export default function OnboardingPage() {
       }).select("id").single()
       if (insertErr) throw insertErr
 
+      // Mark invite code as used_by this new profile
+      try {
+        const ctx = JSON.parse(localStorage.getItem("invite_context"))
+        if (ctx?.invite_id) {
+          await supabase.from("invite_codes").update({
+            used_by: newProfile.id,
+          }).eq("id", ctx.invite_id)
+        }
+      } catch {}
+
       localStorage.removeItem("invite_context")
       router.push("/myai")
     } catch (err) {
