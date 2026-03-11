@@ -863,9 +863,14 @@ export async function POST(request) {
       }
 
       // Query existing agent jobs for context injection
-      const agentCtx = await getAgentContext(profileId, sb);
-      agentBlock = agentCtx.agentBlock;
-      unpresentedJobs = agentCtx.unpresentedJobs;
+      try {
+        const agentCtx = await getAgentContext(profileId, sb);
+        agentBlock = agentCtx.agentBlock;
+        unpresentedJobs = agentCtx.unpresentedJobs;
+        console.log("[DEBUG] getAgentContext returned:", { agentBlockLength: agentBlock.length, unpresentedCount: unpresentedJobs.length });
+      } catch (agentErr) {
+        console.error("[DEBUG] getAgentContext failed:", agentErr.message, agentErr.stack);
+      }
 
       // Add URL-specific notes for this message
       const urlNotes = buildAgentUrlNotes(agentNotes);
@@ -1001,12 +1006,23 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Increase token limit when presenting agent results (more content to deliver)
     const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: cleanedMessages,
-    });
+    console.log("[DEBUG] agentBlock length:", agentBlock.length);
+    console.log("[DEBUG] systemPrompt length:", systemPrompt.length);
+    console.log("[DEBUG] messages count:", cleanedMessages.length, "maxTokens:", maxTokens);
+
+    let response;
+    try {
+      response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: cleanedMessages,
+      });
+    } catch (claudeErr) {
+      console.error("[DEBUG] anthropic.messages.create failed:", claudeErr.message, claudeErr.stack);
+      console.error("[DEBUG] Claude error status:", claudeErr.status, "type:", claudeErr.type);
+      throw claudeErr;
+    }
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
@@ -1039,7 +1055,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
-    console.error("Chat API error:", error);
+    console.error("Chat API error:", error.message);
+    console.error("Full error:", error.message, error.stack);
     return NextResponse.json(
       { message: "Sorry, I'm having trouble right now. Try again in a moment." },
       { status: 500 }
