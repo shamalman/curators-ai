@@ -756,9 +756,13 @@ async function processUrlsForAgent(message, profileId, sb) {
       const detection = detectSource(url);
 
       if (!detection.supported) {
-        await sb.from("unsupported_source_requests").insert({
-          profile_id: profileId, source_url: url, source_type: "unknown",
-        }).catch(err => console.error("Failed to log unsupported source:", err));
+        try {
+          await sb.from("unsupported_source_requests").insert({
+            profile_id: profileId, source_url: url, source_type: "unknown",
+          });
+        } catch (err) {
+          console.error("Failed to log unsupported source:", err);
+        }
         agentNotes.push({ url, type: "unsupported" });
         continue;
       }
@@ -1029,10 +1033,13 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Mark unpresented agent jobs as presented
     if (unpresentedJobs.length > 0) {
       const jobIds = unpresentedJobs.map(j => j.id);
-      await sb.from("agent_jobs")
-        .update({ presented_at: new Date().toISOString() })
-        .in("id", jobIds)
-        .catch(err => console.error("Failed to mark agent jobs as presented:", err));
+      try {
+        await sb.from("agent_jobs")
+          .update({ presented_at: new Date().toISOString() })
+          .in("id", jobIds);
+      } catch (err) {
+        console.error("Failed to mark agent jobs as presented:", err);
+      }
     }
 
     if (profileId) {
