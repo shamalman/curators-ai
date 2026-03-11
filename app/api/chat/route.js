@@ -1,10 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { detectSource, getParser } from "../../../lib/agent/registry.js";
-
-// Allow up to 60s for agent processing + Claude calls
-export const maxDuration = 60;
+import { detectSource } from "../../../lib/agent/registry.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -749,189 +746,18 @@ ${remaining.length > 5 ? `(${remaining.length - 5} more after this batch)` : ""}
   }
 }
 
-// ── Inline agent job processing (same logic as /api/agent/process) ──
-function formatItem(item, index) {
-  const parts = [`${index + 1}.`];
-  if (item.itemType) parts.push(`[${item.itemType}]`);
-  if (item.title) parts.push(`"${item.title}"`);
-  if (item.artist) parts.push(`by ${item.artist}`);
-  if (item.showName) parts.push(`(show: ${item.showName})`);
-  if (item.duration) {
-    if (typeof item.duration === "number") {
-      const mins = Math.round(item.duration / 60);
-      if (mins > 0) parts.push(`[${mins}min]`);
-    } else {
-      parts.push(`[${item.duration}]`);
-    }
-  }
-  if (item.description) parts.push(`— ${item.description.slice(0, 120)}`);
-  return parts.join(" ");
-}
-
-function buildExtractionPrompt(sourceType, metadata, items) {
-  return `You are analyzing a source for a curator on Curators.AI. Your job is to figure out what each item actually IS, extract genuine recommendations, and analyze the curator's taste.
-
-SOURCE INFO:
-Platform: ${metadata.source || sourceType || "Unknown"}
-Title: ${metadata.title || "Unknown"}
-Type: ${metadata.resourceType || "unknown"}
-URL: ${metadata.url}
-Description: ${metadata.description || "None"}
-
-ITEMS (${items.length} total):
-${items.map((item, i) => formatItem(item, i)).join("\n")}
-
-STEP 1 — IDENTIFY EACH ITEM:
-A single source can contain mixed content. A Spotify playlist might have songs AND podcast episodes. A YouTube channel might have music videos AND cooking tutorials. For EACH item, determine:
-- What it actually is: song, album, podcast, episode, video, film, article, restaurant, place, book, product, app, game, etc.
-- Which Curators.AI category it belongs to: watch | listen | read | visit | get | wear | play | other
-  - listen: songs, albums, podcasts, playlists, mixes, EPs, audiobooks
-  - watch: films, series, documentaries, videos, anime, standup specials
-  - read: books, articles, substacks, essays, newsletters, papers
-  - visit: restaurants, bars, cafes, hotels, parks, museums, cities
-  - get: apps, tools, gadgets, gear, products, software
-  - wear: clothing, shoes, accessories, fashion, beauty
-  - play: games, sports, activities, hobbies
-  - other: anything that doesn't fit
-
-STEP 2 — CONFIDENCE SCORING:
-For each item, assign a confidence score (0.0–1.0) — does this feel like a genuine curated pick or filler?
-- High (0.7–1.0): Deep cuts, specific choices, clear personal taste signal
-- Medium (0.4–0.7): Popular but fits a coherent theme
-- Low (0.0–0.4): Generic top hits, algorithmic filler, default content
-
-STEP 3 — EXTRACT CANDIDATE RECS:
-Focus on items with confidence >= 0.5. Each rec needs:
-- A title (for music: "Artist — Song/Album", for podcasts: "Show Name — Episode", etc.)
-- The correct category from the list above
-- tags: MUST include one content-type tag first (song, album, podcast, film, restaurant, book, app, etc.) followed by descriptive tags (genre, mood, era, style). Examples:
-  - Song: ["song", "indie-rock", "90s", "guitar"]
-  - Podcast episode: ["podcast", "tech", "interview"]
-  - Restaurant: ["restaurant", "japanese", "ramen", "casual"]
-- A context sentence written as if the curator said it
-
-STEP 4 — TASTE ANALYSIS:
-Analyze what this collection reveals about the curator's taste. Be content-aware — if the source has mixed content, break it down:
-- "Your Spotify is 80% ambient/jazz music and 20% tech podcasts"
-- "Your YouTube is mostly cooking tutorials with some music videos mixed in"
-Don't assume everything is the same type. Reflect the actual mix.
-
-Respond with JSON only, no markdown code fences. Use this exact structure:
-{
-  "items_analyzed": [
-    {
-      "title": "item name",
-      "creator": "artist/author/host/channel name or null",
-      "detected_type": "song|episode|video|place|book|etc",
-      "category": "listen|watch|read|visit|get|wear|play|other",
-      "confidence": 0.8,
-      "confidence_reason": "brief reason"
-    }
-  ],
-  "candidate_recs": [
-    {
-      "title": "Formatted title",
-      "category": "listen",
-      "context": "Why this matters — written as if the curator said it",
-      "tags": ["content-type-tag", "descriptive-tag-1", "descriptive-tag-2"],
-      "confidence": 0.8,
-      "source_position": 1
-    }
-  ],
-  "taste_analysis": {
-    "content_breakdown": {"listen": 15, "watch": 3, "read": 0},
-    "patterns": ["pattern 1", "pattern 2"],
-    "primary_moods": ["mood 1", "mood 2"],
-    "genres": ["genre 1", "genre 2"],
-    "contexts": ["when/where they consume this — commuting, cooking, etc."],
-    "taste_thesis": "A 2-3 sentence thesis about this curator's taste across ALL content types found. Be specific and insightful, not generic. Reference the actual mix of content."
-  }
-}`;
-}
-
-async function runAgentJob(jobId, sourceUrl, sourceType, sb) {
-  try {
-    // Mark as processing
-    await sb.from("agent_jobs")
-      .update({ status: "processing", started_at: new Date().toISOString() })
-      .eq("id", jobId);
-
-    // Get parser
-    const detection = detectSource(sourceUrl);
-    if (!detection.supported || !detection.parserName) {
-      throw new Error(`No parser found for URL: ${sourceUrl}`);
-    }
-    const parser = getParser(detection.parserName);
-    if (!parser) {
-      throw new Error(`Parser not found: ${detection.parserName}`);
-    }
-
-    // Parse the source
-    const { metadata, items } = await parser.parse(sourceUrl);
-
-    // Store raw data
-    await sb.from("agent_jobs")
-      .update({ raw_data: { metadata, items, fetched_at: new Date().toISOString() } })
-      .eq("id", jobId);
-
-    // Empty results
-    if (!items || items.length === 0) {
-      await sb.from("agent_jobs").update({
-        status: "completed",
-        extracted_recs: { candidate_recs: [], items_analyzed: [] },
-        taste_analysis: { patterns: [], taste_thesis: "Not enough data to analyze taste." },
-        completed_at: new Date().toISOString(),
-      }).eq("id", jobId);
-      return;
-    }
-
-    // Claude extraction
-    const prompt = buildExtractionPrompt(sourceType, metadata, items);
-    const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const responseText = msg.content[0]?.text || "";
-    const cleaned = responseText.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-    const analysis = JSON.parse(cleaned);
-
-    await sb.from("agent_jobs").update({
-      status: "completed",
-      extracted_recs: {
-        candidate_recs: analysis.candidate_recs || [],
-        items_analyzed: analysis.items_analyzed || [],
-      },
-      taste_analysis: analysis.taste_analysis || {},
-      completed_at: new Date().toISOString(),
-    }).eq("id", jobId);
-  } catch (error) {
-    console.error("Agent job processing failed:", error);
-    await sb.from("agent_jobs").update({
-      status: "failed",
-      error_message: error.message || "Unknown error",
-      completed_at: new Date().toISOString(),
-    }).eq("id", jobId);
-  }
-}
-
 // ── Detect URLs and create agent jobs ──
 async function processUrlsForAgent(message, profileId, sb) {
   const urls = message.match(URL_REGEX) || [];
   const agentNotes = [];
-  const processingPromises = [];
 
   for (const url of urls) {
     try {
       const detection = detectSource(url);
 
       if (!detection.supported) {
-        // Log unsupported source
         await sb.from("unsupported_source_requests").insert({
-          profile_id: profileId,
-          source_url: url,
-          source_type: "unknown",
+          profile_id: profileId, source_url: url, source_type: "unknown",
         }).catch(err => console.error("Failed to log unsupported source:", err));
         agentNotes.push({ url, type: "unsupported" });
         continue;
@@ -942,46 +768,32 @@ async function processUrlsForAgent(message, profileId, sb) {
         continue;
       }
 
-      // Profile/list URL — check if parser is implemented
       if (!detection.implemented) {
         agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
         continue;
       }
 
-      // Check if we already have a job for this URL
-      const { data: existing } = await sb
-        .from("agent_jobs")
+      // Check for existing job
+      const { data: existing } = await sb.from("agent_jobs")
         .select("id, status")
-        .eq("profile_id", profileId)
-        .eq("source_url", url)
+        .eq("profile_id", profileId).eq("source_url", url)
         .in("status", ["pending", "processing", "completed"])
-        .limit(1)
-        .maybeSingle();
+        .limit(1).maybeSingle();
 
       if (existing) {
         agentNotes.push({ url, type: "already_processing", sourceType: detection.sourceType, jobId: existing.id, status: existing.status });
         continue;
       }
 
-      // Create agent job
-      const { data: job, error: jobErr } = await sb
-        .from("agent_jobs")
-        .insert({
-          profile_id: profileId,
-          source_type: detection.sourceType,
-          source_url: url,
-          status: "pending",
-        })
-        .select("id")
-        .single();
+      // Create agent job — processing happens separately via frontend
+      const { data: job, error: jobErr } = await sb.from("agent_jobs")
+        .insert({ profile_id: profileId, source_type: detection.sourceType, source_url: url, status: "pending" })
+        .select("id").single();
 
       if (jobErr) {
-        console.error("Failed to create agent job for URL:", url, jobErr);
+        console.error("Failed to create agent job:", url, jobErr);
         continue;
       }
-
-      // Start processing inline — runs in parallel with Claude chat response
-      processingPromises.push(runAgentJob(job.id, url, detection.sourceType, sb));
 
       agentNotes.push({ url, type: "agent_started", sourceType: detection.sourceType, jobId: job.id });
     } catch (err) {
@@ -989,7 +801,7 @@ async function processUrlsForAgent(message, profileId, sb) {
     }
   }
 
-  return { agentNotes, processingPromises };
+  return agentNotes;
 }
 
 // ── Build agent notes for system prompt injection ──
@@ -1019,7 +831,6 @@ function buildAgentUrlNotes(agentNotes) {
 }
 
 export async function POST(request) {
-  const requestStart = Date.now();
   try {
     const {
       message, isVisitor, curatorName, curatorHandle, curatorBio,
@@ -1044,30 +855,15 @@ export async function POST(request) {
     let agentBlock = "";
     let agentNotes = [];
     let unpresentedJobs = [];
-    let agentProcessingPromises = [];
 
     if (!isVisitor && profileId && !generateOpening) {
-      // Check for URLs in message and trigger agent jobs
+      // Check for URLs in message and create agent jobs (no processing — frontend triggers that)
       if (message) {
-        const t0 = Date.now();
-        const result = await processUrlsForAgent(message, profileId, sb);
-        agentNotes = result.agentNotes;
-        agentProcessingPromises = result.processingPromises;
-        console.log(`[TIMING] processUrlsForAgent: ${Date.now() - t0}ms (${agentProcessingPromises.length} jobs)`);
+        agentNotes = await processUrlsForAgent(message, profileId, sb);
       }
 
-      // Wait for any new agent jobs to finish before querying results
-      // (~1-3s for parsing + Claude extraction — lets us present results in THIS response)
-      if (agentProcessingPromises.length > 0) {
-        const t1 = Date.now();
-        await Promise.allSettled(agentProcessingPromises);
-        console.log(`[TIMING] Promise.allSettled (agent jobs): ${Date.now() - t1}ms`);
-      }
-
-      // Query agent jobs for context injection (picks up just-completed results)
-      const t2 = Date.now();
+      // Query existing agent jobs for context injection
       const agentCtx = await getAgentContext(profileId, sb);
-      console.log(`[TIMING] getAgentContext: ${Date.now() - t2}ms`);
       agentBlock = agentCtx.agentBlock;
       unpresentedJobs = agentCtx.unpresentedJobs;
 
@@ -1205,14 +1001,12 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Increase token limit when presenting agent results (more content to deliver)
     const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
 
-    const t3 = Date.now();
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: cleanedMessages,
     });
-    console.log(`[TIMING] anthropic.messages.create (chat): ${Date.now() - t3}ms`);
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
@@ -1235,11 +1029,17 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       if (trackingError) console.error('TRACKING ERROR:', trackingError);
     }
 
-    console.log(`[TIMING] Total chat request: ${Date.now() - requestStart}ms`);
-    return NextResponse.json({ message: aiMessage });
+    // Include pending agent jobs so frontend can trigger processing
+    const pendingAgentJobs = agentNotes
+      .filter(n => n.type === 'agent_started')
+      .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
+
+    return NextResponse.json({
+      message: aiMessage,
+      agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
+    });
   } catch (error) {
     console.error("Chat API error:", error);
-    console.log(`[TIMING] Total chat request (errored): ${Date.now() - requestStart}ms`);
     return NextResponse.json(
       { message: "Sorry, I'm having trouble right now. Try again in a moment." },
       { status: 500 }

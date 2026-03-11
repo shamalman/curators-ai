@@ -147,6 +147,14 @@ export async function POST(request) {
     return Response.json({ error: "Job not found" }, { status: 404 });
   }
 
+  if (job.status === "completed") {
+    return Response.json({ message: "Job already completed" });
+  }
+
+  if (job.status === "processing") {
+    return Response.json({ message: "Job already processing" });
+  }
+
   // Mark as processing
   await admin
     .from("agent_jobs")
@@ -228,6 +236,29 @@ export async function POST(request) {
     if (updateErr) {
       console.error("Process route: failed to update job with results:", updateErr);
       throw new Error("Failed to save results");
+    }
+
+    // Check if curator has left — if so, log for future email notification
+    try {
+      const { data: profile } = await admin.from("profiles")
+        .select("last_seen_at, name, auth_user_id")
+        .eq("id", job.profile_id)
+        .single();
+
+      if (profile) {
+        const lastSeen = profile.last_seen_at ? new Date(profile.last_seen_at) : null;
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+        if (!lastSeen || lastSeen < fiveMinAgo) {
+          const { data: { user } } = await admin.auth.admin.getUserById(profile.auth_user_id);
+          if (user?.email) {
+            // TODO: Wire up Resend email — "Your AI finished studying your profiles"
+            console.log(`[AGENT] Curator left — would send completion email to ${user.email} for job ${jobId}`);
+          }
+        }
+      }
+    } catch (emailErr) {
+      console.error("Failed to check/send agent completion email:", emailErr);
     }
 
     return Response.json({

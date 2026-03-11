@@ -296,6 +296,17 @@ export default function ChatView({ variant }) {
       const data = await response.json();
       setTyping(false);
 
+      // Trigger agent processing for any new jobs (fire-and-forget from browser)
+      if (data.agentJobs && data.agentJobs.length > 0) {
+        for (const job of data.agentJobs) {
+          fetch('/api/agent/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: job.jobId }),
+          }).catch(err => console.error('Agent process failed:', err));
+        }
+      }
+
       let text = data.message;
 
       // Parse and submit feedback capture blocks
