@@ -1,0 +1,251 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
+import { detectSource, getParser } from "../../../../lib/agent/registry.js";
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    "anthropic-no-log": "true",
+  },
+});
+
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
+function formatItem(item, index) {
+  const parts = [`${index + 1}.`];
+  if (item.itemType) parts.push(`[${item.itemType}]`);
+  if (item.title) parts.push(`"${item.title}"`);
+  if (item.artist) parts.push(`by ${item.artist}`);
+  if (item.showName) parts.push(`(show: ${item.showName})`);
+  if (item.duration) {
+    // duration could be seconds (number) or ISO 8601 string
+    if (typeof item.duration === "number") {
+      const mins = Math.round(item.duration / 60);
+      if (mins > 0) parts.push(`[${mins}min]`);
+    } else {
+      parts.push(`[${item.duration}]`);
+    }
+  }
+  if (item.description) parts.push(`— ${item.description.slice(0, 120)}`);
+  return parts.join(" ");
+}
+
+function buildExtractionPrompt(sourceType, metadata, items) {
+  return `You are analyzing a source for a curator on Curators.AI. Your job is to figure out what each item actually IS, extract genuine recommendations, and analyze the curator's taste.
+
+SOURCE INFO:
+Platform: ${metadata.source || sourceType || "Unknown"}
+Title: ${metadata.title || "Unknown"}
+Type: ${metadata.resourceType || "unknown"}
+URL: ${metadata.url}
+Description: ${metadata.description || "None"}
+
+ITEMS (${items.length} total):
+${items.map((item, i) => formatItem(item, i)).join("\n")}
+
+STEP 1 — IDENTIFY EACH ITEM:
+A single source can contain mixed content. A Spotify playlist might have songs AND podcast episodes. A YouTube channel might have music videos AND cooking tutorials. For EACH item, determine:
+- What it actually is: song, album, podcast, episode, video, film, article, restaurant, place, book, product, app, game, etc.
+- Which Curators.AI category it belongs to: watch | listen | read | visit | get | wear | play | other
+  - listen: songs, albums, podcasts, playlists, mixes, EPs, audiobooks
+  - watch: films, series, documentaries, videos, anime, standup specials
+  - read: books, articles, substacks, essays, newsletters, papers
+  - visit: restaurants, bars, cafes, hotels, parks, museums, cities
+  - get: apps, tools, gadgets, gear, products, software
+  - wear: clothing, shoes, accessories, fashion, beauty
+  - play: games, sports, activities, hobbies
+  - other: anything that doesn't fit
+
+STEP 2 — CONFIDENCE SCORING:
+For each item, assign a confidence score (0.0–1.0) — does this feel like a genuine curated pick or filler?
+- High (0.7–1.0): Deep cuts, specific choices, clear personal taste signal
+- Medium (0.4–0.7): Popular but fits a coherent theme
+- Low (0.0–0.4): Generic top hits, algorithmic filler, default content
+
+STEP 3 — EXTRACT CANDIDATE RECS:
+Focus on items with confidence >= 0.5. Each rec needs:
+- A title (for music: "Artist — Song/Album", for podcasts: "Show Name — Episode", etc.)
+- The correct category from the list above
+- tags: MUST include one content-type tag first (song, album, podcast, film, restaurant, book, app, etc.) followed by descriptive tags (genre, mood, era, style). Examples:
+  - Song: ["song", "indie-rock", "90s", "guitar"]
+  - Podcast episode: ["podcast", "tech", "interview"]
+  - Restaurant: ["restaurant", "japanese", "ramen", "casual"]
+- A context sentence written as if the curator said it
+
+STEP 4 — TASTE ANALYSIS:
+Analyze what this collection reveals about the curator's taste. Be content-aware — if the source has mixed content, break it down:
+- "Your Spotify is 80% ambient/jazz music and 20% tech podcasts"
+- "Your YouTube is mostly cooking tutorials with some music videos mixed in"
+Don't assume everything is the same type. Reflect the actual mix.
+
+Respond with JSON only, no markdown code fences. Use this exact structure:
+{
+  "items_analyzed": [
+    {
+      "title": "item name",
+      "creator": "artist/author/host/channel name or null",
+      "detected_type": "song|episode|video|place|book|etc",
+      "category": "listen|watch|read|visit|get|wear|play|other",
+      "confidence": 0.8,
+      "confidence_reason": "brief reason"
+    }
+  ],
+  "candidate_recs": [
+    {
+      "title": "Formatted title",
+      "category": "listen",
+      "context": "Why this matters — written as if the curator said it",
+      "tags": ["content-type-tag", "descriptive-tag-1", "descriptive-tag-2"],
+      "confidence": 0.8,
+      "source_position": 1
+    }
+  ],
+  "taste_analysis": {
+    "content_breakdown": {"listen": 15, "watch": 3, "read": 0},
+    "patterns": ["pattern 1", "pattern 2"],
+    "primary_moods": ["mood 1", "mood 2"],
+    "genres": ["genre 1", "genre 2"],
+    "contexts": ["when/where they consume this — commuting, cooking, etc."],
+    "taste_thesis": "A 2-3 sentence thesis about this curator's taste across ALL content types found. Be specific and insightful, not generic. Reference the actual mix of content."
+  }
+}`;
+}
+
+export async function POST(request) {
+  const admin = getSupabaseAdmin();
+
+  let jobId;
+  try {
+    const body = await request.json();
+    jobId = body.jobId;
+  } catch (err) {
+    console.error("Process route: invalid request body:", err);
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (!jobId) {
+    return Response.json({ error: "jobId is required" }, { status: 400 });
+  }
+
+  // Fetch the job
+  const { data: job, error: jobErr } = await admin
+    .from("agent_jobs")
+    .select("*")
+    .eq("id", jobId)
+    .single();
+
+  if (jobErr || !job) {
+    console.error("Process route: job lookup error:", jobErr);
+    return Response.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  // Mark as processing
+  await admin
+    .from("agent_jobs")
+    .update({ status: "processing", started_at: new Date().toISOString() })
+    .eq("id", jobId);
+
+  try {
+    // Detect parser from source URL
+    const detection = detectSource(job.source_url);
+    if (!detection.supported || !detection.parserName) {
+      throw new Error(`No parser found for URL: ${job.source_url}`);
+    }
+
+    const parser = getParser(detection.parserName);
+    if (!parser) {
+      throw new Error(`Parser not found: ${detection.parserName}`);
+    }
+
+    // Parse the source URL
+    const { metadata, items } = await parser.parse(job.source_url);
+
+    // Store raw data
+    await admin
+      .from("agent_jobs")
+      .update({ raw_data: { metadata, items, fetched_at: new Date().toISOString() } })
+      .eq("id", jobId);
+
+    // If we got no items, complete with empty results
+    if (!items || items.length === 0) {
+      await admin
+        .from("agent_jobs")
+        .update({
+          status: "completed",
+          extracted_recs: { candidate_recs: [], items_analyzed: [] },
+          taste_analysis: { patterns: [], taste_thesis: "Not enough data to analyze taste." },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      return Response.json({ status: "completed", recs: 0 });
+    }
+
+    // Send to Claude for extraction + taste analysis
+    const prompt = buildExtractionPrompt(job.source_type, metadata, items);
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    // Parse Claude's response
+    const responseText = message.content[0]?.text || "";
+    let analysis;
+    try {
+      // Strip markdown code fences if present (just in case)
+      const cleaned = responseText.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      analysis = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("Process route: failed to parse Claude response:", parseErr);
+      console.error("Raw response:", responseText.slice(0, 500));
+      throw new Error("Failed to parse AI analysis response");
+    }
+
+    // Update job with results
+    const { error: updateErr } = await admin
+      .from("agent_jobs")
+      .update({
+        status: "completed",
+        extracted_recs: {
+          candidate_recs: analysis.candidate_recs || [],
+          items_analyzed: analysis.items_analyzed || [],
+        },
+        taste_analysis: analysis.taste_analysis || {},
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", jobId);
+
+    if (updateErr) {
+      console.error("Process route: failed to update job with results:", updateErr);
+      throw new Error("Failed to save results");
+    }
+
+    return Response.json({
+      status: "completed",
+      recs: (analysis.candidate_recs || []).length,
+      tasteThesis: analysis.taste_analysis?.taste_thesis || null,
+    });
+  } catch (error) {
+    console.error("Process route: job failed:", error);
+
+    // Mark job as failed
+    await admin
+      .from("agent_jobs")
+      .update({
+        status: "failed",
+        error_message: error.message || "Unknown error",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", jobId);
+
+    return Response.json({ status: "failed", error: error.message }, { status: 500 });
+  }
+}
