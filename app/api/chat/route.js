@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { detectSource } from "../../../lib/agent/registry.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -39,21 +40,18 @@ Inviter's note: ${inviterNote || 'none'}
 
 OPENING MESSAGE:
 
-If inviter note exists — use it to personalize your opening AND your first question:
-- Note: "She knows every ramen spot in Tokyo"
-  → "Hey ${curatorName}! ${inviterName} brought you here — says you're the Tokyo ramen authority. I need to hear this: what's the spot most people get wrong?"
-- Note: "great taste in music and always has a restaurant rec"
-  → "Hey ${curatorName}! ${inviterName} says your music and restaurant taste is on point. I'm here to learn what you're into and make your recs work for you. Let's start — what's something you've been telling everyone to listen to?"
-- Note: "best hiking trails guy I know"
-  → "Hey ${curatorName}! ${inviterName} brought you here — says nobody knows trails like you. I'm here to capture that. What's a trail you wish more people knew about?"
+Your opening must do TWO things: (1) reference the inviter warmly, (2) ask where they already curate.
 
-If no inviter note — use a warm generic that still references the inviter:
-→ "Hey ${curatorName}! ${inviterName} brought you here because they trust your taste. I'm here to learn what you're into and make your recommendations work for you. What's something you wish more people knew about?"
+If inviter note exists — use it to personalize your opening:
+"Hey ${curatorName}! ${inviterName} says {personalized reference to inviter_note}. Before we dive in — where do people usually find your recs? Drop me a Spotify playlist, Apple Music, YouTube, Google Maps saves, or any links and I'll go study your taste. Or just start telling me recs — either way works."
+
+If no inviter note — warm generic referencing the inviter:
+"Hey ${curatorName}! ${inviterName} invited you because they trust your taste. Quick question — where do you usually share recs? Drop me links to your Spotify, Apple Music, YouTube, or Google Maps and I'll go read through everything. Or just start telling me what you're into — your call."
 
 If no inviter at all (admin-generated code):
-→ "Hey ${curatorName}! Welcome to Curators. I'm your AI — I'm here to learn what you're into and make your recommendations work for you. What's something you wish more people knew about?"
+"Hey ${curatorName}! Welcome to Curators. I'm your AI — I'm here to learn what you're into. Where do you usually share recs? Drop me links to your Spotify, Apple Music, YouTube, or Google Maps and I'll go study your taste. Or just start telling me what you love — your call."
 
-After the opening, explain nothing else. Don't list features. Don't describe what the app does. One sentence of context is embedded in the greeting ("I'm here to learn what you're into and make your recommendations work for you") — that's enough. Let the conversation prove the value.
+After the opening, explain nothing else. Don't list features. Don't describe what the app does. Let the conversation prove the value.
 
 IMPORTANT: The opening message instructions above are ONLY for your very first message (the generateOpening call). On all subsequent messages, respond naturally to the conversation — never re-introduce yourself or repeat the welcome.
 
@@ -258,7 +256,29 @@ If they confirm the summary is correct, respond with:
 Then output a special JSON block at the very end of that message (after all other content, on its own line):
 FEEDBACK_CAPTURE:{"originalMessage":"[their original request verbatim]","elaboration":"[their elaboration]","summary":"[your confirmed summary]"}
 
-If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.`;
+If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.
+
+HANDLING LINKS AND AGENT PROCESSING:
+When the curator drops a URL or handle:
+- If it's a profile/list URL (Spotify playlist, Google Maps list, etc.): Acknowledge it, tell them you're going to study it. Keep the conversation going — ask them for a rec while you work. Example: "Got your Spotify — I'm going through it now. While I do that, what's the one rec you'd put at the very top of your list?"
+- If it's a single item URL (a specific track, restaurant page, article): Treat it as a rec capture. React to the specific thing, ask for context.
+- If it's a platform you can't read yet: Be honest. "I can't read that platform yet, but it's on my list. For now, just tell me your favorites from there."
+- NEVER say "come back later." Keep the conversation going regardless of agent status.
+
+WHEN AGENT RESULTS ARRIVE:
+When the system tells you agent results are ready (via AGENT RESULTS context), present the taste read conversationally:
+- Don't dump it as a formatted block. Weave it into conversation.
+- Have a point of view. "OK I went through your stuff. Here's what I see:" then your specific observations.
+- End with a question: "Am I reading that right?" or "What am I missing?"
+- Then offer to show extracted recs: "I pulled [N] recs from your [source]. Want to go through them?"
+- Present recs in batches of ~5 using the standard 📍 REC CAPTURED format.
+- For each agent-extracted rec, the context is your best guess. Tell them: "I took a guess at the context — edit anything that doesn't sound right."
+
+KEEPING CONVERSATION ALIVE WHILE AGENT WORKS:
+If the curator drops links and the agent is processing, you still need to keep the conversation moving:
+- Ask for a rec: "While I go through that — what's something you've been telling everyone about lately?"
+- Ask about a specific category: "Love it. While I'm reading your Spotify, tell me about food — any restaurants you'd stake your reputation on?"
+- Don't explain features, don't list capabilities. Just keep the conversation natural.`;
 }
 
 // ── Fetch network recommendations for standard mode ──
@@ -557,6 +577,14 @@ Then output a special JSON block at the very end of that message (after all othe
 FEEDBACK_CAPTURE:{"originalMessage":"[their original request verbatim]","elaboration":"[their elaboration]","summary":"[your confirmed summary]"}
 
 If they correct your summary, update it and confirm again before outputting the block. Do not output the block until the curator has confirmed the summary is accurate.
+
+HANDLING LINKS AND AGENT PROCESSING:
+When the curator drops a profile/list URL (Spotify playlist, Google Maps list, etc.): Acknowledge it, tell them you're going to study it. Keep the conversation going naturally.
+When the curator drops a single item URL (specific track, restaurant page): Treat it as a normal rec capture conversation.
+If it's a platform you can't read yet: Be honest. "I can't read that platform yet. Tell me your favorites from there."
+When agent results arrive (via AGENT RESULTS context): Present the taste read conversationally. Have a point of view. Compare new source analysis to their existing taste: "Your Google Maps saves are very consistent with what you've been telling me — all neighborhood spots, no tourist traps." Then offer to review extracted recs in batches of ~5 using the standard 📍 REC CAPTURED format.
+For agent-extracted recs, tell them: "I took a guess at the context — edit anything that doesn't sound right."
+NEVER say "come back later." Keep the conversation going regardless of agent status.
 ${networkContext || ''}`;
 }
 
@@ -631,6 +659,199 @@ async function getInviterContext(profileId) {
   }
 }
 
+// ── Extract URLs from message text ──
+const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
+
+// ── Agent context: query agent_jobs and build prompt context ──
+async function getAgentContext(profileId, sb) {
+  try {
+    // Fetch all active agent jobs for this profile
+    const { data: jobs, error } = await sb
+      .from("agent_jobs")
+      .select("*")
+      .eq("profile_id", profileId)
+      .in("status", ["pending", "processing", "completed"])
+      .order("created_at", { ascending: false });
+
+    if (error || !jobs || jobs.length === 0) return { agentBlock: "", pendingJobs: [], completedJobs: [], unpresentedJobs: [] };
+
+    const pendingJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
+    const completedJobs = jobs.filter(j => j.status === "completed");
+    const unpresentedJobs = completedJobs.filter(j => !j.presented_at);
+
+    let agentBlock = "";
+
+    // Processing jobs — tell the AI it's working on something
+    if (pendingJobs.length > 0) {
+      const sources = pendingJobs.map(j => `${j.source_type} (${j.source_url})`).join(", ");
+      agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
+    }
+
+    // Completed but not yet presented — need to deliver taste read
+    if (unpresentedJobs.length > 0) {
+      // Collect all taste analyses and candidate recs
+      const allRecs = [];
+      const platforms = [];
+      let totalItems = 0;
+
+      for (const job of unpresentedJobs) {
+        platforms.push(job.source_type);
+        const recs = job.extracted_recs?.candidate_recs || [];
+        totalItems += recs.length;
+        allRecs.push(...recs.map(r => ({ ...r, source: job.source_type })));
+      }
+
+      // Build taste read from individual job analyses
+      const tasteTheses = unpresentedJobs
+        .map(j => j.taste_analysis?.taste_thesis)
+        .filter(Boolean);
+
+      const tasteRead = tasteTheses.length > 0
+        ? tasteTheses.join(" ")
+        : "I found some interesting patterns in your sources.";
+
+      // Sort by confidence, take top recs
+      const sortedRecs = allRecs.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      const firstBatch = sortedRecs.slice(0, 5);
+      const remaining = sortedRecs.slice(5);
+
+      agentBlock += `\nAGENT RESULTS — PRESENT THIS NOW:
+I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
+
+TASTE READ (deliver this conversationally, not as a block quote):
+${tasteRead}
+
+CANDIDATE RECS TO PRESENT (show these as capture cards, batch of 5):
+${JSON.stringify(firstBatch, null, 2)}
+
+After presenting the taste read, ask: "Want to see the next batch, or should we talk about something else?"
+Do NOT present all recs at once. Present ~5 at a time using the standard 📍 REC CAPTURED format.
+For agent-extracted recs, add a note that the context is your best guess and they should edit it.
+`;
+
+      if (remaining.length > 0) {
+        agentBlock += `\nREMAINING AGENT RECS:
+There are ${remaining.length} more candidate recs from your ${platforms.join(" and ")}.
+If they ask for more, present the next batch of 5 using 📍 REC CAPTURED format.
+Available recs: ${JSON.stringify(remaining.slice(0, 5), null, 2)}
+${remaining.length > 5 ? `(${remaining.length - 5} more after this batch)` : ""}
+`;
+      }
+    }
+
+    return { agentBlock, pendingJobs, completedJobs, unpresentedJobs };
+  } catch (err) {
+    console.error("Failed to get agent context:", err);
+    return { agentBlock: "", pendingJobs: [], completedJobs: [], unpresentedJobs: [] };
+  }
+}
+
+// ── Detect URLs and create agent jobs ──
+async function processUrlsForAgent(message, profileId, sb) {
+  const urls = message.match(URL_REGEX) || [];
+  const agentNotes = [];
+
+  for (const url of urls) {
+    try {
+      const detection = detectSource(url);
+
+      if (!detection.supported) {
+        // Log unsupported source
+        await sb.from("unsupported_source_requests").insert({
+          profile_id: profileId,
+          source_url: url,
+          source_type: "unknown",
+        }).catch(err => console.error("Failed to log unsupported source:", err));
+        agentNotes.push({ url, type: "unsupported" });
+        continue;
+      }
+
+      if (detection.classification === "single_item") {
+        agentNotes.push({ url, type: "single_item", sourceType: detection.sourceType });
+        continue;
+      }
+
+      // Profile/list URL — check if parser is implemented
+      if (!detection.implemented) {
+        agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
+        continue;
+      }
+
+      // Check if we already have a job for this URL
+      const { data: existing } = await sb
+        .from("agent_jobs")
+        .select("id, status")
+        .eq("profile_id", profileId)
+        .eq("source_url", url)
+        .in("status", ["pending", "processing", "completed"])
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        agentNotes.push({ url, type: "already_processing", sourceType: detection.sourceType, jobId: existing.id, status: existing.status });
+        continue;
+      }
+
+      // Create agent job
+      const { data: job, error: jobErr } = await sb
+        .from("agent_jobs")
+        .insert({
+          profile_id: profileId,
+          source_type: detection.sourceType,
+          source_url: url,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (jobErr) {
+        console.error("Failed to create agent job for URL:", url, jobErr);
+        continue;
+      }
+
+      // Fire off processing (fire-and-forget)
+      const origin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+      fetch(`${origin}/api/agent/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id }),
+      }).catch(err => console.error("Failed to trigger agent process:", err));
+
+      agentNotes.push({ url, type: "agent_started", sourceType: detection.sourceType, jobId: job.id });
+    } catch (err) {
+      console.error("Error processing URL for agent:", url, err);
+    }
+  }
+
+  return agentNotes;
+}
+
+// ── Build agent notes for system prompt injection ──
+function buildAgentUrlNotes(agentNotes) {
+  if (!agentNotes || agentNotes.length === 0) return "";
+
+  const lines = [];
+  for (const note of agentNotes) {
+    if (note.type === "agent_started") {
+      lines.push(`URL DETECTED: ${note.url} — Agent is now analyzing this ${note.sourceType} source. Acknowledge it and keep the conversation going.`);
+    } else if (note.type === "already_processing") {
+      if (note.status === "completed") {
+        lines.push(`URL DETECTED: ${note.url} — Already analyzed this source. Results are in the agent context above.`);
+      } else {
+        lines.push(`URL DETECTED: ${note.url} — Already processing this source. Let them know it's being worked on.`);
+      }
+    } else if (note.type === "coming_soon") {
+      lines.push(`URL DETECTED: ${note.url} — This is a ${note.sourceType} link. I can't read this platform yet, but it's on my list. Be honest about it.`);
+    } else if (note.type === "unsupported") {
+      lines.push(`URL DETECTED: ${note.url} — I don't support this platform yet. Be honest. Ask them to tell you their favorites from there instead.`);
+    } else if (note.type === "single_item") {
+      lines.push(`URL DETECTED: ${note.url} — This is a single item (${note.sourceType}). Treat it as a normal rec capture — react to it, ask for context.`);
+    }
+  }
+
+  return lines.length > 0 ? `\nURLs IN THIS MESSAGE:\n${lines.join("\n")}\n` : "";
+}
+
 export async function POST(request) {
   try {
     const {
@@ -650,6 +871,29 @@ export async function POST(request) {
     const isOnboarding = !isVisitor && (recCount < 3 || !hasBio);
     const isStandard = !isVisitor && !isOnboarding;
 
+    const sb = getSupabaseAdmin();
+
+    // ── Agent integration (curator modes only, not visitor, not opening generation) ──
+    let agentBlock = "";
+    let agentNotes = [];
+    let unpresentedJobs = [];
+
+    if (!isVisitor && profileId && !generateOpening) {
+      // Check for URLs in message and trigger agent jobs
+      if (message) {
+        agentNotes = await processUrlsForAgent(message, profileId, sb);
+      }
+
+      // Query existing agent jobs for context injection
+      const agentCtx = await getAgentContext(profileId, sb);
+      agentBlock = agentCtx.agentBlock;
+      unpresentedJobs = agentCtx.unpresentedJobs;
+
+      // Add URL-specific notes for this message
+      const urlNotes = buildAgentUrlNotes(agentNotes);
+      if (urlNotes) agentBlock += urlNotes;
+    }
+
     // Build the recommendations context
     const curHandle = curatorHandle?.replace('@', '') || '';
     const recsContext = recommendations && recommendations.length > 0
@@ -666,7 +910,6 @@ export async function POST(request) {
       let styleBlock = "";
       if (profileId) {
         try {
-          const sb = getSupabaseAdmin();
           const { data: curatorProfile } = await sb
             .from("profiles")
             .select("style_summary")
@@ -694,7 +937,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         inviterName: inviterCtx.inviterName,
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
-      }) + recsContext;
+      }) + recsContext + agentBlock;
     } else {
       const networkContext = profileId ? await getNetworkRecs(profileId) : '';
       systemPrompt = buildStandardPrompt({
@@ -702,7 +945,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         curatorHandle: curatorHandle || '',
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
-      }) + recsContext;
+      }) + recsContext + agentBlock;
     }
 
     // Handle opening message generation (no user message yet)
@@ -777,18 +1020,29 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       cleanedMessages.shift();
     }
 
+    // Increase token limit when presenting agent results (more content to deliver)
+    const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
+
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 600,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: cleanedMessages,
     });
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
+    // Mark unpresented agent jobs as presented
+    if (unpresentedJobs.length > 0) {
+      const jobIds = unpresentedJobs.map(j => j.id);
+      await sb.from("agent_jobs")
+        .update({ presented_at: new Date().toISOString() })
+        .in("id", jobIds)
+        .catch(err => console.error("Failed to mark agent jobs as presented:", err));
+    }
+
     if (profileId) {
       console.log('TRACKING: sent a message, profileId:', profileId);
-      const sb = getSupabaseAdmin();
       const { error: trackingError } = await sb.from('profiles').update({
         last_seen_at: new Date().toISOString(),
         last_action: 'sent a message',
