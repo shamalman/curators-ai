@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { detectSource, getParser } from "../../../lib/agent/registry.js";
 
+// Allow up to 60s for agent processing + Claude calls
+export const maxDuration = 60;
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   defaultHeaders: {
@@ -1016,6 +1019,7 @@ function buildAgentUrlNotes(agentNotes) {
 }
 
 export async function POST(request) {
+  const requestStart = Date.now();
   try {
     const {
       message, isVisitor, curatorName, curatorHandle, curatorBio,
@@ -1045,19 +1049,25 @@ export async function POST(request) {
     if (!isVisitor && profileId && !generateOpening) {
       // Check for URLs in message and trigger agent jobs
       if (message) {
+        const t0 = Date.now();
         const result = await processUrlsForAgent(message, profileId, sb);
         agentNotes = result.agentNotes;
         agentProcessingPromises = result.processingPromises;
+        console.log(`[TIMING] processUrlsForAgent: ${Date.now() - t0}ms (${agentProcessingPromises.length} jobs)`);
       }
 
       // Wait for any new agent jobs to finish before querying results
       // (~1-3s for parsing + Claude extraction — lets us present results in THIS response)
       if (agentProcessingPromises.length > 0) {
+        const t1 = Date.now();
         await Promise.allSettled(agentProcessingPromises);
+        console.log(`[TIMING] Promise.allSettled (agent jobs): ${Date.now() - t1}ms`);
       }
 
       // Query agent jobs for context injection (picks up just-completed results)
+      const t2 = Date.now();
       const agentCtx = await getAgentContext(profileId, sb);
+      console.log(`[TIMING] getAgentContext: ${Date.now() - t2}ms`);
       agentBlock = agentCtx.agentBlock;
       unpresentedJobs = agentCtx.unpresentedJobs;
 
@@ -1195,12 +1205,14 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Increase token limit when presenting agent results (more content to deliver)
     const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
 
+    const t3 = Date.now();
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: cleanedMessages,
     });
+    console.log(`[TIMING] anthropic.messages.create (chat): ${Date.now() - t3}ms`);
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
@@ -1223,9 +1235,11 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       if (trackingError) console.error('TRACKING ERROR:', trackingError);
     }
 
+    console.log(`[TIMING] Total chat request: ${Date.now() - requestStart}ms`);
     return NextResponse.json({ message: aiMessage });
   } catch (error) {
     console.error("Chat API error:", error);
+    console.log(`[TIMING] Total chat request (errored): ${Date.now() - requestStart}ms`);
     return NextResponse.json(
       { message: "Sorry, I'm having trouble right now. Try again in a moment." },
       { status: 500 }
