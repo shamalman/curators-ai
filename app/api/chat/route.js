@@ -1050,7 +1050,13 @@ export async function POST(request) {
         agentProcessingPromises = result.processingPromises;
       }
 
-      // Query existing agent jobs for context injection
+      // Wait for any new agent jobs to finish before querying results
+      // (~1-3s for parsing + Claude extraction — lets us present results in THIS response)
+      if (agentProcessingPromises.length > 0) {
+        await Promise.allSettled(agentProcessingPromises);
+      }
+
+      // Query agent jobs for context injection (picks up just-completed results)
       const agentCtx = await getAgentContext(profileId, sb);
       agentBlock = agentCtx.agentBlock;
       unpresentedJobs = agentCtx.unpresentedJobs;
@@ -1215,12 +1221,6 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         last_action_at: new Date().toISOString()
       }).eq('id', profileId);
       if (trackingError) console.error('TRACKING ERROR:', trackingError);
-    }
-
-    // Wait for any agent processing to finish before the function exits
-    // (Vercel kills the function after response is sent — must complete first)
-    if (agentProcessingPromises.length > 0) {
-      await Promise.allSettled(agentProcessingPromises);
     }
 
     return NextResponse.json({ message: aiMessage });
