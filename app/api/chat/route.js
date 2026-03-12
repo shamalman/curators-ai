@@ -53,7 +53,13 @@ If no inviter at all (admin-generated code):
 
 After the opening, explain nothing else. Don't list features. Don't describe what the app does. Let the conversation prove the value.
 
-IMPORTANT: The opening message instructions above are ONLY for your very first message (the generateOpening call). On all subsequent messages, respond naturally to the conversation — never re-introduce yourself or repeat the welcome.
+*** CRITICAL — READ THIS ***
+The OPENING MESSAGE section above is ONLY for the generateOpening call (the very first message). You are NOT in that call right now. The opening has ALREADY been sent. On ALL subsequent messages after the opening:
+- NEVER repeat the greeting. NEVER say "Hey [name]!" again.
+- NEVER re-introduce yourself. NEVER re-explain what you do.
+- NEVER reference the inviter again unless the curator brings them up.
+- Just respond naturally to what they said.
+If the curator sends a Spotify link as their first reply, respond to the link — don't re-greet them.
 
 HANDLING CONFUSION:
 If the curator says "what do you mean?", "huh?", "what is this?", or seems confused by your opening question, do NOT re-explain what Curators is or re-introduce yourself. Just make the question more concrete and specific:
@@ -715,25 +721,43 @@ async function getAgentContext(profileId, sb) {
       const firstBatch = sortedRecs.slice(0, 5);
       const remaining = sortedRecs.slice(5);
 
+      // Format recs as structured text instead of raw JSON to keep prompt smaller
+      const recLines = firstBatch.map((r, i) => {
+        const tags = (r.tags || []).join(", ");
+        return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
+      }).join("\n");
+
       agentBlock += `\nAGENT RESULTS — PRESENT THIS NOW:
 I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
 
 TASTE READ (deliver this conversationally, not as a block quote):
 ${tasteRead}
 
-CANDIDATE RECS TO PRESENT (show these as capture cards, batch of 5):
-${JSON.stringify(firstBatch, null, 2)}
+CANDIDATE RECS (present 3-5 from this list):
+${recLines}
 
-After presenting the taste read, ask: "Want to see the next batch, or should we talk about something else?"
-Do NOT present all recs at once. Present ~5 at a time using the standard 📍 REC CAPTURED format.
-For agent-extracted recs, add a note that the context is your best guess and they should edit it.
+CRITICAL FORMAT INSTRUCTIONS:
+Present EACH rec as a SEPARATE 📍 capture card using the EXACT format below. The frontend parses this format into save/edit cards. Do NOT combine multiple recs. Do NOT use bullet points, emoji lists, or any other format.
+
+For EACH rec, output:
+📍 Adding: **Title**
+"Context — note: this is my best guess from your source, edit anything that doesn't sound right"
+🏷 Suggested tags: tag1, tag2, tag3
+📁 Category: category
+
+Present 3-5 recs. After the LAST card, on a new line ask: "I took a guess at the context for each — edit anything that doesn't sound right. Want to see more?"
+Do NOT add commentary between cards. Output them back-to-back.
 `;
 
       if (remaining.length > 0) {
-        agentBlock += `\nREMAINING AGENT RECS:
-There are ${remaining.length} more candidate recs from your ${platforms.join(" and ")}.
-If they ask for more, present the next batch of 5 using 📍 REC CAPTURED format.
-Available recs: ${JSON.stringify(remaining.slice(0, 5), null, 2)}
+        const nextBatchLines = remaining.slice(0, 5).map((r, i) => {
+          const tags = (r.tags || []).join(", ");
+          return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
+        }).join("\n");
+        agentBlock += `\nREMAINING AGENT RECS (${remaining.length} more):
+If they ask for more, present the next batch using the same 📍 capture card format above.
+Next batch:
+${nextBatchLines}
 ${remaining.length > 5 ? `(${remaining.length - 5} more after this batch)` : ""}
 `;
       }
@@ -871,9 +895,8 @@ export async function POST(request) {
         const agentCtx = await getAgentContext(profileId, sb);
         agentBlock = agentCtx.agentBlock;
         unpresentedJobs = agentCtx.unpresentedJobs;
-        console.log("[DEBUG] getAgentContext returned:", { agentBlockLength: agentBlock.length, unpresentedCount: unpresentedJobs.length });
       } catch (agentErr) {
-        console.error("[DEBUG] getAgentContext failed:", agentErr.message, agentErr.stack);
+        console.error("getAgentContext failed:", agentErr.message);
       }
 
       // Add URL-specific notes for this message
@@ -1010,23 +1033,12 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Increase token limit when presenting agent results (more content to deliver)
     const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
 
-    console.log("[DEBUG] agentBlock length:", agentBlock.length);
-    console.log("[DEBUG] systemPrompt length:", systemPrompt.length);
-    console.log("[DEBUG] messages count:", cleanedMessages.length, "maxTokens:", maxTokens);
-
-    let response;
-    try {
-      response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: cleanedMessages,
-      });
-    } catch (claudeErr) {
-      console.error("[DEBUG] anthropic.messages.create failed:", claudeErr.message, claudeErr.stack);
-      console.error("[DEBUG] Claude error status:", claudeErr.status, "type:", claudeErr.type);
-      throw claudeErr;
-    }
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: cleanedMessages,
+    });
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
@@ -1062,8 +1074,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
-    console.error("Chat API error:", error.message);
-    console.error("Full error:", error.message, error.stack);
+    console.error("Chat API error:", error);
     return NextResponse.json(
       { message: "Sorry, I'm having trouble right now. Try again in a moment." },
       { status: 500 }

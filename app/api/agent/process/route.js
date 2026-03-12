@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { detectSource, getParser } from "../../../../lib/agent/registry.js";
+import { resend } from "../../../../lib/resend.js";
+import { agentCompletionEmail } from "../../../../lib/email-templates.js";
 
 export const maxDuration = 60;
 
@@ -252,8 +254,19 @@ export async function POST(request) {
         if (!lastSeen || lastSeen < fiveMinAgo) {
           const { data: { user } } = await admin.auth.admin.getUserById(profile.auth_user_id);
           if (user?.email) {
-            // TODO: Wire up Resend email — "Your AI finished studying your profiles"
-            console.log(`[AGENT] Curator left — would send completion email to ${user.email} for job ${jobId}`);
+            const html = agentCompletionEmail({
+              curatorName: profile.name,
+              sourceType: job.source_type,
+            });
+            const { error: sendErr } = await resend.emails.send({
+              from: 'Curators.AI <notifications@curators.ai>',
+              to: user.email,
+              subject: 'Your AI finished studying your profiles',
+              html,
+            });
+            if (sendErr) {
+              console.error("Agent completion email send error:", sendErr);
+            }
           }
         }
       }
