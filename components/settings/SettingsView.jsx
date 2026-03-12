@@ -29,12 +29,15 @@ function Toggle({ on, onToggle }) {
 
 export default function SettingsView() {
   const router = useRouter()
-  const { profileId } = useContext(CuratorContext)
+  const { profileId, setProfile, setTasteItems, setMessages } = useContext(CuratorContext)
   const [email, setEmail] = useState("")
   const [weeklyDigest, setWeeklyDigest] = useState(true)
   const [newSubscriber, setNewSubscriber] = useState(true)
   const [inviteHistory, setInviteHistory] = useState([])
   const [prefsLoaded, setPrefsLoaded] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetInput, setResetInput] = useState("")
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -223,8 +226,131 @@ export default function SettingsView() {
             </div>
           </div>
 
+          {/* Danger Zone */}
+          <div style={{ marginTop: 32 }}>
+            <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#E85C5C", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+              Danger Zone
+            </div>
+            <div style={{
+              padding: "16px", borderRadius: 10,
+              border: "1px solid rgba(232, 92, 92, 0.3)", background: "rgba(232, 92, 92, 0.05)",
+            }}>
+              <div style={{ fontFamily: F, fontSize: 14, color: T.ink, fontWeight: 500, marginBottom: 4 }}>
+                Reset account
+              </div>
+              <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginBottom: 12 }}>
+                Wipe all recs, chat history, and agent data. Returns you to onboarding mode. Your account and handle stay intact.
+              </div>
+              <button
+                onClick={() => setShowResetModal(true)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8,
+                  border: "1px solid #E85C5C", background: "none",
+                  fontFamily: F, fontSize: 13, fontWeight: 600, color: "#E85C5C",
+                  cursor: "pointer",
+                }}
+              >
+                Reset account...
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.7)", display: "flex",
+          alignItems: "center", justifyContent: "center", padding: 20,
+        }}
+          onClick={() => { if (!resetting) { setShowResetModal(false); setResetInput(""); } }}
+        >
+          <div
+            style={{
+              background: T.s2, borderRadius: 16, padding: 24,
+              maxWidth: 400, width: "100%",
+              border: `1px solid ${T.bdr}`,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontFamily: F, fontSize: 16, fontWeight: 600, color: "#E85C5C", marginBottom: 8 }}>
+              Reset your account?
+            </div>
+            <div style={{ fontFamily: F, fontSize: 13, color: T.ink3, lineHeight: 1.5, marginBottom: 16 }}>
+              This will permanently delete all your recommendations, chat messages, agent jobs, and taste analysis. Your account, handle, and subscriptions will remain.
+            </div>
+            <div style={{ fontFamily: F, fontSize: 13, color: T.ink, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: MN, fontWeight: 600, color: "#E85C5C" }}>RESET</span> to confirm:
+            </div>
+            <input
+              type="text"
+              value={resetInput}
+              onChange={e => setResetInput(e.target.value)}
+              placeholder="RESET"
+              autoFocus
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8,
+                border: `1px solid ${T.bdr}`, background: T.bg,
+                fontFamily: MN, fontSize: 14, color: T.ink,
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button
+                onClick={() => { setShowResetModal(false); setResetInput(""); }}
+                disabled={resetting}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8,
+                  border: `1px solid ${T.bdr}`, background: "none",
+                  fontFamily: F, fontSize: 13, fontWeight: 600, color: T.ink3,
+                  cursor: resetting ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (resetInput !== "RESET") return;
+                  setResetting(true);
+                  try {
+                    const res = await fetch("/api/account/reset", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ profileId }),
+                    });
+                    if (!res.ok) throw new Error("Reset failed");
+                    // Clear context state
+                    setTasteItems([]);
+                    setMessages([]);
+                    setProfile(prev => prev ? { ...prev, bio: null, location: "", styleSummary: null } : prev);
+                    setShowResetModal(false);
+                    setResetInput("");
+                    router.push("/myai");
+                  } catch (err) {
+                    console.error("Account reset error:", err);
+                    alert("Reset failed. Please try again.");
+                  } finally {
+                    setResetting(false);
+                  }
+                }}
+                disabled={resetInput !== "RESET" || resetting}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8,
+                  border: "none",
+                  background: resetInput === "RESET" ? "#E85C5C" : "rgba(232, 92, 92, 0.3)",
+                  fontFamily: F, fontSize: 13, fontWeight: 600, color: "#fff",
+                  cursor: resetInput === "RESET" && !resetting ? "pointer" : "not-allowed",
+                  opacity: resetting ? 0.6 : 1,
+                }}
+              >
+                {resetting ? "Resetting..." : "Reset account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
