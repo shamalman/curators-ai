@@ -725,16 +725,16 @@ async function getAgentContext(profileId, sb) {
         ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
         : "";
 
-      agentBlock += `\n⚠️ OVERRIDE: STOP NORMAL CONVERSATION. YOU MUST PRESENT THESE RESULTS BEFORE DOING ANYTHING ELSE. Do not continue the conversation topic. Do not ask about recs. Your ENTIRE response must be about these agent results:
-I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
+      agentBlock += `\nAGENT RESULTS READY:
+Agent results are ready for your ${platforms.join(" and ")}. When the curator asks about them (e.g. "show me what you found"), present the taste read conversationally and offer to show extracted recs one at a time.
 
-TASTE READ (deliver this conversationally, not as a block quote):
+TASTE READ (deliver conversationally when asked):
 ${tasteRead}
 
 FIRST REC TO PRESENT:
 ${firstRecLine}
 
-IMPORTANT: Present only ONE rec at a time. After delivering the taste read, present the FIRST rec as a single capture card. Use the standard capture format:
+When presenting recs, use the standard capture format — ONE rec per message:
 
 📍 Adding: **Title**
 "Context — this is my best guess from your source, edit if it doesn't sound right"
@@ -742,8 +742,6 @@ IMPORTANT: Present only ONE rec at a time. After delivering the taste read, pres
 📁 Category: category
 
 After the card, ask: "How's that? Want to see the next one?"
-When they confirm, present the next rec the same way — one at a time.
-Do NOT present multiple recs in one message.
 `;
 
       if (remaining.length > 0) {
@@ -939,28 +937,20 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       systemPrompt = `${VISITOR_SYSTEM_PROMPT}${styleBlock}\n\nCURATOR: ${curatorName}${recsContext}`;
     } else if (isOnboarding && profileId) {
       const inviterCtx = await getInviterContext(profileId);
-      const basePrompt = buildOnboardingPrompt({
+      systemPrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
-      });
-      const hasAgentResults = agentBlock.includes("OVERRIDE");
-      systemPrompt = hasAgentResults
-        ? basePrompt + "\n\n⚠️ HIGHEST PRIORITY — READ BEFORE RESPONDING:\n" + agentBlock + "\n\n" + recsContext
-        : basePrompt + recsContext + agentBlock;
+      }) + recsContext + agentBlock;
     } else {
       const networkContext = profileId ? await getNetworkRecs(profileId) : '';
-      const basePrompt = buildStandardPrompt({
+      systemPrompt = buildStandardPrompt({
         curatorName,
         curatorHandle: curatorHandle || '',
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
-      });
-      const hasAgentResults = agentBlock.includes("OVERRIDE");
-      systemPrompt = hasAgentResults
-        ? basePrompt + "\n\n⚠️ HIGHEST PRIORITY — READ BEFORE RESPONDING:\n" + agentBlock + "\n\n" + recsContext
-        : basePrompt + recsContext + agentBlock;
+      }) + recsContext + agentBlock;
     }
 
     // Handle opening message generation (no user message yet)
@@ -1047,12 +1037,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
-    // Only mark as presented if the AI actually delivered the results
+    // Mark as presented if the AI delivered results (taste read or rec card)
     if (unpresentedJobs.length > 0) {
-      const lowerMsg = aiMessage.toLowerCase();
-      const mentionedResults = /went through|analyzed|studying|taste|playlist|spotify|found.*pattern|here'?s what i (found|see)|capture/i.test(aiMessage)
-        || /📍/.test(aiMessage);
-
+      const mentionedResults = /📍|went through|found|taste/i.test(aiMessage);
       if (mentionedResults) {
         const jobIds = unpresentedJobs.map(j => j.id);
         try {
@@ -1062,8 +1049,6 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         } catch (err) {
           console.error("Failed to mark agent jobs as presented:", err);
         }
-      } else {
-        console.log("Agent results were injected but AI did not present them — will retry on next message");
       }
     }
 

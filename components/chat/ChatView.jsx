@@ -76,6 +76,8 @@ export default function ChatView({ variant }) {
   const typedSinceSave = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
+  const [agentPollingJobs, setAgentPollingJobs] = useState([]);
+  const [completedAgentJobs, setCompletedAgentJobs] = useState([]);
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -236,6 +238,119 @@ export default function ChatView({ variant }) {
     setMessages([{ role: "ai", text: openingMessage }]);
   }, [dbLoaded]);
 
+  // Poll agent jobs for completion
+  useEffect(() => {
+    if (agentPollingJobs.length === 0) return;
+    const startTime = Date.now();
+    const interval = setInterval(async () => {
+      // Timeout after 2 minutes
+      if (Date.now() - startTime > 120000) {
+        setAgentPollingJobs([]);
+        clearInterval(interval);
+        return;
+      }
+      for (const job of agentPollingJobs) {
+        try {
+          const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.status === 'completed') {
+            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
+            setCompletedAgentJobs(prev => [...prev, job]);
+            // Add banner as a system message in the chat
+            const sourceName = job.sourceType === 'spotify' ? 'Spotify'
+              : job.sourceType === 'apple_music' ? 'Apple Music'
+              : job.sourceType === 'google_maps' ? 'Google Maps'
+              : job.sourceType;
+            shouldScroll.current = true;
+            setMessages(m => [...m, { type: 'agentComplete', sourceType: job.sourceType, sourceName }]);
+          } else if (data.status === 'failed') {
+            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
+          }
+        } catch (err) {
+          console.error('Agent poll error:', err);
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [agentPollingJobs]);
+
+  const sendAgentResultsRequest = (sourceName) => {
+    const msg = `Show me what you found from my ${sourceName}`;
+    shouldScroll.current = true;
+    setMessages(m => [...m, { role: "user", text: msg }]);
+    saveMsgToDb("user", msg);
+    setInput("");
+    setTyping(true);
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        isVisitor: false,
+        curatorName: profile.name,
+        curatorHandle: profile.handle?.replace('@', ''),
+        curatorBio: profile.bio || '',
+        profileId,
+        recommendations: items.map(item => ({
+          title: item.title, category: item.category,
+          context: item.context, tags: item.tags, date: item.date,
+          slug: item.slug,
+        })),
+        linkMetadata: null,
+        history: messages.slice(-10),
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setTyping(false);
+        let text = data.message;
+        const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
+        let capturedRec = null;
+        if (isCapturedRec) {
+          const titleMatch = text.match(/\*\*([^*]+)\*\*/);
+          const contextMatch = text.match(/"([^"]+)"/);
+          const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
+          const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
+          const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
+          const validCategories = ["watch", "listen", "read", "visit", "get", "wear", "play", "other"];
+          const parseCategory = (match) => {
+            if (!match) return 'other';
+            const raw = match[1].toLowerCase();
+            if (validCategories.includes(raw)) return raw;
+            if (raw === 'tv' || raw === 'film' || raw === 'movies' || raw === 'movie' || raw === 'television' || raw === 'show' || raw === 'shows') return 'watch';
+            if (raw === 'music' || raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist' || raw === 'podcast') return 'listen';
+            if (raw === 'book' || raw === 'books') return 'read';
+            if (raw === 'restaurant' || raw === 'restaurants' || raw === 'dining' || raw === 'food' || raw === 'travel') return 'visit';
+            if (raw === 'product' || raw === 'products') return 'get';
+            return 'other';
+          };
+          if (titleMatch) {
+            const parsedUrl = linkMatch ? linkMatch[1] : null;
+            let linkLabel = '';
+            if (parsedUrl) {
+              try { linkLabel = new URL(parsedUrl).hostname.replace('www.', ''); } catch { linkLabel = 'Link'; }
+            }
+            capturedRec = {
+              title: titleMatch[1].replace(' \u2014 ', ' - '),
+              context: contextMatch ? contextMatch[1] : '',
+              tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
+              category: parseCategory(categoryMatch),
+              links: parsedUrl ? [{ url: parsedUrl, label: linkLabel, type: 'website' }] : [],
+            };
+          }
+        }
+        setMessages(m => [...m, { role: "ai", text, capturedRec }]);
+        saveMsgToDb("ai", text, capturedRec);
+      })
+      .catch(err => {
+        console.error('Agent results request error:', err);
+        setTyping(false);
+        setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
+      });
+  };
+
   const send = async () => {
     if (!input.trim()) return;
     const msg = input.trim();
@@ -296,7 +411,7 @@ export default function ChatView({ variant }) {
       const data = await response.json();
       setTyping(false);
 
-      // Trigger agent processing for any new jobs (fire-and-forget from browser)
+      // Trigger agent processing for any new jobs + start polling
       if (data.agentJobs && data.agentJobs.length > 0) {
         for (const job of data.agentJobs) {
           fetch('/api/agent/process', {
@@ -305,6 +420,7 @@ export default function ChatView({ variant }) {
             body: JSON.stringify({ jobId: job.jobId }),
           }).catch(err => console.error('Agent process failed:', err));
         }
+        setAgentPollingJobs(prev => [...prev, ...data.agentJobs]);
       }
 
       let text = data.message;
@@ -510,6 +626,39 @@ export default function ChatView({ variant }) {
           <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "none", minHeight: 0, touchAction: "pan-y" }}>
             <div style={{ maxWidth: 700, margin: "0 auto", padding: "12px 16px" }}>
             {messages.map((msg, i) => {
+              // Agent completion banner
+              if (msg.type === "agentComplete") {
+                return (
+                  <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
+                    <div style={{
+                      padding: "16px 18px", borderRadius: 16,
+                      background: T.s2, borderLeft: `3px solid ${T.acc}`,
+                      border: `1px solid ${W.bdr}`, borderLeftWidth: 3, borderLeftColor: T.acc,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 10, background: `${T.acc}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: T.acc, fontFamily: F }}>C</span>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>
+                              Your AI finished analyzing your {msg.sourceName}
+                            </div>
+                            <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>
+                              Taste read + extracted recs ready
+                            </div>
+                          </div>
+                        </div>
+                        <button onClick={() => sendAgentResultsRequest(msg.sourceName)} style={{
+                          padding: "8px 16px", borderRadius: 10, border: "none",
+                          background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
+                          cursor: "pointer", fontFamily: F, whiteSpace: "nowrap",
+                        }}>See what I found</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               // Request alert card
               if (msg.type === "requestAlert") {
                 return (
