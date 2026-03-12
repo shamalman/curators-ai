@@ -716,16 +716,14 @@ async function getAgentContext(profileId, sb) {
         ? tasteTheses.join(" ")
         : "I found some interesting patterns in your sources.";
 
-      // Sort by confidence, take top recs
+      // Sort by confidence, present one at a time
       const sortedRecs = allRecs.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-      const firstBatch = sortedRecs.slice(0, 5);
-      const remaining = sortedRecs.slice(5);
+      const firstRec = sortedRecs[0];
+      const remaining = sortedRecs.slice(1);
 
-      // Format recs as structured text instead of raw JSON to keep prompt smaller
-      const recLines = firstBatch.map((r, i) => {
-        const tags = (r.tags || []).join(", ");
-        return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
-      }).join("\n");
+      const firstRecLine = firstRec
+        ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
+        : "";
 
       agentBlock += `\nAGENT RESULTS — PRESENT THIS NOW:
 I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
@@ -733,32 +731,31 @@ I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
 TASTE READ (deliver this conversationally, not as a block quote):
 ${tasteRead}
 
-CANDIDATE RECS (present 3-5 from this list):
-${recLines}
+FIRST REC TO PRESENT:
+${firstRecLine}
 
-CRITICAL FORMAT INSTRUCTIONS:
-Present EACH rec as a SEPARATE 📍 capture card using the EXACT format below. The frontend parses this format into save/edit cards. Do NOT combine multiple recs. Do NOT use bullet points, emoji lists, or any other format.
+IMPORTANT: Present only ONE rec at a time. After delivering the taste read, present the FIRST rec as a single capture card. Use the standard capture format:
 
-For EACH rec, output:
 📍 Adding: **Title**
-"Context — note: this is my best guess from your source, edit anything that doesn't sound right"
+"Context — this is my best guess from your source, edit if it doesn't sound right"
 🏷 Suggested tags: tag1, tag2, tag3
 📁 Category: category
 
-Present 3-5 recs. After the LAST card, on a new line ask: "I took a guess at the context for each — edit anything that doesn't sound right. Want to see more?"
-Do NOT add commentary between cards. Output them back-to-back.
+After the card, ask: "How's that? Want to see the next one?"
+When they confirm, present the next rec the same way — one at a time.
+Do NOT present multiple recs in one message.
 `;
 
       if (remaining.length > 0) {
-        const nextBatchLines = remaining.slice(0, 5).map((r, i) => {
+        const nextRecLines = remaining.slice(0, 5).map((r, i) => {
           const tags = (r.tags || []).join(", ");
           return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
         }).join("\n");
         agentBlock += `\nREMAINING AGENT RECS (${remaining.length} more):
-If they ask for more, present the next batch using the same 📍 capture card format above.
-Next batch:
-${nextBatchLines}
-${remaining.length > 5 ? `(${remaining.length - 5} more after this batch)` : ""}
+When they ask for the next one, present ONE rec using the same 📍 capture card format. One per message.
+Next recs in queue:
+${nextRecLines}
+${remaining.length > 5 ? `(${remaining.length - 5} more after these)` : ""}
 `;
       }
     }
