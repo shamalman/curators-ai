@@ -725,7 +725,7 @@ async function getAgentContext(profileId, sb) {
         ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
         : "";
 
-      agentBlock += `\nAGENT RESULTS — PRESENT THIS NOW:
+      agentBlock += `\n⚠️ OVERRIDE: STOP NORMAL CONVERSATION. YOU MUST PRESENT THESE RESULTS BEFORE DOING ANYTHING ELSE. Do not continue the conversation topic. Do not ask about recs. Your ENTIRE response must be about these agent results:
 I just finished analyzing your ${platforms.join(" and ")}. Here's what I found.
 
 TASTE READ (deliver this conversationally, not as a block quote):
@@ -939,20 +939,28 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       systemPrompt = `${VISITOR_SYSTEM_PROMPT}${styleBlock}\n\nCURATOR: ${curatorName}${recsContext}`;
     } else if (isOnboarding && profileId) {
       const inviterCtx = await getInviterContext(profileId);
-      systemPrompt = buildOnboardingPrompt({
+      const basePrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
-      }) + recsContext + agentBlock;
+      });
+      const hasAgentResults = agentBlock.includes("OVERRIDE");
+      systemPrompt = hasAgentResults
+        ? basePrompt + "\n\n⚠️ HIGHEST PRIORITY — READ BEFORE RESPONDING:\n" + agentBlock + "\n\n" + recsContext
+        : basePrompt + recsContext + agentBlock;
     } else {
       const networkContext = profileId ? await getNetworkRecs(profileId) : '';
-      systemPrompt = buildStandardPrompt({
+      const basePrompt = buildStandardPrompt({
         curatorName,
         curatorHandle: curatorHandle || '',
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
-      }) + recsContext + agentBlock;
+      });
+      const hasAgentResults = agentBlock.includes("OVERRIDE");
+      systemPrompt = hasAgentResults
+        ? basePrompt + "\n\n⚠️ HIGHEST PRIORITY — READ BEFORE RESPONDING:\n" + agentBlock + "\n\n" + recsContext
+        : basePrompt + recsContext + agentBlock;
     }
 
     // Handle opening message generation (no user message yet)
@@ -1039,15 +1047,23 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
-    // Mark unpresented agent jobs as presented
+    // Only mark as presented if the AI actually delivered the results
     if (unpresentedJobs.length > 0) {
-      const jobIds = unpresentedJobs.map(j => j.id);
-      try {
-        await sb.from("agent_jobs")
-          .update({ presented_at: new Date().toISOString() })
-          .in("id", jobIds);
-      } catch (err) {
-        console.error("Failed to mark agent jobs as presented:", err);
+      const lowerMsg = aiMessage.toLowerCase();
+      const mentionedResults = /went through|analyzed|studying|taste|playlist|spotify|found.*pattern|here'?s what i (found|see)|capture/i.test(aiMessage)
+        || /📍/.test(aiMessage);
+
+      if (mentionedResults) {
+        const jobIds = unpresentedJobs.map(j => j.id);
+        try {
+          await sb.from("agent_jobs")
+            .update({ presented_at: new Date().toISOString() })
+            .in("id", jobIds);
+        } catch (err) {
+          console.error("Failed to mark agent jobs as presented:", err);
+        }
+      } else {
+        console.log("Agent results were injected but AI did not present them — will retry on next message");
       }
     }
 
