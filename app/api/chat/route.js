@@ -684,7 +684,6 @@ async function getAgentContext(profileId, sb) {
     const pendingJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
     const completedJobs = jobs.filter(j => j.status === "completed");
     const unpresentedJobs = completedJobs.filter(j => !j.presented_at);
-    const presentedJobs = completedJobs.filter(j => j.presented_at);
 
     let agentBlock = "";
 
@@ -694,14 +693,12 @@ async function getAgentContext(profileId, sb) {
       agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
     }
 
-    // ── STATE 1: Completed but taste read NOT delivered yet ──
+    // ── Completed but taste read NOT delivered yet ──
     if (unpresentedJobs.length > 0) {
       const platforms = [];
-      let totalRecs = 0;
 
       for (const job of unpresentedJobs) {
         platforms.push(job.source_type);
-        totalRecs += (job.extracted_recs?.candidate_recs || []).length;
       }
 
       // Build taste read from individual job analyses
@@ -722,55 +719,9 @@ ${tasteRead}
 INSTRUCTIONS:
 - Deliver the taste read conversationally. Have a point of view.
 - End with "Am I reading that right?" or "What am I missing?"
-- After delivering the taste read, mention you pulled ${totalRecs} recs: "I pulled ${totalRecs} recs from your ${platforms.join(" and ")}. Want to go through them?"
-- Do NOT show any rec cards in this response. Taste read only.
-- Do NOT present recs until the curator explicitly asks to see them.
+- After delivering the taste read, transition naturally back to conversation. Ask about their taste or ask for a rec.
+- Do NOT show any rec cards. Taste read only.
 `;
-    }
-
-    // ── STATE 2: Taste read was delivered (presented_at set), recs available ──
-    if (presentedJobs.length > 0 && unpresentedJobs.length === 0) {
-      const allRecs = [];
-      const platforms = [];
-
-      for (const job of presentedJobs) {
-        platforms.push(job.source_type);
-        const recs = job.extracted_recs?.candidate_recs || [];
-        allRecs.push(...recs.map(r => ({ ...r, source: job.source_type })));
-      }
-
-      if (allRecs.length > 0) {
-        const sortedRecs = allRecs.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-        const firstRec = sortedRecs[0];
-        const remaining = sortedRecs.slice(1);
-
-        const firstRecLine = firstRec
-          ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
-          : "";
-
-        const nextRecLines = remaining.slice(0, 5).map((r, i) => {
-          const tags = (r.tags || []).join(", ");
-          return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
-        }).join("\n");
-
-        agentBlock += `\nAGENT RECS AVAILABLE:
-You already delivered the taste read for ${platforms.join(" and ")}. The curator may ask to see the extracted recs.
-
-When they ask, present ONE rec at a time using the standard capture format:
-
-📍 Adding: **Title**
-"Context — this is my best guess from your source, edit if it doesn't sound right"
-🏷 Suggested tags: tag1, tag2, tag3
-📁 Category: category
-
-After the card: "How's that? Want to see the next one?"
-
-First rec to present:
-${firstRecLine}
-
-${remaining.length > 0 ? `Remaining: ${remaining.length} more recs in queue.\nNext few:\n${nextRecLines}${remaining.length > 5 ? `\n(${remaining.length - 5} more after these)` : ""}` : "This is the last rec from this source."}
-`;
-      }
     }
 
     return { agentBlock, pendingJobs, completedJobs, unpresentedJobs };
@@ -1040,8 +991,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       cleanedMessages.shift();
     }
 
-    // Increase token limit when presenting agent results (more content to deliver)
-    const maxTokens = (unpresentedJobs.length > 0) ? 1200 : 600;
+    const maxTokens = (unpresentedJobs.length > 0) ? 800 : 600;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -1052,10 +1002,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
-    // Mark as presented if the AI delivered the taste read (not rec cards)
-    // Taste read responses mention patterns/taste/reading — rec cards use 📍 Adding
+    // Mark as presented if the AI delivered the taste read
     if (unpresentedJobs.length > 0) {
-      const deliveredTasteRead = /reading that right|what am i missing|went through|found.*pattern|taste|pulled.*recs/i.test(aiMessage);
+      const deliveredTasteRead = /reading that right|what am i missing|went through|found|taste|gravitate|pattern/i.test(aiMessage);
       if (deliveredTasteRead) {
         const jobIds = unpresentedJobs.map(j => j.id);
         try {

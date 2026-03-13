@@ -310,7 +310,7 @@ export default function ChatView({ variant }) {
           slug: item.slug,
         })),
         linkMetadata: null,
-        history: messages.slice(-10),
+        history: messages.filter(m => !m.type).slice(-10),
       }),
     })
       .then(r => r.json())
@@ -415,7 +415,7 @@ export default function ChatView({ variant }) {
             slug: item.slug,
           })),
           linkMetadata,
-          history: messages.slice(-10),
+          history: messages.filter(m => !m.type).slice(-10),
         }),
       });
 
