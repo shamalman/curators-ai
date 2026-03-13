@@ -684,6 +684,7 @@ async function getAgentContext(profileId, sb) {
     const pendingJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
     const completedJobs = jobs.filter(j => j.status === "completed");
     const unpresentedJobs = completedJobs.filter(j => !j.presented_at);
+    const presentedJobs = completedJobs.filter(j => j.presented_at);
 
     let agentBlock = "";
 
@@ -693,18 +694,14 @@ async function getAgentContext(profileId, sb) {
       agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
     }
 
-    // Completed but not yet presented — need to deliver taste read
+    // ── STATE 1: Completed but taste read NOT delivered yet ──
     if (unpresentedJobs.length > 0) {
-      // Collect all taste analyses and candidate recs
-      const allRecs = [];
       const platforms = [];
-      let totalItems = 0;
+      let totalRecs = 0;
 
       for (const job of unpresentedJobs) {
         platforms.push(job.source_type);
-        const recs = job.extracted_recs?.candidate_recs || [];
-        totalItems += recs.length;
-        allRecs.push(...recs.map(r => ({ ...r, source: job.source_type })));
+        totalRecs += (job.extracted_recs?.candidate_recs || []).length;
       }
 
       // Build taste read from individual job analyses
@@ -716,44 +713,62 @@ async function getAgentContext(profileId, sb) {
         ? tasteTheses.join(" ")
         : "I found some interesting patterns in your sources.";
 
-      // Sort by confidence, present one at a time
-      const sortedRecs = allRecs.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-      const firstRec = sortedRecs[0];
-      const remaining = sortedRecs.slice(1);
-
-      const firstRecLine = firstRec
-        ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
-        : "";
-
       agentBlock += `\nAGENT RESULTS READY:
-Agent results are ready for your ${platforms.join(" and ")}. When the curator asks about them (e.g. "show me what you found"), present the taste read conversationally and offer to show extracted recs one at a time.
+I finished analyzing your ${platforms.join(" and ")}.
 
-TASTE READ (deliver conversationally when asked):
+TASTE READ to deliver when curator asks:
 ${tasteRead}
 
-FIRST REC TO PRESENT:
-${firstRecLine}
+INSTRUCTIONS:
+- Deliver the taste read conversationally. Have a point of view.
+- End with "Am I reading that right?" or "What am I missing?"
+- After delivering the taste read, mention you pulled ${totalRecs} recs: "I pulled ${totalRecs} recs from your ${platforms.join(" and ")}. Want to go through them?"
+- Do NOT show any rec cards in this response. Taste read only.
+- Do NOT present recs until the curator explicitly asks to see them.
+`;
+    }
 
-When presenting recs, use the standard capture format — ONE rec per message:
+    // ── STATE 2: Taste read was delivered (presented_at set), recs available ──
+    if (presentedJobs.length > 0 && unpresentedJobs.length === 0) {
+      const allRecs = [];
+      const platforms = [];
+
+      for (const job of presentedJobs) {
+        platforms.push(job.source_type);
+        const recs = job.extracted_recs?.candidate_recs || [];
+        allRecs.push(...recs.map(r => ({ ...r, source: job.source_type })));
+      }
+
+      if (allRecs.length > 0) {
+        const sortedRecs = allRecs.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+        const firstRec = sortedRecs[0];
+        const remaining = sortedRecs.slice(1);
+
+        const firstRecLine = firstRec
+          ? `"${firstRec.title}" | category: ${firstRec.category || "other"} | context: ${firstRec.context || ""} | tags: ${(firstRec.tags || []).join(", ")}`
+          : "";
+
+        const nextRecLines = remaining.slice(0, 5).map((r, i) => {
+          const tags = (r.tags || []).join(", ");
+          return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
+        }).join("\n");
+
+        agentBlock += `\nAGENT RECS AVAILABLE:
+You already delivered the taste read for ${platforms.join(" and ")}. The curator may ask to see the extracted recs.
+
+When they ask, present ONE rec at a time using the standard capture format:
 
 📍 Adding: **Title**
 "Context — this is my best guess from your source, edit if it doesn't sound right"
 🏷 Suggested tags: tag1, tag2, tag3
 📁 Category: category
 
-After the card, ask: "How's that? Want to see the next one?"
-`;
+After the card: "How's that? Want to see the next one?"
 
-      if (remaining.length > 0) {
-        const nextRecLines = remaining.slice(0, 5).map((r, i) => {
-          const tags = (r.tags || []).join(", ");
-          return `${i + 1}. "${r.title}" | category: ${r.category || "other"} | context: ${r.context || ""} | tags: ${tags}`;
-        }).join("\n");
-        agentBlock += `\nREMAINING AGENT RECS (${remaining.length} more):
-When they ask for the next one, present ONE rec using the same 📍 capture card format. One per message.
-Next recs in queue:
-${nextRecLines}
-${remaining.length > 5 ? `(${remaining.length - 5} more after these)` : ""}
+First rec to present:
+${firstRecLine}
+
+${remaining.length > 0 ? `Remaining: ${remaining.length} more recs in queue.\nNext few:\n${nextRecLines}${remaining.length > 5 ? `\n(${remaining.length - 5} more after these)` : ""}` : "This is the last rec from this source."}
 `;
       }
     }
@@ -1037,10 +1052,11 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
-    // Mark as presented if the AI delivered results (taste read or rec card)
+    // Mark as presented if the AI delivered the taste read (not rec cards)
+    // Taste read responses mention patterns/taste/reading — rec cards use 📍 Adding
     if (unpresentedJobs.length > 0) {
-      const mentionedResults = /📍|went through|found|taste/i.test(aiMessage);
-      if (mentionedResults) {
+      const deliveredTasteRead = /reading that right|what am i missing|went through|found.*pattern|taste|pulled.*recs/i.test(aiMessage);
+      if (deliveredTasteRead) {
         const jobIds = unpresentedJobs.map(j => j.id);
         try {
           await sb.from("agent_jobs")

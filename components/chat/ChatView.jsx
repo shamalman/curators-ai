@@ -78,6 +78,7 @@ export default function ChatView({ variant }) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [agentPollingJobs, setAgentPollingJobs] = useState([]);
   const [completedAgentJobs, setCompletedAgentJobs] = useState([]);
+  const completedJobIds = useRef(new Set());
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -251,10 +252,16 @@ export default function ChatView({ variant }) {
       }
       for (const job of agentPollingJobs) {
         try {
+          // Skip if we already added a banner for this job
+          if (completedJobIds.current.has(job.jobId)) {
+            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
+            continue;
+          }
           const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
           if (!res.ok) continue;
           const data = await res.json();
           if (data.status === 'completed') {
+            completedJobIds.current.add(job.jobId);
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
             setCompletedAgentJobs(prev => [...prev, job]);
             // Add banner as a system message in the chat
@@ -278,7 +285,11 @@ export default function ChatView({ variant }) {
   const sendAgentResultsRequest = (sourceName) => {
     const msg = `Show me what you found from my ${sourceName}`;
     shouldScroll.current = true;
-    setMessages(m => [...m, { role: "user", text: msg }]);
+    // Mark the banner as consumed so it doesn't re-render, then add the user message
+    setMessages(m => [
+      ...m.map(msg => msg.type === 'agentComplete' && msg.sourceName === sourceName ? { ...msg, consumed: true } : msg),
+      { role: "user", text: msg },
+    ]);
     saveMsgToDb("user", msg);
     setInput("");
     setTyping(true);
@@ -628,6 +639,8 @@ export default function ChatView({ variant }) {
             {messages.map((msg, i) => {
               // Agent completion banner
               if (msg.type === "agentComplete") {
+                // Don't render consumed banners
+                if (msg.consumed) return null;
                 return (
                   <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
                     <div style={{
@@ -642,10 +655,10 @@ export default function ChatView({ variant }) {
                           </div>
                           <div>
                             <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>
-                              Your AI finished analyzing your {msg.sourceName}
+                              Your AI has a read on your taste
                             </div>
                             <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>
-                              Taste read + extracted recs ready
+                              Based on your {msg.sourceName}
                             </div>
                           </div>
                         </div>
