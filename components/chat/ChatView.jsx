@@ -346,6 +346,7 @@ export default function ChatView({ variant }) {
     saveMsgToDb("user", msg);
     setInput("");
     setTyping(true);
+    isWaitingForResponse.current = true;
 
     fetch('/api/chat', {
       method: 'POST',
@@ -369,7 +370,6 @@ export default function ChatView({ variant }) {
       .then(r => r.json())
       .then(data => {
         setTyping(false);
-        hasPendingBanner.current = false;
         let text = data.message;
         const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
         let capturedRec = null;
@@ -408,11 +408,14 @@ export default function ChatView({ variant }) {
         }
         setMessages(m => [...m, { role: "ai", text, capturedRec }]);
         saveMsgToDb("ai", text, capturedRec);
+        hasPendingBanner.current = false;
+        isWaitingForResponse.current = false;
       })
       .catch(err => {
         console.error('Agent results request error:', err);
         setTyping(false);
         hasPendingBanner.current = false;
+        isWaitingForResponse.current = false;
         setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
       });
   };
