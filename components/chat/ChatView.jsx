@@ -264,9 +264,7 @@ export default function ChatView({ variant }) {
       // Check if taste read was already delivered for this source
       const sourceLC = sourceName.toLowerCase();
       if (m.some(msg => msg.role === 'ai' && msg.text &&
-        (msg.text.toLowerCase().includes('went through your ' + sourceLC) ||
-         msg.text.toLowerCase().includes('went through your stuff') ||
-         (msg.text.includes("Here's what I see") && msg.text.toLowerCase().includes(sourceLC))))) return m;
+        msg.text.toLowerCase().includes('went through your ' + sourceLC))) return m;
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
     });
     shouldScroll.current = true;
