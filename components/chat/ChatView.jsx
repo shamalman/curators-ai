@@ -278,9 +278,12 @@ export default function ChatView({ variant }) {
     shouldScroll.current = true;
   };
 
-  // Check for completed unpresented agent jobs on mount
+  // Check for completed unpresented agent jobs on mount (runs once)
+  const mountCheckDone = useRef(false);
   useEffect(() => {
     if (!isCurator || !profileId || !dbLoaded) return;
+    if (mountCheckDone.current) return;
+    mountCheckDone.current = true;
     fetch('/api/agent/check')
       .then(r => r.json())
       .then(data => {
