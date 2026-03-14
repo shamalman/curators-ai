@@ -261,6 +261,7 @@ export default function ChatView({ variant }) {
 
   // Add agent banner if not already showing one for this job
   const addAgentBanner = (jobId, sourceType, sourceName) => {
+    console.log('addAgentBanner called:', jobId, 'isWaiting:', isWaitingForResponse.current, 'hasPending:', hasPendingBanner.current);
     if (deliveredJobIds.current.has(jobId)) {
       console.log('addAgentBanner BLOCKED by ref:', jobId);
       return;
@@ -286,6 +287,7 @@ export default function ChatView({ variant }) {
         if (data.jobs && data.jobs.length > 0) {
           const newJobs = data.jobs.filter(j => !deliveredJobIds.current.has(j.jobId));
           for (const job of newJobs) {
+            console.log('BANNER SOURCE: mount check', job.jobId);
             addAgentBanner(job.jobId, job.sourceType, job.sourceName);
           }
         }
@@ -321,6 +323,7 @@ export default function ChatView({ variant }) {
               : job.sourceType === 'apple_music' ? 'Apple Music'
               : job.sourceType === 'google_maps' ? 'Google Maps'
               : job.sourceType;
+            console.log('BANNER SOURCE: polling', job.jobId);
             addAgentBanner(job.jobId, job.sourceType, sourceName);
           } else if (data.status === 'failed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
