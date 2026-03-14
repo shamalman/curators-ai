@@ -770,16 +770,15 @@ async function getAgentContext(profileId, sb) {
     // Fetch all active agent jobs for this profile
     const { data: jobs, error } = await sb
       .from("agent_jobs")
-      .select("*")
+      .select("id, status, source_type, source_url, presented_at")
       .eq("profile_id", profileId)
       .in("status", ["pending", "processing", "completed"])
       .order("created_at", { ascending: false });
 
-    if (error || !jobs || jobs.length === 0) return { agentBlock: "", pendingJobs: [], completedJobs: [], unpresentedJobs: [] };
+    if (error || !jobs || jobs.length === 0) return { agentBlock: "", pendingJobs: [], unpresentedJobs: [] };
 
     const pendingJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
-    const completedJobs = jobs.filter(j => j.status === "completed");
-    const unpresentedJobs = completedJobs.filter(j => !j.presented_at);
+    const unpresentedJobs = jobs.filter(j => j.status === "completed" && !j.presented_at);
 
     let agentBlock = "";
 
@@ -789,27 +788,56 @@ async function getAgentContext(profileId, sb) {
       agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
     }
 
-    // ── Completed but taste read NOT delivered yet ──
-    if (unpresentedJobs.length > 0) {
-      const platforms = [];
+    // Completed jobs — no injection here. Results delivered only via banner click path.
 
-      for (const job of unpresentedJobs) {
-        platforms.push(job.source_type);
-      }
+    return { agentBlock, pendingJobs, unpresentedJobs };
+  } catch (err) {
+    console.error("Failed to get agent context:", err);
+    return { agentBlock: "", pendingJobs: [], unpresentedJobs: [] };
+  }
+}
 
-      // Build taste read from individual job analyses
-      const tasteTheses = unpresentedJobs
-        .map(j => j.taste_analysis?.taste_thesis)
-        .filter(Boolean);
+// ── Deliver agent results ONLY when curator clicks the banner ──
+async function getAgentResultsForDelivery(profileId, message, sb) {
+  if (!message) return "";
 
-      const tasteRead = tasteTheses.length > 0
-        ? tasteTheses.join(" ")
-        : "I found some interesting patterns in your sources.";
+  // Check if this message is asking for agent results
+  const lc = message.toLowerCase();
+  const isAskingForResults = /show me what you found|what did you find|what('d| did) you get|show me your (analysis|read|findings)|let('s| me) see (what|the)|taste read/i.test(lc);
+  if (!isAskingForResults) return "";
 
-      agentBlock += `\nAGENT RESULTS READY:
+  try {
+    const { data: jobs, error } = await sb
+      .from("agent_jobs")
+      .select("*")
+      .eq("profile_id", profileId)
+      .eq("status", "completed")
+      .is("presented_at", null)
+      .order("completed_at", { ascending: false });
+
+    if (error || !jobs || jobs.length === 0) return "";
+
+    const platforms = jobs.map(j => j.source_type);
+
+    // Build taste read from job analyses
+    const tasteTheses = jobs
+      .map(j => j.taste_analysis?.taste_thesis)
+      .filter(Boolean);
+
+    const tasteRead = tasteTheses.length > 0
+      ? tasteTheses.join(" ")
+      : "I found some interesting patterns in your sources.";
+
+    // Mark jobs as presented NOW
+    const jobIds = jobs.map(j => j.id);
+    await sb.from("agent_jobs")
+      .update({ presented_at: new Date().toISOString() })
+      .in("id", jobIds);
+
+    return `\nAGENT RESULTS READY:
 I finished analyzing your ${platforms.join(" and ")}.
 
-TASTE READ to deliver when curator asks:
+TASTE READ to deliver:
 ${tasteRead}
 
 INSTRUCTIONS:
@@ -818,12 +846,9 @@ INSTRUCTIONS:
 - After delivering the taste read, transition naturally back to conversation. Ask about their taste or ask for a rec.
 - Do NOT show any rec cards. Taste read only.
 `;
-    }
-
-    return { agentBlock, pendingJobs, completedJobs, unpresentedJobs };
   } catch (err) {
-    console.error("Failed to get agent context:", err);
-    return { agentBlock: "", pendingJobs: [], completedJobs: [], unpresentedJobs: [] };
+    console.error("Failed to get agent results for delivery:", err);
+    return "";
   }
 }
 
@@ -944,13 +969,23 @@ export async function POST(request) {
         agentNotes = await processUrlsForAgent(message, profileId, sb);
       }
 
-      // Query existing agent jobs for context injection
+      // Query existing agent jobs for status context (pending/processing only)
       try {
         const agentCtx = await getAgentContext(profileId, sb);
         agentBlock = agentCtx.agentBlock;
         unpresentedJobs = agentCtx.unpresentedJobs;
       } catch (agentErr) {
         console.error("getAgentContext failed:", agentErr.message);
+      }
+
+      // Check if curator is asking for agent results (banner click)
+      if (message) {
+        const deliveryBlock = await getAgentResultsForDelivery(profileId, message, sb);
+        if (deliveryBlock) {
+          agentBlock += deliveryBlock;
+          // Results were delivered — clear unpresentedJobs so agentReady isn't sent back
+          unpresentedJobs = [];
+        }
       }
 
       // Add URL-specific notes for this message
@@ -1105,7 +1140,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       cleanedMessages.shift();
     }
 
-    const maxTokens = (unpresentedJobs.length > 0) ? 800 : 600;
+    const maxTokens = agentBlock.includes('AGENT RESULTS READY') ? 800 : 600;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -1115,21 +1150,6 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     });
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
-
-    // Mark as presented if the AI delivered the taste read
-    if (unpresentedJobs.length > 0) {
-      const deliveredTasteRead = /reading that right|what am i missing|went through|found|taste|gravitate|pattern/i.test(aiMessage);
-      if (deliveredTasteRead) {
-        const jobIds = unpresentedJobs.map(j => j.id);
-        try {
-          await sb.from("agent_jobs")
-            .update({ presented_at: new Date().toISOString() })
-            .in("id", jobIds);
-        } catch (err) {
-          console.error("Failed to mark agent jobs as presented:", err);
-        }
-      }
-    }
 
     if (profileId) {
       console.log('TRACKING: sent a message, profileId:', profileId);

@@ -259,12 +259,7 @@ export default function ChatView({ variant }) {
   // Add agent banner if not already showing one for this job
   const addAgentBanner = (jobId, sourceType, sourceName) => {
     setMessages(m => {
-      // Check if banner already exists in messages
       if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) return m;
-      // Check if taste read was already delivered for this source
-      const sourceLC = sourceName.toLowerCase();
-      if (m.some(msg => msg.role === 'ai' && msg.text &&
-        msg.text.toLowerCase().includes('went through your ' + sourceLC))) return m;
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
     });
     shouldScroll.current = true;
