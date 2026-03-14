@@ -33,6 +33,7 @@ function sourceName(sourceType) {
   if (sourceType === "letterboxd") return "Letterboxd";
   if (sourceType === "goodreads") return "Goodreads";
   if (sourceType === "soundcloud") return "SoundCloud";
+  if (sourceType === "twitter") return "X (Twitter)";
   if (sourceType === "webpage") return "Webpage";
   return sourceType;
 }
