@@ -30,6 +30,7 @@ function sourceName(sourceType) {
   if (sourceType === "apple_music") return "Apple Music";
   if (sourceType === "google_maps") return "Google Maps";
   if (sourceType === "youtube") return "YouTube";
+  if (sourceType === "letterboxd") return "Letterboxd";
   if (sourceType === "webpage") return "Webpage";
   return sourceType;
 }
