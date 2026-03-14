@@ -32,6 +32,7 @@ function sourceName(sourceType) {
   if (sourceType === "youtube") return "YouTube";
   if (sourceType === "letterboxd") return "Letterboxd";
   if (sourceType === "goodreads") return "Goodreads";
+  if (sourceType === "soundcloud") return "SoundCloud";
   if (sourceType === "webpage") return "Webpage";
   return sourceType;
 }
