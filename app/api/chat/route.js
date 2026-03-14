@@ -1058,6 +1058,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
           sourceName: j.source_type === 'spotify' ? 'Spotify'
             : j.source_type === 'apple_music' ? 'Apple Music'
             : j.source_type === 'google_maps' ? 'Google Maps'
+            : j.source_type === 'webpage' ? 'Webpage'
             : j.source_type,
         }))
       : undefined;
