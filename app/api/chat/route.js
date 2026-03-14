@@ -77,7 +77,7 @@ If inviter note exists:
 
 Welcome to Curators. I'm your AI — I'm here to learn your taste and help you share it.
 
-Where do you usually share recommendations? Drop me links to your playlists on Apple Music, Spotify, or YouTube. Websites, blogs, and articles work too.
+Where do you usually share recommendations? Drop me links to your playlists on Spotify, Apple Music, YouTube, or SoundCloud. Letterboxd, Goodreads, websites, blogs, and articles all work too.
 
 Or just start telling me what you love, and I'll make it easy to capture them. Your call :)"
 
@@ -86,14 +86,14 @@ If no inviter note but inviter exists:
 
 Welcome to Curators. I'm your AI — I'm here to learn your taste and help you share it.
 
-Where do you usually share recommendations? Drop me links to your playlists on Apple Music, Spotify, or YouTube. Websites, blogs, and articles work too.
+Where do you usually share recommendations? Drop me links to your playlists on Spotify, Apple Music, YouTube, or SoundCloud. Letterboxd, Goodreads, websites, blogs, and articles all work too.
 
 Or just start telling me what you love, and I'll make it easy to capture them. Your call :)"
 
 If no inviter (admin-generated code):
 "Welcome to Curators. I'm your AI — I'm here to learn your taste and help you share it.
 
-Where do you usually share recommendations? Drop me links to your playlists on Apple Music, Spotify, or YouTube. Websites, blogs, and articles work too.
+Where do you usually share recommendations? Drop me links to your playlists on Spotify, Apple Music, YouTube, or SoundCloud. Letterboxd, Goodreads, websites, blogs, and articles all work too.
 
 Or just start telling me what you love, and I'll make it easy to capture them. Your call :)"
 
