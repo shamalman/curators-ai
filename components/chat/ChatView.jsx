@@ -77,6 +77,8 @@ export default function ChatView({ variant }) {
   const nudgeTimer = useRef(null);
   const typedSinceSave = useRef(false);
   const deliveredJobIds = useRef(new Set());
+  const hasPendingBanner = useRef(false);
+  const isWaitingForResponse = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [agentPollingJobs, setAgentPollingJobs] = useState([]);
@@ -269,6 +271,7 @@ export default function ChatView({ variant }) {
         return m;
       }
       console.log('addAgentBanner ADDING:', jobId, sourceName);
+      hasPendingBanner.current = true;
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
     });
     shouldScroll.current = true;
@@ -281,7 +284,8 @@ export default function ChatView({ variant }) {
       .then(r => r.json())
       .then(data => {
         if (data.jobs && data.jobs.length > 0) {
-          for (const job of data.jobs) {
+          const newJobs = data.jobs.filter(j => !deliveredJobIds.current.has(j.jobId));
+          for (const job of newJobs) {
             addAgentBanner(job.jobId, job.sourceType, job.sourceName);
           }
         }
@@ -298,12 +302,15 @@ export default function ChatView({ variant }) {
     if (agentPollingJobs.length === 0) return;
     const startTime = Date.now();
     const interval = setInterval(async () => {
+      // Don't poll while a banner is showing or while waiting for a chat response
+      if (hasPendingBanner.current || isWaitingForResponse.current) return;
       if (Date.now() - startTime > 120000) {
         setAgentPollingJobs([]);
         clearInterval(interval);
         return;
       }
       for (const job of agentPollingJobs) {
+        if (deliveredJobIds.current.has(job.jobId)) continue;
         try {
           const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
           if (!res.ok) continue;
@@ -362,6 +369,7 @@ export default function ChatView({ variant }) {
       .then(r => r.json())
       .then(data => {
         setTyping(false);
+        hasPendingBanner.current = false;
         let text = data.message;
         const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
         let capturedRec = null;
@@ -404,6 +412,7 @@ export default function ChatView({ variant }) {
       .catch(err => {
         console.error('Agent results request error:', err);
         setTyping(false);
+        hasPendingBanner.current = false;
         setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
       });
   };
@@ -418,6 +427,7 @@ export default function ChatView({ variant }) {
     setInput("");
     setPendingImage(null);
     setTyping(true);
+    isWaitingForResponse.current = true;
 
     const isVis = !isCurator;
 
@@ -470,6 +480,7 @@ export default function ChatView({ variant }) {
 
       const data = await response.json();
       setTyping(false);
+      isWaitingForResponse.current = false;
 
       // Trigger agent processing for any new jobs + start polling
       if (data.agentJobs && data.agentJobs.length > 0) {
@@ -562,6 +573,7 @@ export default function ChatView({ variant }) {
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
+      isWaitingForResponse.current = false;
       setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
     }
   };
