@@ -767,33 +767,27 @@ const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
 // ── Agent context: query agent_jobs and build prompt context ──
 async function getAgentContext(profileId, sb) {
   try {
-    // Fetch all active agent jobs for this profile
+    // Fetch pending/processing agent jobs only
     const { data: jobs, error } = await sb
       .from("agent_jobs")
-      .select("id, status, source_type, source_url, presented_at")
+      .select("id, status, source_type, source_url")
       .eq("profile_id", profileId)
-      .in("status", ["pending", "processing", "completed"])
+      .in("status", ["pending", "processing"])
       .order("created_at", { ascending: false });
 
-    if (error || !jobs || jobs.length === 0) return { agentBlock: "", pendingJobs: [], unpresentedJobs: [] };
-
-    const pendingJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
-    const unpresentedJobs = jobs.filter(j => j.status === "completed" && !j.presented_at);
+    if (error || !jobs || jobs.length === 0) return { agentBlock: "" };
 
     let agentBlock = "";
 
-    // Processing jobs — tell the AI it's working on something
-    if (pendingJobs.length > 0) {
-      const sources = pendingJobs.map(j => `${j.source_type} (${j.source_url})`).join(", ");
+    if (jobs.length > 0) {
+      const sources = jobs.map(j => `${j.source_type} (${j.source_url})`).join(", ");
       agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
     }
 
-    // Completed jobs — no injection here. Results delivered only via banner click path.
-
-    return { agentBlock, pendingJobs, unpresentedJobs };
+    return { agentBlock };
   } catch (err) {
     console.error("Failed to get agent context:", err);
-    return { agentBlock: "", pendingJobs: [], unpresentedJobs: [] };
+    return { agentBlock: "" };
   }
 }
 
@@ -964,7 +958,6 @@ export async function POST(request) {
     // ── Agent integration (curator modes only, not visitor, not opening generation) ──
     let agentBlock = "";
     let agentNotes = [];
-    let unpresentedJobs = [];
 
     if (!isVisitor && profileId && !generateOpening) {
       // Check for URLs in message and create agent jobs (no processing — frontend triggers that)
@@ -972,11 +965,10 @@ export async function POST(request) {
         agentNotes = await processUrlsForAgent(message, profileId, sb);
       }
 
-      // Query existing agent jobs for status context (pending/processing only)
+      // Query existing agent jobs for pending/processing status
       try {
         const agentCtx = await getAgentContext(profileId, sb);
         agentBlock = agentCtx.agentBlock;
-        unpresentedJobs = agentCtx.unpresentedJobs;
       } catch (agentErr) {
         console.error("getAgentContext failed:", agentErr.message);
       }
@@ -986,9 +978,6 @@ export async function POST(request) {
         const delivery = await getAgentResultsForDelivery(profileId, message, sb);
         if (delivery.block) {
           agentBlock += delivery.block;
-          // Filter delivered jobs out of unpresentedJobs so agentReady doesn't re-send them
-          const deliveredSet = new Set(delivery.deliveredJobIds);
-          unpresentedJobs = unpresentedJobs.filter(j => !deliveredSet.has(j.id));
         }
       }
 
@@ -1170,28 +1159,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       .filter(n => n.type === 'agent_started')
       .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
 
-    // Include agent readiness info for frontend banner
-    const agentReady = unpresentedJobs.length > 0
-      ? unpresentedJobs.map(j => ({
-          jobId: j.id,
-          sourceType: j.source_type,
-          sourceName: j.source_type === 'spotify' ? 'Spotify'
-            : j.source_type === 'apple_music' ? 'Apple Music'
-            : j.source_type === 'google_maps' ? 'Google Maps'
-            : j.source_type === 'youtube' ? 'YouTube'
-            : j.source_type === 'letterboxd' ? 'Letterboxd'
-            : j.source_type === 'goodreads' ? 'Goodreads'
-            : j.source_type === 'soundcloud' ? 'SoundCloud'
-            : j.source_type === 'twitter' ? 'X (Twitter)'
-            : j.source_type === 'webpage' ? 'Webpage'
-            : j.source_type,
-        }))
-      : undefined;
-
     return NextResponse.json({
       message: aiMessage,
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
-      agentReady,
     });
   } catch (error) {
     console.error("Chat API error:", error);

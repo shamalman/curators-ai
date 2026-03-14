@@ -483,13 +483,6 @@ export default function ChatView({ variant }) {
         setAgentPollingJobs(prev => [...prev, ...data.agentJobs]);
       }
 
-      // Show banner if agent results are ready (completed unpresented jobs)
-      if (data.agentReady && data.agentReady.length > 0) {
-        for (const job of data.agentReady) {
-          addAgentBanner(job.jobId, job.sourceType, job.sourceName);
-        }
-      }
-
       let text = data.message;
 
       // Parse and submit feedback capture blocks
