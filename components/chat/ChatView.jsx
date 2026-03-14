@@ -67,6 +67,8 @@ export default function ChatView({ variant }) {
   const [pendingLink, setPendingLink] = useState(null);
   const [editingCapture, setEditingCapture] = useState(null);
   const [captureLinkInputs, setCaptureLinkInputs] = useState({});
+  const [pendingImage, setPendingImage] = useState(null);
+  const imageInputRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const chatEnd = useRef(null);
   const chatScrollRef = useRef(null);
@@ -95,6 +97,23 @@ export default function ChatView({ variant }) {
       }).catch(() => {});
     }
   }, [dbLoaded]);
+
+  // Image handling
+  const handleImageFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 10 * 1024 * 1024) return; // 10MB limit
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+      setPendingImage({
+        base64,
+        mimeType: file.type,
+        fileName: file.name,
+        previewUrl: base64,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -380,12 +399,14 @@ export default function ChatView({ variant }) {
   };
 
   const send = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !pendingImage) return;
     const msg = input.trim();
+    const imageToSend = pendingImage;
     shouldScroll.current = true;
-    setMessages(m => [...m, { role: "user", text: msg }]);
-    saveMsgToDb("user", msg);
+    setMessages(m => [...m, { role: "user", text: msg || (imageToSend ? "[sent an image]" : ""), imagePreview: imageToSend?.previewUrl || null }]);
+    saveMsgToDb("user", msg || "[sent an image]");
     setInput("");
+    setPendingImage(null);
     setTyping(true);
 
     const isVis = !isCurator;
@@ -433,6 +454,7 @@ export default function ChatView({ variant }) {
           })),
           linkMetadata,
           history: messages.filter(m => !m.type).slice(-10),
+          ...(imageToSend ? { image: { base64: imageToSend.base64, mimeType: imageToSend.mimeType } } : {}),
         }),
       });
 
@@ -775,7 +797,12 @@ export default function ChatView({ variant }) {
                       fontWeight: msg.role === "user" ? 500 : 400,
                       border: msg.role === "user" ? "none" : `1px solid ${W.bdr}`,
                       overflowWrap: "break-word", wordBreak: "break-word",
-                    }}>{msg.role === "ai" ? renderMd(msg.text) : msg.text}</div>
+                    }}>
+                      {msg.imagePreview && (
+                        <img src={msg.imagePreview} alt="" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 12, marginBottom: msg.text ? 8 : 0, display: "block" }} />
+                      )}
+                      {msg.role === "ai" ? renderMd(msg.text) : msg.text}
+                    </div>
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
                         {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
@@ -855,13 +882,28 @@ export default function ChatView({ variant }) {
             </div>
           </div>
           <div style={{ padding: "10px 16px 28px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
+            {pendingImage && (
+              <div style={{ marginBottom: 8, display: "inline-flex", position: "relative" }}>
+                <img src={pendingImage.previewUrl} alt="" style={{ height: 60, borderRadius: 10, border: `1px solid ${T.bdr}`, display: "block" }} />
+                <button onClick={() => setPendingImage(null)} style={{
+                  position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10,
+                  background: T.ink3, color: T.bg, border: "none", fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+                }}>&times;</button>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input value={input} onChange={e => { setInput(e.target.value); if (e.target.value) { typedSinceSave.current = true; if (nudgeTimer.current) { clearTimeout(nudgeTimer.current); nudgeTimer.current = null; } } }} onKeyDown={e => e.key === "Enter" && send()}
+                onPaste={e => { const file = e.clipboardData?.files?.[0]; if (file && file.type.startsWith('image/')) { e.preventDefault(); handleImageFile(file); } }}
                 placeholder="Drop a rec, paste a link, or ask anything..."
                 style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink }}
                 onFocus={e => e.target.style.borderColor = W.accent} onBlur={e => e.target.style.borderColor = W.inputBdr}
               />
-              <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : W.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
+              <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { handleImageFile(e.target.files?.[0]); e.target.value = ''; }} />
+              <button onClick={() => imageInputRef.current?.click()} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: "transparent", color: T.ink3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="14" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/></svg>
+              </button>
+              <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: (input.trim() || pendingImage) ? T.acc : W.bdr, color: (input.trim() || pendingImage) ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
             </div>
           </div>
         </div>

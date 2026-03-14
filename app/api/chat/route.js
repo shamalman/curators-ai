@@ -36,6 +36,16 @@ When a curator asks you to find a link:
 - NEVER output markdown links like [Name](https://...) with made-up URLs
 - The ONLY exception: links from the SUBSCRIBED RECOMMENDATIONS data below (those are real) and links from agent-extracted data
 
+IMAGE HANDLING:
+When a curator sends a photo or screenshot:
+- Identify what it is (restaurant menu, book cover, album art, app screenshot, product, place, tweet, etc.)
+- React with recognition and specificity — never just say "I see an image"
+- If you can identify the specific thing (restaurant name, book title, album), name it
+- Ask for context: "What made you pick this up?" or "What's the order here?"
+- If they send the image WITH context text, capture the rec immediately
+- If the image is a screenshot of a recommendation from someone else (tweet, text, article), ask if they co-sign it before capturing
+- Treat images the same as conversation — they're input for rec capture, not a separate feature
+
 YOUR PERSONALITY:
 - Warm, curious, concise
 - Like texting a smart friend who remembers everything
@@ -435,6 +445,16 @@ When a curator asks you to find a link:
 - NEVER say "here's a link" or "let me find one" or generate any URL
 - NEVER output markdown links like [Name](https://...) with made-up URLs
 - The ONLY exception: links from the SUBSCRIBED RECOMMENDATIONS data below (those are real) and links from agent-extracted data
+
+IMAGE HANDLING:
+When a curator sends a photo or screenshot:
+- Identify what it is (restaurant menu, book cover, album art, app screenshot, product, place, tweet, etc.)
+- React with recognition and specificity — never just say "I see an image"
+- If you can identify the specific thing (restaurant name, book title, album), name it
+- Ask for context: "What made you pick this up?" or "What's the order here?"
+- If they send the image WITH context text, capture the rec immediately
+- If the image is a screenshot of a recommendation from someone else (tweet, text, article), ask if they co-sign it before capturing
+- Treat images the same as conversation — they're input for rec capture, not a separate feature
 
 YOUR PERSONALITY:
 - Warm, curious, concise
@@ -858,10 +878,10 @@ export async function POST(request) {
     const {
       message, isVisitor, curatorName, curatorHandle, curatorBio,
       profileId, recommendations, linkMetadata, history,
-      generateOpening,
+      generateOpening, image,
     } = await request.json();
 
-    if (!message && !generateOpening) {
+    if (!message && !generateOpening && !image) {
       return NextResponse.json({ message: "No message provided" }, { status: 400 });
     }
 
@@ -979,11 +999,15 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     if (history && history.length > 0) {
       const recent = history.slice(-10);
       for (const msg of recent) {
-        let text = msg.text;
+        let text = msg.text || "";
         // If this message captured a rec that's since been deleted, strip the capture data
         if (msg.capturedRec && !currentTitles.has(msg.capturedRec)) {
           // Replace capture card content referencing the deleted rec
           text = text.replace(/📍 Adding:.*$/ms, '[A recommendation was captured here but has since been removed by the curator.]');
+        }
+        // Note if the message originally included an image (base64 not stored in history)
+        if (msg.imagePreview) {
+          text = text ? `${text} [sent an image]` : "[sent an image]";
         }
         if (msg.role === "user") {
           messages.push({ role: "user", content: text });
@@ -1001,11 +1025,24 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     }
 
     // Add the current message
-    let currentMessage = message;
+    let currentMessageText = message || "What's this?";
     if (linkMetadata) {
-      currentMessage += `\n[Link: "${linkMetadata.title}" from ${linkMetadata.source}, url: ${linkMetadata.url}]`;
+      currentMessageText += `\n[Link: "${linkMetadata.title}" from ${linkMetadata.source}, url: ${linkMetadata.url}]`;
     }
-    messages.push({ role: "user", content: currentMessage });
+
+    if (image && image.base64 && image.mimeType) {
+      // Strip data URI prefix — Claude expects raw base64
+      const base64Data = image.base64.replace(/^data:image\/[^;]+;base64,/, "");
+      messages.push({
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: image.mimeType, data: base64Data } },
+          { type: "text", text: currentMessageText },
+        ],
+      });
+    } else {
+      messages.push({ role: "user", content: currentMessageText });
+    }
 
     // Ensure messages alternate properly (Claude requires this)
     const cleanedMessages = [];
@@ -1013,7 +1050,11 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       const msg = messages[i];
       const prev = cleanedMessages[cleanedMessages.length - 1];
       if (prev && prev.role === msg.role) {
-        // Merge consecutive same-role messages
+        // Merge consecutive same-role messages (skip if either is multimodal array content)
+        if (Array.isArray(prev.content) || Array.isArray(msg.content)) {
+          cleanedMessages.push({ ...msg });
+          continue;
+        }
         prev.content += "\n" + msg.content;
       } else {
         cleanedMessages.push({ ...msg });
