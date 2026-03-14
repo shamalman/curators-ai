@@ -815,7 +815,7 @@ async function getAgentResultsForDelivery(profileId, message, sb) {
       .is("presented_at", null)
       .order("completed_at", { ascending: false });
 
-    if (error || !jobs || jobs.length === 0) return "";
+    if (error || !jobs || jobs.length === 0) return { block: "", deliveredJobIds: [] };
 
     const platforms = jobs.map(j => j.source_type);
 
@@ -834,7 +834,8 @@ async function getAgentResultsForDelivery(profileId, message, sb) {
       .update({ presented_at: new Date().toISOString() })
       .in("id", jobIds);
 
-    return `\nAGENT RESULTS READY:
+    return {
+      block: `\nAGENT RESULTS READY:
 I finished analyzing your ${platforms.join(" and ")}.
 
 TASTE READ to deliver:
@@ -845,10 +846,12 @@ INSTRUCTIONS:
 - End with "Am I reading that right?" or "What am I missing?"
 - After delivering the taste read, transition naturally back to conversation. Ask about their taste or ask for a rec.
 - Do NOT show any rec cards. Taste read only.
-`;
+`,
+      deliveredJobIds: jobIds,
+    };
   } catch (err) {
     console.error("Failed to get agent results for delivery:", err);
-    return "";
+    return { block: "", deliveredJobIds: [] };
   }
 }
 
@@ -980,11 +983,12 @@ export async function POST(request) {
 
       // Check if curator is asking for agent results (banner click)
       if (message) {
-        const deliveryBlock = await getAgentResultsForDelivery(profileId, message, sb);
-        if (deliveryBlock) {
-          agentBlock += deliveryBlock;
-          // Results were delivered — clear unpresentedJobs so agentReady isn't sent back
-          unpresentedJobs = [];
+        const delivery = await getAgentResultsForDelivery(profileId, message, sb);
+        if (delivery.block) {
+          agentBlock += delivery.block;
+          // Filter delivered jobs out of unpresentedJobs so agentReady doesn't re-send them
+          const deliveredSet = new Set(delivery.deliveredJobIds);
+          unpresentedJobs = unpresentedJobs.filter(j => !deliveredSet.has(j.id));
         }
       }
 
