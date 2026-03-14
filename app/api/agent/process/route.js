@@ -286,7 +286,8 @@ export async function POST(request) {
     const prompt = buildExtractionPrompt(job.source_type, metadata, items);
 
     const message = await anthropic.messages.create({
-      model: "claude-opus-4-20250514",
+      // Using Sonnet for speed (60s Vercel timeout). Switch to claude-opus-4-20250514 on Vercel Pro.
+      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });
