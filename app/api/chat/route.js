@@ -318,7 +318,7 @@ When a curator pastes ANY link — whether it's a playlist, profile, single song
 4. If they want a TASTE READ: the agent will process it in the background. Keep the conversation going while it works.
 5. If they don't specify or say something ambiguous, default to asking again simply: "Recommendation or taste read?"
 
-EXCEPTION: ONLY for the curator's FIRST message after the opening message — if they respond directly to "where do you usually share recommendations?" with links, treat those as taste analysis sources without asking. For ALL subsequent links during onboarding, ask: "Want me to add this as a recommendation, or give you a taste read on it?"
+EXCEPTION: During onboarding (0 recs, no bio), if the curator's message contains ONLY links/URLs with no other text, treat these as taste analysis sources without asking. The context makes intent clear — they're responding to your prompt about where they curate. If the message contains links WITH conversation text, still ask.
 
 - If it's a platform you can't read yet: Be honest. "I can't read that platform yet, but it's on my list. For now, just tell me your favorites from there."
 - NEVER say "come back later." Keep the conversation going regardless of agent status.
@@ -848,11 +848,6 @@ async function processUrlsForAgent(message, profileId, sb) {
         continue;
       }
 
-      if (detection.classification === "single_item") {
-        agentNotes.push({ url, type: "single_item", sourceType: detection.sourceType });
-        continue;
-      }
-
       if (!detection.implemented) {
         agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
         continue;
@@ -880,7 +875,7 @@ async function processUrlsForAgent(message, profileId, sb) {
         continue;
       }
 
-      agentNotes.push({ url, type: "agent_started", sourceType: detection.sourceType, jobId: job.id });
+      agentNotes.push({ url, type: "agent_started", sourceType: detection.sourceType, jobId: job.id, classification: detection.classification });
     } catch (err) {
       console.error("Error processing URL for agent:", url, err);
     }
@@ -896,7 +891,11 @@ function buildAgentUrlNotes(agentNotes) {
   const lines = [];
   for (const note of agentNotes) {
     if (note.type === "agent_started") {
-      lines.push(`URL DETECTED: ${note.url} — Agent is now analyzing this ${note.sourceType} source. Acknowledge it and keep the conversation going.`);
+      if (note.classification === "single_item") {
+        lines.push(`URL DETECTED: ${note.url} — This is a single ${note.sourceType} item. Agent is analyzing it in the background. Ask the curator: "Want me to add this as a recommendation, or give you a taste read on it?"`);
+      } else {
+        lines.push(`URL DETECTED: ${note.url} — Agent is now analyzing this ${note.sourceType} source. Acknowledge it and keep the conversation going.`);
+      }
     } else if (note.type === "already_processing") {
       if (note.status === "completed") {
         lines.push(`URL DETECTED: ${note.url} — Already analyzed this source. Results are in the agent context above.`);
@@ -907,8 +906,6 @@ function buildAgentUrlNotes(agentNotes) {
       lines.push(`URL DETECTED: ${note.url} — This is a ${note.sourceType} link. I can't read this platform yet, but it's on my list. Be honest about it.`);
     } else if (note.type === "unsupported") {
       lines.push(`URL DETECTED: ${note.url} — I don't support this platform yet. Be honest. Ask them to tell you their favorites from there instead.`);
-    } else if (note.type === "single_item") {
-      lines.push(`URL DETECTED: ${note.url} — This is a single item (${note.sourceType}). Treat it as a normal rec capture — react to it, ask for context.`);
     }
   }
 
