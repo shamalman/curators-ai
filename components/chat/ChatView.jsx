@@ -76,6 +76,7 @@ export default function ChatView({ variant }) {
   const isBackNav = useRef(messages.length > 0);
   const nudgeTimer = useRef(null);
   const typedSinceSave = useRef(false);
+  const deliveredJobIds = useRef(new Set());
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [agentPollingJobs, setAgentPollingJobs] = useState([]);
@@ -258,6 +259,7 @@ export default function ChatView({ variant }) {
 
   // Add agent banner if not already showing one for this job
   const addAgentBanner = (jobId, sourceType, sourceName) => {
+    if (deliveredJobIds.current.has(jobId)) return;
     setMessages(m => {
       if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) return m;
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
@@ -320,11 +322,18 @@ export default function ChatView({ variant }) {
   const sendAgentResultsRequest = (sourceName) => {
     const msg = `Show me what you found from my ${sourceName}`;
     shouldScroll.current = true;
-    // Mark all banners for this source as consumed, then add the user message
-    setMessages(m => [
-      ...m.map(x => x.type === 'agentComplete' && x.sourceName === sourceName ? { ...x, consumed: true } : x),
-      { role: "user", text: msg },
-    ]);
+    // Mark all banners for this source as consumed and track delivered jobIds
+    setMessages(m => {
+      m.forEach(x => {
+        if (x.type === 'agentComplete' && x.sourceName === sourceName && x.jobId) {
+          deliveredJobIds.current.add(x.jobId);
+        }
+      });
+      return [
+        ...m.map(x => x.type === 'agentComplete' && x.sourceName === sourceName ? { ...x, consumed: true } : x),
+        { role: "user", text: msg },
+      ];
+    });
     saveMsgToDb("user", msg);
     setInput("");
     setTyping(true);
