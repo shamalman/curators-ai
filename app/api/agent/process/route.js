@@ -13,6 +13,28 @@ const anthropic = new Anthropic({
   },
 });
 
+// Robust JSON parsing — tries multiple strategies before giving up
+function parseJsonResponse(text) {
+  if (!text) return null;
+
+  // Strategy 1: raw parse
+  try { return JSON.parse(text); } catch {}
+
+  // Strategy 2: strip markdown code fences
+  try {
+    const stripped = text.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    return JSON.parse(stripped);
+  } catch {}
+
+  // Strategy 3: extract first { ... } block
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch {}
+
+  return null;
+}
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -210,15 +232,17 @@ export async function POST(request) {
 
     // Parse Claude's response
     const responseText = message.content[0]?.text || "";
-    let analysis;
-    try {
-      // Strip markdown code fences if present (just in case)
-      const cleaned = responseText.replace(/^```json?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      analysis = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error("Process route: failed to parse Claude response:", parseErr);
+    let analysis = parseJsonResponse(responseText);
+
+    if (!analysis) {
+      console.error("Process route: all JSON parse strategies failed");
       console.error("Raw response:", responseText.slice(0, 500));
-      throw new Error("Failed to parse AI analysis response");
+      // Complete the job with empty results rather than failing
+      analysis = {
+        candidate_recs: [],
+        items_analyzed: [],
+        taste_analysis: { summary: "Analysis could not be parsed. Please try again." },
+      };
     }
 
     // Update job with results
