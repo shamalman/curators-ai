@@ -63,6 +63,67 @@ function formatItem(item, index) {
 }
 
 function buildExtractionPrompt(sourceType, metadata, items) {
+  // Webpage-specific prompt — articles, blog posts, gift guides, reviews
+  if (sourceType === "webpage" || metadata.source === "webpage") {
+    return `You are analyzing a webpage/article for a curator on Curators.AI. Your job is to understand what this content reveals about the curator's taste and identify any specific recommendations.
+
+SOURCE INFO:
+Title: ${metadata.title || "Unknown"}
+URL: ${metadata.url}
+Author: ${metadata.author || "Unknown"}
+Site: ${metadata.providerName || "Unknown"}
+Description: ${metadata.description || "None"}
+
+ARTICLE CONTENT:
+${items.map(item => item.text || item.title || "").join("\n\n")}
+
+INSTRUCTIONS:
+1. Read the article and understand what it's about
+2. Identify any specific recommendations mentioned (products, restaurants, albums, books, places, shows, etc.)
+3. For each recommendation found, extract it with context from the article
+4. Generate a taste analysis — what does this article reveal about the author/curator's taste, style, and aesthetic?
+
+EXTRACTION RULES:
+- If the article is a SINGLE REVIEW (one album, one restaurant, one book), extract that as one candidate rec
+- If the article is a LISTICLE or GIFT GUIDE, extract each recommended item separately
+- If the article is an essay or opinion piece with no specific recs, return an empty candidate_recs array — the taste analysis is what matters
+- For each rec, determine the correct category:
+  - listen: songs, albums, podcasts, playlists, mixes, EPs, audiobooks
+  - watch: films, series, documentaries, videos, anime, standup specials
+  - read: books, articles, substacks, essays, newsletters, papers
+  - visit: restaurants, bars, cafes, hotels, parks, museums, cities
+  - get: apps, tools, gadgets, gear, products, software
+  - wear: clothing, shoes, accessories, fashion, beauty
+  - play: games, sports, activities, hobbies
+  - other: anything that doesn't fit
+- tags: MUST include one content-type tag first (album, restaurant, book, product, film, etc.) followed by descriptive tags
+- context: Use the article's own words and perspective — what did the author say about this item?
+- confidence: How clearly is this a genuine recommendation vs just a passing mention? (0.0–1.0)
+
+Respond with JSON only, no markdown code fences:
+{
+  "article_summary": "1-2 sentence summary of what the article is about",
+  "candidate_recs": [
+    {
+      "title": "Name of recommended thing",
+      "category": "listen|watch|read|visit|get|wear|play|other",
+      "context": "Why they recommend it — use their words/perspective from the article",
+      "tags": ["content-type-tag", "descriptive-tag-1", "descriptive-tag-2"],
+      "confidence": 0.8
+    }
+  ],
+  "taste_analysis": {
+    "content_breakdown": {"get": 5, "listen": 2},
+    "patterns": ["pattern 1", "pattern 2"],
+    "primary_moods": ["mood 1", "mood 2"],
+    "genres": [],
+    "contexts": ["gifting", "lifestyle"],
+    "taste_thesis": "2-3 sentence thesis about what this article reveals about the curator's taste. Be specific — reference actual items from the article."
+  }
+}`;
+  }
+
+  // Default prompt for structured sources (Spotify, Apple Music, etc.)
   return `You are analyzing a source for a curator on Curators.AI. Your job is to figure out what each item actually IS, extract genuine recommendations, and analyze the curator's taste.
 
 SOURCE INFO:
@@ -253,6 +314,7 @@ export async function POST(request) {
         extracted_recs: {
           candidate_recs: analysis.candidate_recs || [],
           items_analyzed: analysis.items_analyzed || [],
+          article_summary: analysis.article_summary || null,
         },
         taste_analysis: analysis.taste_analysis || {},
         completed_at: new Date().toISOString(),
