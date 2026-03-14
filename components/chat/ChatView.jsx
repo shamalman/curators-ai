@@ -262,10 +262,11 @@ export default function ChatView({ variant }) {
       // Check if banner already exists in messages
       if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) return m;
       // Check if taste read was already delivered for this source
+      const sourceLC = sourceName.toLowerCase();
       if (m.some(msg => msg.role === 'ai' && msg.text &&
-        (msg.text.includes('went through your ' + sourceName) ||
-         msg.text.includes('went through your stuff') ||
-         msg.text.includes("Here's what I see")))) return m;
+        (msg.text.toLowerCase().includes('went through your ' + sourceLC) ||
+         msg.text.toLowerCase().includes('went through your stuff') ||
+         (msg.text.includes("Here's what I see") && msg.text.toLowerCase().includes(sourceLC))))) return m;
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
     });
     shouldScroll.current = true;
