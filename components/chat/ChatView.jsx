@@ -77,8 +77,7 @@ export default function ChatView({ variant }) {
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [agentPollingJobs, setAgentPollingJobs] = useState([]);
-  const [completedAgentJobs, setCompletedAgentJobs] = useState([]);
-  const completedJobIds = useRef(new Set());
+  const bannerJobIds = useRef(new Set());
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -239,12 +238,38 @@ export default function ChatView({ variant }) {
     setMessages([{ role: "ai", text: openingMessage }]);
   }, [dbLoaded]);
 
+  // Add agent banner if not already showing one for this job
+  const addAgentBanner = (jobId, sourceType, sourceName) => {
+    if (bannerJobIds.current.has(jobId)) return;
+    bannerJobIds.current.add(jobId);
+    shouldScroll.current = true;
+    setMessages(m => [...m, { type: 'agentComplete', jobId, sourceType, sourceName }]);
+  };
+
+  // Check for completed unpresented agent jobs on mount
+  useEffect(() => {
+    if (!isCurator || !profileId || !dbLoaded) return;
+    fetch('/api/agent/check')
+      .then(r => r.json())
+      .then(data => {
+        if (data.jobs && data.jobs.length > 0) {
+          for (const job of data.jobs) {
+            addAgentBanner(job.jobId, job.sourceType, job.sourceName);
+          }
+        }
+        // Resume polling for any processing jobs
+        if (data.processing && data.processing.length > 0) {
+          setAgentPollingJobs(prev => [...prev, ...data.processing]);
+        }
+      })
+      .catch(err => console.error('Agent check error:', err));
+  }, [isCurator, profileId, dbLoaded]);
+
   // Poll agent jobs for completion
   useEffect(() => {
     if (agentPollingJobs.length === 0) return;
     const startTime = Date.now();
     const interval = setInterval(async () => {
-      // Timeout after 2 minutes
       if (Date.now() - startTime > 120000) {
         setAgentPollingJobs([]);
         clearInterval(interval);
@@ -252,8 +277,7 @@ export default function ChatView({ variant }) {
       }
       for (const job of agentPollingJobs) {
         try {
-          // Skip if we already added a banner for this job
-          if (completedJobIds.current.has(job.jobId)) {
+          if (bannerJobIds.current.has(job.jobId)) {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
             continue;
           }
@@ -261,16 +285,12 @@ export default function ChatView({ variant }) {
           if (!res.ok) continue;
           const data = await res.json();
           if (data.status === 'completed') {
-            completedJobIds.current.add(job.jobId);
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            setCompletedAgentJobs(prev => [...prev, job]);
-            // Add banner as a system message in the chat
             const sourceName = job.sourceType === 'spotify' ? 'Spotify'
               : job.sourceType === 'apple_music' ? 'Apple Music'
               : job.sourceType === 'google_maps' ? 'Google Maps'
               : job.sourceType;
-            shouldScroll.current = true;
-            setMessages(m => [...m, { type: 'agentComplete', sourceType: job.sourceType, sourceName }]);
+            addAgentBanner(job.jobId, job.sourceType, sourceName);
           } else if (data.status === 'failed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
           }
@@ -285,9 +305,9 @@ export default function ChatView({ variant }) {
   const sendAgentResultsRequest = (sourceName) => {
     const msg = `Show me what you found from my ${sourceName}`;
     shouldScroll.current = true;
-    // Mark the banner as consumed so it doesn't re-render, then add the user message
+    // Mark all banners for this source as consumed, then add the user message
     setMessages(m => [
-      ...m.map(msg => msg.type === 'agentComplete' && msg.sourceName === sourceName ? { ...msg, consumed: true } : msg),
+      ...m.map(x => x.type === 'agentComplete' && x.sourceName === sourceName ? { ...x, consumed: true } : x),
       { role: "user", text: msg },
     ]);
     saveMsgToDb("user", msg);
@@ -432,6 +452,13 @@ export default function ChatView({ variant }) {
           }).catch(err => console.error('Agent process failed:', err));
         }
         setAgentPollingJobs(prev => [...prev, ...data.agentJobs]);
+      }
+
+      // Show banner if agent results are ready (completed unpresented jobs)
+      if (data.agentReady && data.agentReady.length > 0) {
+        for (const job of data.agentReady) {
+          addAgentBanner(job.jobId, job.sourceType, job.sourceName);
+        }
       }
 
       let text = data.message;

@@ -1032,9 +1032,22 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       .filter(n => n.type === 'agent_started')
       .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
 
+    // Include agent readiness info for frontend banner
+    const agentReady = unpresentedJobs.length > 0
+      ? unpresentedJobs.map(j => ({
+          jobId: j.id,
+          sourceType: j.source_type,
+          sourceName: j.source_type === 'spotify' ? 'Spotify'
+            : j.source_type === 'apple_music' ? 'Apple Music'
+            : j.source_type === 'google_maps' ? 'Google Maps'
+            : j.source_type,
+        }))
+      : undefined;
+
     return NextResponse.json({
       message: aiMessage,
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
+      agentReady,
     });
   } catch (error) {
     console.error("Chat API error:", error);
