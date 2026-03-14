@@ -259,9 +259,16 @@ export default function ChatView({ variant }) {
 
   // Add agent banner if not already showing one for this job
   const addAgentBanner = (jobId, sourceType, sourceName) => {
-    if (deliveredJobIds.current.has(jobId)) return;
+    if (deliveredJobIds.current.has(jobId)) {
+      console.log('addAgentBanner BLOCKED by ref:', jobId);
+      return;
+    }
     setMessages(m => {
-      if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) return m;
+      if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) {
+        console.log('addAgentBanner BLOCKED by messages:', jobId);
+        return m;
+      }
+      console.log('addAgentBanner ADDING:', jobId, sourceName);
       return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
     });
     shouldScroll.current = true;
@@ -319,21 +326,16 @@ export default function ChatView({ variant }) {
     return () => clearInterval(interval);
   }, [agentPollingJobs]);
 
-  const sendAgentResultsRequest = (sourceName) => {
+  const sendAgentResultsRequest = (jobId, sourceName) => {
     const msg = `Show me what you found from my ${sourceName}`;
+    // Immediately block this job from future banners
+    deliveredJobIds.current.add(jobId);
+    // Remove this banner from messages immediately, add user message
+    setMessages(m => [
+      ...m.filter(x => !(x.type === 'agentComplete' && x.jobId === jobId)),
+      { role: "user", text: msg },
+    ]);
     shouldScroll.current = true;
-    // Mark all banners for this source as consumed and track delivered jobIds
-    setMessages(m => {
-      m.forEach(x => {
-        if (x.type === 'agentComplete' && x.sourceName === sourceName && x.jobId) {
-          deliveredJobIds.current.add(x.jobId);
-        }
-      });
-      return [
-        ...m.map(x => x.type === 'agentComplete' && x.sourceName === sourceName ? { ...x, consumed: true } : x),
-        { role: "user", text: msg },
-      ];
-    });
     saveMsgToDb("user", msg);
     setInput("");
     setTyping(true);
@@ -716,7 +718,7 @@ export default function ChatView({ variant }) {
                             </div>
                           </div>
                         </div>
-                        <button onClick={() => sendAgentResultsRequest(msg.sourceName)} style={{
+                        <button onClick={() => sendAgentResultsRequest(msg.jobId, msg.sourceName)} style={{
                           padding: "8px 16px", borderRadius: 10, border: "none",
                           background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
                           cursor: "pointer", fontFamily: F, whiteSpace: "nowrap",
