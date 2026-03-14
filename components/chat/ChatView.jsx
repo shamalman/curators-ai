@@ -77,7 +77,6 @@ export default function ChatView({ variant }) {
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [agentPollingJobs, setAgentPollingJobs] = useState([]);
-  const bannerJobIds = useRef(new Set());
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -240,10 +239,12 @@ export default function ChatView({ variant }) {
 
   // Add agent banner if not already showing one for this job
   const addAgentBanner = (jobId, sourceType, sourceName) => {
-    if (bannerJobIds.current.has(jobId)) return;
-    bannerJobIds.current.add(jobId);
+    setMessages(m => {
+      // Check if banner already exists in messages
+      if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) return m;
+      return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
+    });
     shouldScroll.current = true;
-    setMessages(m => [...m, { type: 'agentComplete', jobId, sourceType, sourceName }]);
   };
 
   // Check for completed unpresented agent jobs on mount
@@ -277,10 +278,6 @@ export default function ChatView({ variant }) {
       }
       for (const job of agentPollingJobs) {
         try {
-          if (bannerJobIds.current.has(job.jobId)) {
-            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            continue;
-          }
           const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
           if (!res.ok) continue;
           const data = await res.json();
