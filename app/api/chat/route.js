@@ -305,8 +305,8 @@ If the curator drops links and the agent is processing, you still need to keep t
 - Don't explain features, don't list capabilities. Just keep the conversation natural.`;
 }
 
-// ── Fetch network recommendations for standard mode ──
-async function getNetworkRecs(profileId) {
+// ── Fetch subscribed + broader recs for standard mode ──
+async function getSubscribedRecs(profileId) {
   try {
     const sb = getSupabaseAdmin();
 
@@ -339,7 +339,7 @@ async function getNetworkRecs(profileId) {
       subscribedRecs = recs || [];
     }
 
-    // 3. Fetch broader network recs (other curators, up to 100 most recent)
+    // 3. Fetch broader platform recs (other curators, up to 100 most recent)
     const excludeIds = [profileId, ...subscribedIds];
     const { data: broaderRecs } = await sb
       .from("recommendations")
@@ -350,9 +350,9 @@ async function getNetworkRecs(profileId) {
       .limit(100);
 
     // 4. Format subscribed curators block
-    let networkBlock = "";
+    let subscribedBlock = "";
     if (subscribedIds.length === 0) {
-      networkBlock = "\nNETWORK RECOMMENDATIONS:\nYou don't subscribe to any curators yet. When you do, I'll be able to surface their recommendations.";
+      subscribedBlock = "\nSUBSCRIBED RECOMMENDATIONS:\nYou don't subscribe to any curators yet. When you do, I'll be able to surface their recommendations.";
     } else {
       // Group subscribed recs by curator
       const byCurator = {};
@@ -366,7 +366,7 @@ async function getNetworkRecs(profileId) {
         const names = subscribedIds
           .map(id => subscribedProfiles[id]?.name || "Unknown")
           .join(", ");
-        networkBlock = `\nNETWORK RECOMMENDATIONS:\nYou subscribe to ${names} but they haven't added any recommendations yet.`;
+        subscribedBlock = `\nSUBSCRIBED RECOMMENDATIONS:\nYou subscribe to ${names} but they haven't added any recommendations yet.`;
       } else {
         const sections = subscribedIds
           .filter(id => byCurator[id].length > 0)
@@ -384,7 +384,7 @@ async function getNetworkRecs(profileId) {
             });
             return `@${p?.handle || "unknown"} (${p?.name || "Unknown"}) - ${recs.length} rec${recs.length !== 1 ? "s" : ""}:\n${recLines.join("\n")}`;
           });
-        networkBlock = `\nNETWORK RECOMMENDATIONS (from curators you subscribe to):\n---\n${sections.join("\n---\n")}\n---`;
+        subscribedBlock = `\nSUBSCRIBED RECOMMENDATIONS (from curators you subscribe to):\n---\n${sections.join("\n---\n")}\n---`;
       }
     }
 
@@ -403,10 +403,10 @@ async function getNetworkRecs(profileId) {
       broaderBlock = `\n\nBROADER NETWORK (other curators on the platform):\n---\n${lines.join("\n")}\n---`;
     }
 
-    return networkBlock + broaderBlock;
+    return subscribedBlock + broaderBlock;
   } catch (err) {
-    console.error("Failed to fetch network recs:", err);
-    return "\nNETWORK RECOMMENDATIONS:\nUnable to load network data right now.";
+    console.error("Failed to fetch subscribed recs:", err);
+    return "\nSUBSCRIBED RECOMMENDATIONS:\nUnable to load subscription data right now.";
   }
 }
 
@@ -576,10 +576,10 @@ WHAT NOT TO DO:
 - Don't recommend things back to them
 - Keep responses SHORT. 2-3 sentences max for conversational replies. Only the capture format should be longer.
 
-NETWORK & DISCOVERY:
-When the curator asks about their network, what other curators are sharing, or wants discovery suggestions, use the network data below. Reference specific recs from specific curators. Don't volunteer network recs unprompted — only surface them when asked or when naturally relevant.
+SUBSCRIPTIONS & DISCOVERY:
+When the curator asks about their subscriptions, what other curators are sharing, or wants discovery suggestions, use the subscribed recs data below. Reference specific recs from specific curators. Don't volunteer subscribed recs unprompted — only surface them when asked or when naturally relevant.
 
-When mentioning a network recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Pok Pok](/maya/pok-pok). This lets the curator tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.
+When mentioning a subscribed curator's recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Pok Pok](/maya/pok-pok). This lets the curator tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.
 
 FEEDBACK CAPTURE — MANDATORY:
 When a curator asks about something the app cannot currently do (scraping, bulk import, Notion integration, notifications, analytics, making money, scheduling, or any other missing feature), you MUST do two things:
@@ -928,7 +928,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         inviterNote: inviterCtx.inviterNote,
       }) + recsContext + agentBlock;
     } else {
-      const networkContext = profileId ? await getNetworkRecs(profileId) : '';
+      const networkContext = profileId ? await getSubscribedRecs(profileId) : '';
       systemPrompt = buildStandardPrompt({
         curatorName,
         curatorHandle: curatorHandle || '',
