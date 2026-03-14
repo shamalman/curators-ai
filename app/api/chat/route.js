@@ -1137,6 +1137,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
             : j.source_type === 'google_maps' ? 'Google Maps'
             : j.source_type === 'youtube' ? 'YouTube'
             : j.source_type === 'letterboxd' ? 'Letterboxd'
+            : j.source_type === 'goodreads' ? 'Goodreads'
             : j.source_type === 'webpage' ? 'Webpage'
             : j.source_type,
         }))
