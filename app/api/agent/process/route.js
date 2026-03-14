@@ -100,6 +100,13 @@ EXTRACTION RULES:
 - context: Use the article's own words and perspective — what did the author say about this item?
 - confidence: How clearly is this a genuine recommendation vs just a passing mention? (0.0–1.0)
 
+PARTIAL DATA RULE:
+If you only have a small sample of items from a larger source (e.g., 4 tracks from a 60-track playlist), you MUST:
+- Name every specific track/artist/item you DO have — never generalize when you have specific data
+- Acknowledge the sample size: "I could only access [N] tracks from your [total]-track playlist"
+- Make observations based on the specific items, not generic genre descriptions
+- Example: "From the 4 tracks I could see — Real Lies, Tchami, [etc.] — you're balancing scene pioneers with underground bootlegs" NOT "You have a refined ear for future house"
+
 Respond with JSON only, no markdown code fences:
 {
   "article_summary": "1-2 sentence summary of what the article is about",
@@ -201,7 +208,14 @@ Respond with JSON only, no markdown code fences. Use this exact structure:
     "contexts": ["when/where they consume this — commuting, cooking, etc."],
     "taste_thesis": "A 2-3 sentence thesis about this curator's taste across ALL content types found. Be specific and insightful, not generic. Reference the actual mix of content."
   }
-}`;
+}
+
+PARTIAL DATA RULE:
+If you only have a small sample of items from a larger source (e.g., 4 tracks from a 60-track playlist), you MUST:
+- Name every specific track/artist/item you DO have — never generalize when you have specific data
+- Acknowledge the sample size: "I could only access [N] tracks from your [total]-track playlist"
+- Make observations based on the specific items, not generic genre descriptions
+- Example: "From the 4 tracks I could see — Real Lies, Tchami, [etc.] — you're balancing scene pioneers with underground bootlegs" NOT "You have a refined ear for future house"`;
 }
 
 export async function POST(request) {
