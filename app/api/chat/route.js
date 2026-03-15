@@ -1165,7 +1165,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     console.error("Chat API error:", error?.message || error);
     console.error("Chat API stack:", error?.stack || "no stack");
     return NextResponse.json(
-      { message: "Sorry, I'm having trouble right now. Try again in a moment." },
+      { message: "Error: " + (error?.message || "unknown") + " | Stack: " + (error?.stack || "none").slice(0, 300) },
       { status: 500 }
     );
   }
