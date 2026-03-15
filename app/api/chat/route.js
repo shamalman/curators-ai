@@ -1162,7 +1162,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
-    console.error("Chat API error:", error);
+    console.error("Chat API error:", error?.message || error);
+    console.error("Chat API stack:", error?.stack || "no stack");
     return NextResponse.json(
       { message: "Sorry, I'm having trouble right now. Try again in a moment." },
       { status: 500 }
