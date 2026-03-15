@@ -102,18 +102,26 @@ lib/
   resend.js           # Email (Resend) client
   email-tokens.js     # Signed token generate/validate/consume for email actions
   email-templates.js  # HTML email templates (new subscriber, weekly digest)
+  agent/
+    registry.js       # Source parser registry — detectSource(), getParser()
+    parsers/          # One file per source platform
+      spotify.js, apple-music.js, youtube.js, google-maps.js,
+      letterboxd.js, goodreads.js, soundcloud.js, twitter.js, webpage.js
 ```
 
 ## Key Files
 
 ### API Routes
-- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation
+- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent)
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
 - `app/api/generate-style-summary/route.js` — AI-generated curator style/personality JSON
 - `app/api/notify/new-subscriber/route.js` — Sends new subscriber email via Resend (checks new_subscriber_email_enabled)
 - `app/api/email-action/route.js` — Handles signed token URLs from emails (unsubscribe, save rec). Supports GET (browser click) + POST (RFC 8058 one-click)
 - `app/api/cron/weekly-digest/route.js` — Vercel cron (Thursdays 2pm UTC). Sends digest of new recs from subscribed curators. Requires CRON_SECRET auth header
+- `app/api/agent/process/route.js` — Runs parser + Claude extraction for an agent job. Called by frontend after job creation
+- `app/api/agent/check/route.js` — Returns completed unpresented jobs + processing jobs for current user (polling endpoint)
+- `app/api/agent/status/route.js` — Returns status of a single agent job (used by polling interval)
 
 ### Auth Flow Files
 - `app/signup/page.js` — Validates invite code, creates auth user, stores invite_context in localStorage, sets used_at on invite code
@@ -130,7 +138,7 @@ lib/
 - `components/visitor/VisitorProfile.jsx` — Public profile page. Stats row clickable (toggles recs/subscriptions/subscribers). Bookmarks pulled from CuratorContext directly (NOT useCurator())
 - `components/recs/RecCard.jsx` — Shared rec row with category emoji, title, context, date, optional curator handle, optional bookmark
 - `components/screens/EditProfile.jsx` — Uses useContext(CuratorContext) directly + useContext(VisitorContext) for refresh
-- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary
+- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary. Image/screenshot upload (camera icon + paste, base64 to Claude vision API, NOT stored in DB). Agent banner system with polling, deliveredJobIds ref, hasPendingBanner ref, isWaitingForResponse ref
 - `components/layout/BottomTabs.jsx` / `Sidebar.jsx` — Feedback tab shown only for handle === "shamal" (hardcoded)
 
 ### Context
@@ -243,6 +251,23 @@ used_at TIMESTAMPTZ (null until used)
 created_at TIMESTAMPTZ DEFAULT now()
 ```
 RLS: service role only (no client access)
+
+### agent_jobs
+```
+id UUID PK
+profile_id UUID FK → profiles(id)
+source_type TEXT (spotify, apple_music, youtube, google_maps, letterboxd, goodreads, soundcloud, twitter, webpage)
+source_url TEXT
+status TEXT (pending, processing, completed, failed)
+raw_data JSONB (parser output: metadata + items)
+extracted_recs JSONB (Claude extraction: candidate_recs, items_analyzed, article_summary)
+taste_analysis JSONB (Claude taste analysis: patterns, moods, genres, taste_thesis)
+error_message TEXT
+started_at TIMESTAMPTZ
+completed_at TIMESTAMPTZ
+presented_at TIMESTAMPTZ (null until banner clicked and results delivered)
+created_at TIMESTAMPTZ
+```
 
 ### Other tables
 - chat_messages: id, profile_id, role, text, captured_rec JSONB, created_at
@@ -368,6 +393,82 @@ Mapping happens in CuratorContext (4 places) and VisitorContext (1 place). Keep 
 
 ---
 
+## Agent Pipeline (Magic AI)
+
+Curators drop links → parser extracts items → Claude analyzes taste → results delivered via banner click.
+
+### Parsers (lib/agent/parsers/)
+All registered in `lib/agent/registry.js`. `implementedParsers`: spotify, apple-music, youtube, google-maps, letterboxd, goodreads, soundcloud, twitter, webpage.
+
+| Parser | Strategy | Limitations |
+|--------|----------|-------------|
+| Spotify | Embed page scraping | Works for playlists, albums, tracks |
+| Apple Music | serialized-server-data | Works for playlists, albums |
+| YouTube | ytInitialData from HTML | Playlists, channels, videos |
+| SoundCloud | `window.__sc_hydration` + oEmbed | ~5 tracks from playlists (hydration limit) |
+| Letterboxd | Clean HTML scraping | Profiles + individual films |
+| Goodreads | Clean HTML (JSON-LD, `<a title>`, href slugs) | Shelves + books |
+| Google Maps | URL parsing + APP_INITIALIZATION_STATE | Single places only — lists are JS-rendered |
+| Twitter/X | Syndication endpoint + oEmbed | Profiles often blocked; single tweets via oEmbed work |
+| Webpage | Generic fallback (OG tags, article extraction) | Articles, blogs, Substack, gift guides |
+
+### Agent Flow
+1. Curator sends URL in chat → `processUrlsForAgent` creates agent_job (ALL supported URLs, no classification filter)
+2. Frontend triggers `/api/agent/process` with jobId
+3. Parser extracts metadata + items → Claude Sonnet analyzes → results stored in agent_jobs
+4. Frontend polls `/api/agent/check` every 5s → banner appears when job completes
+5. Curator clicks banner → `sendAgentResultsRequest` sends "Show me what you found" → `getAgentResultsForDelivery` injects taste read into system prompt → `presented_at` set
+6. Email notification sent if curator left (last_seen_at > 5min ago)
+
+### Chat Route Agent Functions (app/api/chat/route.js)
+- `getAgentContext(profileId, sb)` — Returns `{ agentBlock }` with pending/processing status ONLY (never completed results)
+- `getAgentResultsForDelivery(profileId, message, sb)` — Fires only on "show me what you found" patterns. Returns `{ block, deliveredJobIds }`. Sets `presented_at` inside the function
+- `processUrlsForAgent(message, profileId, sb)` — Creates agent jobs for ALL supported URLs
+- `buildAgentUrlNotes(agentNotes)` — Builds URL-specific prompt notes
+- Link intent: every link asks "recommendation or taste read?" — no exceptions
+- After taste reads, AI asks "Want this as part of your official taste profile?"
+
+### ChatView Banner Architecture (components/chat/ChatView.jsx)
+- Polling via `/api/agent/check` is the ONLY source of banners (no agentReady in chat response)
+- `deliveredJobIds` ref — permanent Set tracking all clicked banner jobIds
+- `hasPendingBanner` ref — pauses polling while a banner is visible
+- `isWaitingForResponse` ref — set during both `send()` AND `sendAgentResultsRequest()`
+- `mountCheckDone` ref — ensures mount check fires only once
+- Banner click: immediately adds to `deliveredJobIds`, removes banner from DOM, sends "Show me what you found"
+- Polling skips when `hasPendingBanner || isWaitingForResponse` is true
+
+### Source Name Mappings
+Exist in BOTH `app/api/agent/check/route.js` AND `app/api/chat/route.js`:
+spotify → "Spotify", apple_music → "Apple Music", google_maps → "Google Maps", youtube → "YouTube", letterboxd → "Letterboxd", goodreads → "Goodreads", soundcloud → "SoundCloud", twitter → "X (Twitter)", webpage → "Webpage"
+
+---
+
+## Content Blocks Architecture (Next Major Phase)
+
+Migrating from text-based chat to structured content blocks. Architecture doc: `curators-content-blocks-architecture-v2.docx`
+
+- Every AI response becomes an array of typed blocks, not a text string
+- Block types: Text, TasteRead, RecCapture, AgentBanner, ActionButtons, MediaEmbed (future: NewsCard, DiscoveryCard, MilestoneCard, PromptCard)
+- Claude produces blocks via tool use / function calling — no more emoji parsing
+- Each block has renderers for: web app, mobile, email, SMS/WhatsApp, push notifications
+- Block schema: `{ type, data, meta: { timestamp, source, priority, category, freshness, actionability }, delivery_context: { audience, reason, trigger } }`
+- oEmbed strategy: fetch once at block level, store raw data, each channel renderer uses different parts. Fallback: oEmbed → OG tags → parser metadata
+- Analytics: every block defines `events[]` schema at design time — not retrofitted
+- Migration is incremental: 6 phases, each independently shippable. Phase 1: Foundation + MediaEmbed + ActionButtons
+- Replaces the current ad-hoc banner system with typed blocks with explicit lifecycle
+
+---
+
+## Known Issues & Decisions
+
+- **Banner duplicate race condition**: Polling can fire between banner click and `presented_at` DB write. Mitigated by `deliveredJobIds` ref + `hasPendingBanner` + `isWaitingForResponse`. Fully resolved by content blocks migration (AgentBanner as typed block with lifecycle)
+- **SoundCloud playlist limit**: Only ~5 tracks extracted (hydration data limitation). Partial data rule in extraction prompt handles this honestly
+- **Google Maps lists**: Cannot be scraped (JS-rendered). Only single places work
+- **Twitter/X profiles**: Likely blocked server-side. oEmbed works for single tweets. Syndication endpoint works sometimes
+- **Vercel Hobby 60s timeout**: Use Sonnet for extraction in `/api/agent/process`. Switch to Opus when upgrading to Vercel Pro
+
+---
+
 ## Deployment
 ```
 git add -A && git commit -m "message" && git push
@@ -404,8 +505,12 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Signed email token system for one-click unsubscribe/save from emails (RFC 8058)
 - Settings toggles persist to DB (weekly_digest_enabled, new_subscriber_email_enabled)
 - Vercel cron for weekly digest via vercel.json
+- Agent pipeline: 9 source parsers, Claude extraction, polling-based banner delivery
+- Image/screenshot upload in chat (base64 to Claude vision API)
+- Agent completion email notifications (Resend)
 
 ### Next Up
+- Content blocks architecture (Phase 1: Foundation + MediaEmbed + ActionButtons)
 - In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
