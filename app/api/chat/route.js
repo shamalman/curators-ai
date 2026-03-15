@@ -791,12 +791,12 @@ async function getAgentContext(profileId, sb) {
 
 // ── Deliver agent results ONLY when curator clicks the banner ──
 async function getAgentResultsForDelivery(profileId, message, sb) {
-  if (!message) return "";
+  if (!message) return { block: "", deliveredJobIds: [] };
 
   // Check if this message is asking for agent results
   const lc = message.toLowerCase();
   const isAskingForResults = /show me what you found|what did you find|what('d| did) you get|show me your (analysis|read|findings)|let('s| me) see (what|the)|taste read/i.test(lc);
-  if (!isAskingForResults) return "";
+  if (!isAskingForResults) return { block: "", deliveredJobIds: [] };
 
   try {
     const { data: jobs, error } = await sb
