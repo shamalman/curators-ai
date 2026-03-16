@@ -31,6 +31,9 @@ export default function FeedBlockGroup({ blocks, interactions, messageId, tapped
               />
             );
           }
+          case 'rec_capture':
+            // Rendered by ChatView save card area, not as a feed block
+            return null;
           default:
             return null;
         }

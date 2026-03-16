@@ -891,16 +891,30 @@ export default function ChatView({ variant }) {
                         handleInteraction(msgId, blockIdx, act);
                       }}
                     />
-                    {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
-                      <div style={{ marginTop: 8 }}>
+                    {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
+                      <div style={{ marginTop: 8, padding: 12, borderRadius: 12, border: "1px solid " + T.bdr, background: T.s }}>
+                        <div style={{ fontSize: 11, fontFamily: F, fontWeight: 600, color: CAT[msg.capturedRec.category]?.color || T.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                          {CAT[msg.capturedRec.category]?.emoji || "◆"} {msg.capturedRec.category}{msg.capturedRec.content_type ? ` · ${msg.capturedRec.content_type}` : ""}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 600, fontFamily: F, color: T.ink, marginBottom: 4 }}>{msg.capturedRec.title}</div>
+                        {msg.capturedRec.context && (
+                          <div style={{ fontSize: 13, fontFamily: F, color: T.ink2, fontStyle: "italic", marginBottom: 6 }}>"{msg.capturedRec.context}"</div>
+                        )}
+                        {msg.capturedRec.tags?.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                            {msg.capturedRec.tags.map((tag, t) => (
+                              <span key={t} style={{ fontSize: 11, fontFamily: F, padding: "2px 8px", borderRadius: 10, background: "#1e1b18", color: T.ink3 }}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
                         {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                            placeholder="Add a link (suggested)"
+                            placeholder="Add a link (optional)"
                             style={{
                               width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
-                              border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
+                              border: "1px solid " + T.bdr, fontSize: 13, fontFamily: F,
                               background: W.aiBub, color: T.ink, outline: "none",
                             }}
                             onFocus={e => e.target.style.borderColor = W.accent}
@@ -933,8 +947,8 @@ export default function ChatView({ variant }) {
                       />
                     )}
                     {(() => {
-                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase())?.links);
-                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()));
+                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase())?.links);
+                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()));
                       return isSaved && savedLinks?.length > 0 ? (
                         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: 12, color: T.ink3 }}>{"\uD83D\uDD17"}</span>
@@ -963,16 +977,30 @@ export default function ChatView({ variant }) {
                 return (
                   <div key={i} className="fu" style={{ animationDelay: `${i * .03}s` }}>
                     <FeedLegacyBubble text={msg.text} imagePreview={msg.imagePreview} />
-                    {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
-                      <div style={{ marginTop: 8 }}>
+                    {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
+                      <div style={{ marginTop: 8, padding: 12, borderRadius: 12, border: "1px solid " + T.bdr, background: T.s }}>
+                        <div style={{ fontSize: 11, fontFamily: F, fontWeight: 600, color: CAT[msg.capturedRec.category]?.color || T.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                          {CAT[msg.capturedRec.category]?.emoji || "◆"} {msg.capturedRec.category}{msg.capturedRec.content_type ? ` · ${msg.capturedRec.content_type}` : ""}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 600, fontFamily: F, color: T.ink, marginBottom: 4 }}>{msg.capturedRec.title}</div>
+                        {msg.capturedRec.context && (
+                          <div style={{ fontSize: 13, fontFamily: F, color: T.ink2, fontStyle: "italic", marginBottom: 6 }}>"{msg.capturedRec.context}"</div>
+                        )}
+                        {msg.capturedRec.tags?.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                            {msg.capturedRec.tags.map((tag, t) => (
+                              <span key={t} style={{ fontSize: 11, fontFamily: F, padding: "2px 8px", borderRadius: 10, background: "#1e1b18", color: T.ink3 }}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
                         {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
                           <input
                             value={captureLinkInputs[i] || ''}
                             onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                            placeholder="Add a link (suggested)"
+                            placeholder="Add a link (optional)"
                             style={{
                               width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
-                              border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
+                              border: "1px solid " + T.bdr, fontSize: 13, fontFamily: F,
                               background: W.aiBub, color: T.ink, outline: "none",
                             }}
                             onFocus={e => e.target.style.borderColor = W.accent}
@@ -1005,8 +1033,8 @@ export default function ChatView({ variant }) {
                       />
                     )}
                     {(() => {
-                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase())?.links);
-                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()));
+                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase())?.links);
+                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()));
                       return isSaved && savedLinks?.length > 0 ? (
                         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: 12, color: T.ink3 }}>{"\uD83D\uDD17"}</span>
