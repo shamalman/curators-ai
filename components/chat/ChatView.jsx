@@ -429,9 +429,9 @@ export default function ChatView({ variant }) {
       });
   };
 
-  const send = async () => {
-    if (!input.trim() && !pendingImage) return;
-    const msg = input.trim();
+  const send = async (overrideMsg) => {
+    const msg = overrideMsg || input.trim();
+    if (!msg && !pendingImage) return;
     const imageToSend = pendingImage;
     shouldScroll.current = true;
     setMessages(m => [...m, { role: "user", text: msg || (imageToSend ? "[sent an image]" : ""), imagePreview: imageToSend?.previewUrl || null }]);
@@ -856,7 +856,7 @@ export default function ChatView({ variant }) {
                       blocks={msg.blocks}
                       interactions={msg.interactions || []}
                       messageId={msg.id}
-                      onSendMessage={(action) => { setInput(action); }}
+                      onSendMessage={(action) => { send(action); }}
                       onInteraction={handleInteraction}
                     />
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (

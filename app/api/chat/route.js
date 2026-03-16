@@ -1232,7 +1232,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
 
     // ── Build content blocks ──
-    const detectedUrls = message ? (message.match(URL_REGEX) || []) : [];
+    // Strip metadata annotations added by the frontend to avoid duplicate URL detection
+    const rawMsgForBlocks = message ? message.replace(/\n\[(?:Link metadata|Pending link):.*\]$/s, '') : '';
+    const detectedUrls = rawMsgForBlocks.match(URL_REGEX) || [];
 
     let mediaEmbeds = [];
     if (!isVisitor && !generateOpening && detectedUrls.length > 0) {
