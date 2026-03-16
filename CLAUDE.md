@@ -461,7 +461,7 @@ spotify → "Spotify", apple_music → "Apple Music", google_maps → "Google Ma
 
 ---
 
-## Content Blocks (Phase 1 — Live)
+## Content Blocks (Phase 1 — Shipped March 16, 2026)
 
 Feed-based UI where AI responses are full-width editorial content blocks, not chat bubbles. User messages remain right-aligned bubbles. Handoff doc: `phase1-feed-mockup.jsx` for visual targets.
 
@@ -552,10 +552,9 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Agent pipeline: 9 source parsers, Claude extraction, polling-based banner delivery
 - Image/screenshot upload in chat (base64 to Claude vision API)
 - Agent completion email notifications (Resend)
-- Content blocks Phase 1: feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
+- Content blocks Phase 1 (shipped March 16, 2026): feed layout, MediaEmbed, ActionButtons live. Feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
 
 ### Next Up
-- Content blocks Phase 1 polish: interaction persistence verification, MediaEmbed oEmbed title debugging
 - Content blocks Phase 2: Claude tool use, TasteRead visual card
 - In-app badges on Subs tab for new subscribers
 
