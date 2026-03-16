@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { T, W, V, F, S, MN, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
-import MessageBubble from "./MessageBubble";
+import { supabase } from "@/lib/supabase";
 import CaptureCard from "./CaptureCard";
 import ProfileCaptureCard from "./ProfileCaptureCard";
+import FeedUserBubble from "../feed/FeedUserBubble";
+import FeedBlockGroup from "../feed/FeedBlockGroup";
+import FeedLegacyBubble from "../feed/FeedLegacyBubble";
 
 const linkStyle = {
   color: T.acc, textDecoration: "underline",
@@ -412,7 +415,7 @@ export default function ChatView({ variant }) {
             };
           }
         }
-        setMessages(m => [...m, { role: "ai", text, capturedRec }]);
+        setMessages(m => [...m, { role: "ai", text, capturedRec, blocks: data.blocks || null, interactions: [] }]);
         saveMsgToDb("ai", text, capturedRec, data.blocks);
         hasPendingBanner.current = false;
         isWaitingForResponse.current = false;
@@ -577,13 +580,47 @@ export default function ChatView({ variant }) {
         }
       }
 
-      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile }]);
+      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [] }]);
       saveMsgToDb("ai", text, capturedRec, data.blocks);
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
       isWaitingForResponse.current = false;
       setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
+    }
+  };
+
+  const handleInteraction = async (messageId, blockIndex, action) => {
+    if (!messageId) return;
+    // Optimistic update
+    setMessages(prev => prev.map(msg => {
+      if (msg.id !== messageId) return msg;
+      return {
+        ...msg,
+        interactions: [
+          ...(msg.interactions || []),
+          { block_index: blockIndex, action, interacted_at: new Date().toISOString() }
+        ]
+      };
+    }));
+    // Persist to DB
+    try {
+      const { data: existing } = await supabase
+        .from('chat_messages')
+        .select('interactions')
+        .eq('id', messageId)
+        .single();
+      await supabase
+        .from('chat_messages')
+        .update({
+          interactions: [
+            ...(existing?.interactions || []),
+            { block_index: blockIndex, action, interacted_at: new Date().toISOString() }
+          ]
+        })
+        .eq('id', messageId);
+    } catch (err) {
+      console.error('Failed to save interaction:', err);
     }
   };
 
@@ -709,7 +746,6 @@ export default function ChatView({ variant }) {
             {messages.map((msg, i) => {
               // Agent completion banner
               if (msg.type === "agentComplete") {
-                // Don't render consumed banners
                 if (msg.consumed) return null;
                 return (
                   <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
@@ -804,29 +840,25 @@ export default function ChatView({ variant }) {
                   </div>
                 );
               }
-              return (
-                <div key={i} className="fu" style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                  {msg.role === "ai" && (
-                    <div style={{ width: 24, height: 24, borderRadius: 7, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0, border: `1px solid ${W.accent}25` }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
-                    </div>
-                  )}
-                  <div style={{ maxWidth: "82%", minWidth: 0 }}>
-                    <div style={{
-                      padding: msg.role === "user" ? "12px 16px" : "14px 18px",
-                      borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "20px 20px 20px 6px",
-                      background: msg.role === "user" ? W.userBub : W.aiBub,
-                      color: msg.role === "user" ? W.userTxt : T.ink,
-                      fontSize: 14, lineHeight: 1.55, fontFamily: F,
-                      fontWeight: msg.role === "user" ? 500 : 400,
-                      border: msg.role === "user" ? "none" : `1px solid ${W.bdr}`,
-                      overflowWrap: "break-word", wordBreak: "break-word",
-                    }}>
-                      {msg.imagePreview && (
-                        <img src={msg.imagePreview} alt="" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 12, marginBottom: msg.text ? 8 : 0, display: "block" }} />
-                      )}
-                      {msg.role === "ai" ? renderMd(msg.text) : msg.text}
-                    </div>
+              // User message
+              if (msg.role === "user") {
+                return (
+                  <div key={i} className="fu" style={{ animationDelay: `${i * .03}s` }}>
+                    <FeedUserBubble text={msg.text} imagePreview={msg.imagePreview} />
+                  </div>
+                );
+              }
+              // AI message with blocks → full-width feed rendering
+              if (msg.role === "ai" && msg.blocks && msg.blocks.length > 0) {
+                return (
+                  <div key={i} className="fu" style={{ animationDelay: `${i * .03}s` }}>
+                    <FeedBlockGroup
+                      blocks={msg.blocks}
+                      interactions={msg.interactions || []}
+                      messageId={msg.id}
+                      onSendMessage={(action) => { setInput(action); }}
+                      onInteraction={handleInteraction}
+                    />
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>
                         {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
@@ -873,7 +905,7 @@ export default function ChatView({ variant }) {
                       const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()));
                       return isSaved && savedLinks?.length > 0 ? (
                         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 12, color: T.ink3 }}>🔗</span>
+                          <span style={{ fontSize: 12, color: T.ink3 }}>{"\uD83D\uDD17"}</span>
                           <a href={savedLinks[0].url} target="_blank" rel="noopener noreferrer" style={{
                             fontSize: 12, color: T.ink3, fontFamily: F, textDecoration: "underline",
                             textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200,
@@ -892,13 +924,83 @@ export default function ChatView({ variant }) {
                       <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>{"\u2713"} Profile saved</div>
                     )}
                   </div>
-                </div>
-              );
+                );
+              }
+              // AI message without blocks → legacy bubble
+              if (msg.role === "ai") {
+                return (
+                  <div key={i} className="fu" style={{ animationDelay: `${i * .03}s` }}>
+                    <FeedLegacyBubble text={msg.text} imagePreview={msg.imagePreview} />
+                    {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
+                      <div style={{ marginTop: 8 }}>
+                        {!hasValidLink(msg.capturedRec.links) && !(pendingLink && isSpecificLink(pendingLink.url)) && (
+                          <input
+                            value={captureLinkInputs[i] || ''}
+                            onChange={e => setCaptureLinkInputs(prev => ({ ...prev, [i]: e.target.value }))}
+                            placeholder="Add a link (suggested)"
+                            style={{
+                              width: "100%", padding: "8px 12px", borderRadius: 8, marginBottom: 8,
+                              border: "1px solid " + W.bdr, fontSize: 13, fontFamily: F,
+                              background: W.aiBub, color: T.ink, outline: "none",
+                            }}
+                            onFocus={e => e.target.style.borderColor = W.accent}
+                            onBlur={e => e.target.style.borderColor = W.bdr}
+                          />
+                        )}
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => handleSaveCapture(msg.capturedRec, i)} style={{
+                            padding: "8px 16px", borderRadius: 10, border: "none",
+                            background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
+                            cursor: "pointer", fontFamily: F
+                          }}>Save</button>
+                          <button onClick={() => setEditingCapture({ ...msg.capturedRec, msgIndex: i })} style={{
+                            padding: "8px 16px", borderRadius: 10, border: "1px solid " + T.bdr,
+                            background: T.s, color: T.ink, fontSize: 13, fontWeight: 500,
+                            cursor: "pointer", fontFamily: F
+                          }}>Edit</button>
+                        </div>
+                      </div>
+                    )}
+                    {editingCapture && editingCapture.msgIndex === i && (
+                      <CaptureCard
+                        capture={editingCapture}
+                        onUpdate={setEditingCapture}
+                        onSave={() => handleSaveCapture(editingCapture, editingCapture.msgIndex)}
+                        onCancel={() => setEditingCapture(null)}
+                        pendingLink={pendingLink}
+                        onRemoveLink={handleRemoveLink}
+                        onAddLink={handleAddLink}
+                      />
+                    )}
+                    {(() => {
+                      const savedLinks = msg.savedLinks || (msg.capturedRec && items.find(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase())?.links);
+                      const isSaved = msg.saved || (msg.capturedRec && items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()));
+                      return isSaved && savedLinks?.length > 0 ? (
+                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 12, color: T.ink3 }}>{"\uD83D\uDD17"}</span>
+                          <a href={savedLinks[0].url} target="_blank" rel="noopener noreferrer" style={{
+                            fontSize: 12, color: T.ink3, fontFamily: F, textDecoration: "underline",
+                            textUnderlineOffset: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200,
+                          }}>{savedLinks[0].label || savedLinks[0].url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}</a>
+                        </div>
+                      ) : null;
+                    })()}
+                    {msg.capturedProfile && !msg.profileSaved && (
+                      <ProfileCaptureCard
+                        profile={msg.capturedProfile}
+                        onSave={(data) => handleSaveProfile(data, i)}
+                        onDismiss={() => setMessages(prev => prev.map((m, idx) => idx === i ? { ...m, profileSaved: true } : m))}
+                      />
+                    )}
+                    {msg.profileSaved && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#6BAA8E", fontFamily: F, fontWeight: 600 }}>{"\u2713"} Profile saved</div>
+                    )}
+                  </div>
+                );
+              }
+              return null;
             })}
             {typing && <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 12 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 7, background: W.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0, border: `1px solid ${W.accent}25` }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
-              </div>
               <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
             </div>}
             <div ref={chatEnd} />

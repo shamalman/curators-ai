@@ -85,7 +85,7 @@ export function CuratorProvider({ children }) {
         .order("created_at", { ascending: false })
         .limit(50);
       if (msgs && msgs.length > 0) {
-        setMessages(msgs.reverse().map(m => ({ role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec })));
+        setMessages(msgs.reverse().map(m => ({ id: m.id, role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec, blocks: m.blocks || null, interactions: m.interactions || [] })));
         prevMsgCount.current = msgs.length;
       }
 
