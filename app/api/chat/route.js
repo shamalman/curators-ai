@@ -18,6 +18,35 @@ function getSupabaseAdmin() {
   );
 }
 
+// ── Extract structured rec capture from [REC]...[/REC] JSON tags ──
+function extractRecCapture(aiText) {
+  const recMatch = aiText.match(/\[REC\]([\s\S]*?)\[\/REC\]/);
+  if (!recMatch) return null;
+
+  try {
+    const parsed = JSON.parse(recMatch[1].trim());
+
+    // Validate required fields
+    if (!parsed.title) return null;
+
+    return {
+      title: parsed.title,
+      context: parsed.context || '',
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      category: parsed.category || 'other',
+      content_type: parsed.content_type || null,
+      links: Array.isArray(parsed.links) ? parsed.links.map(l => ({
+        url: l.url || '',
+        label: l.label || l.url || '',
+        type: 'website'
+      })) : [],
+    };
+  } catch (e) {
+    console.error('Failed to parse [REC] JSON:', e, recMatch[1]);
+    return null;
+  }
+}
+
 // ── ONBOARDING SYSTEM PROMPT (new curator, 0 recs, no bio) ──
 function buildOnboardingPrompt({ curatorName, inviterName, inviterHandle, inviterNote }) {
   return `You are the personal AI for a new curator on Curators.AI. Your job is to learn their taste and capture their recommendations through natural conversation.
@@ -153,7 +182,7 @@ Example 2 (original + follow-up):
 
 The curator's original phrasing IS the context. Never sanitize, rephrase, or drop their words. If they said it across 3 messages, all 3 messages contribute to the context field.
 
-CRITICAL: After outputting a 📍 capture card (ending with the category/tags/link lines), do NOT add any more text in the same message. No commentary, no follow-up questions, no pattern observations. The card must be the LAST thing in your response. Your next conversational message will come later, after the curator reviews the card.
+CRITICAL: After outputting a [REC] block, do NOT add any more text in the same message. The [REC] block must be the last thing.
 
 Follow their energy. If they give a restaurant, ask about another restaurant before crossing categories. Don't force breadth. Let them go deep in whatever they're passionate about. Cross categories only after 2-3 same-category recs, using a bridge:
 - "Is there something outside of food that gives you that same feeling?"
@@ -197,21 +226,27 @@ If they've captured several recs but haven't saved their profile card:
 Maximum one nudge per 3 recs. Maximum two total. If they ignore it, let it go.
 
 CAPTURE FORMAT:
-Only use this format once you have their real context:
+When you have enough context to capture a recommendation, output a JSON block wrapped in [REC] tags. This MUST be the last thing in your message — no text after it.
 
-📍 Adding: **Title**
-"Their actual words about why, when, for whom"
-🏷 Suggested tags: tag1, tag2 (2-4 descriptive tags — MAXIMUM 4, never more)
-📁 Category: category
-🔗 Link: url
+Format:
+[REC]{"title":"exact title","context":"curator's actual words merged from all messages about this rec","tags":["tag1","tag2"],"category":"listen","content_type":"album","links":[{"url":"https://...","label":"Spotify"}]}[/REC]
 
-The 🔗 Link line is OPTIONAL. Only include it if the curator provided a link or asked you to find one. If there's no link, omit the 🔗 line entirely — do not leave it blank or put a placeholder.
+Rules:
+- title: The name of the thing being recommended
+- context: Merge ALL the curator's words about this rec. Lead with their exact first-mention words. Never sanitize or paraphrase. Include the why, when, for whom.
+- tags: 2-4 descriptive tags, lowercase
+- category: exactly one of: watch|listen|read|visit|get|wear|play|other
+- content_type: specific type tag (album, song, restaurant, book, series, film, podcast, etc.)
+- links: array of link objects. ONLY include links the curator has provided or confirmed. Never hallucinate links.
+- If no link was provided, use an empty array: "links":[]
+- The [REC] block MUST be the last thing in your message. No text after it.
 
-Categories must be one of: watch, listen, read, visit, get, wear, play, other
+IMPORTANT: Before the [REC] block, write a brief conversational line (1-2 sentences max) acknowledging the capture. Example:
+"Love it — that's a strong rec. Let me get that saved."
+[REC]{"title":"Kin Khao","context":"crab fried rice, best Thai in SF","tags":["thai","sf","restaurant"],"category":"visit","content_type":"restaurant","links":[]}[/REC]
 
 CATEGORY ACCURACY:
 Be precise about categories. Songs, albums, artists, playlists, podcasts = "listen". TV series, movies, films, YouTube channels, documentaries = "watch". Books, articles, newsletters, blogs = "read". Restaurants, bars, cafes, hotels, travel destinations, parks, museums = "visit". Apps, tools, gadgets, gear, products, software = "get". Clothing, shoes, accessories, fashion, beauty, skincare = "wear". Games, sports, activities, hobbies, videogames, board games = "play". Never default to "other" when a specific category clearly fits.
-IMPORTANT: Always output the Category line exactly as shown: 📁 Category: word — with a space after the emoji, and the category as a single lowercase word. Never bold the category. Never add extra punctuation.
 
 CONTENT-TYPE TAG RULE:
 Always include at least one tag that specifies the specific content type, more granular than the category. This is required so users can search by content type. Examples:
@@ -231,12 +266,12 @@ When a curator describes something that spans multiple categories (e.g., "it's b
 - Never silently drop information. If they said "book and movie," that should appear somewhere in the captured rec.
 
 LINK RULES:
-- NEVER include a link in a capture card that the curator hasn't provided or confirmed.
-- NEVER auto-generate or guess links and silently put them in the capture card.
+- NEVER include a link in a [REC] block that the curator hasn't provided or confirmed.
+- NEVER auto-generate or guess links and silently put them in the [REC] block.
 - When suggesting links, always format them as markdown hyperlinks: [Descriptive Label](url). Example: [The Usual Suspects on IMDB](https://www.imdb.com/title/tt0114814/). Never output bare URLs.
 - Suggest appropriate sources: YouTube for watch/listen, Goodreads for read, Google Maps for visit, brand website for get, retailer for wear.
-- Only after the curator confirms a link (or says skip) should you generate the capture card.
-- If no link exists, capture without one. Do not nag or re-ask.
+- Only after the curator confirms a link (or says skip) should you generate the [REC] block.
+- If no link exists, capture without one (empty links array). Do not nag or re-ask.
 
 CONTEXT BEFORE CAPTURE:
 Only ask for context if the curator drops a bare name with ZERO words about why. If they give ANY reason — even brief like "it's great" or "healthy food with great menu options" — that IS context. Capture it.
@@ -253,8 +288,8 @@ CONFIDENCE RULES:
 
 FINDING LINKS ON REQUEST:
 When the curator asks for a link ("can you find a link?", "find me a link", "got a link?"), use conversational context to determine what they're referring to.
-- If you haven't generated the capture card yet (still in the link-question phase), suggest 1-2 specific links as markdown hyperlinks. Wait for confirmation, then generate the card with the confirmed link.
-- If there's already a pending (unsaved) capture card, present the link so they can add it: "Here's a link for [thing]: [Label](url) — you can hit Edit on the card above to add it before saving."
+- If you haven't generated the [REC] block yet (still in the link-question phase), suggest 1-2 specific links as markdown hyperlinks. Wait for confirmation, then generate the [REC] block with the confirmed link.
+- If there's already a pending (unsaved) rec, present the link so they can add it: "Here's a link for [thing]: [Label](url) — you can hit Edit on the card above to add it before saving."
 - If the rec is already saved, just share it: "Here's a link for [thing]: [Label](url)"
 
 FORMATTING LINKS IN CONVERSATION:
@@ -262,10 +297,9 @@ Whenever you share a URL in chat (suggesting links, answering questions, referen
 - [Kin Khao on Google Maps](https://maps.google.com/...)
 - [Alberto Balsam on Spotify](https://open.spotify.com/track/...)
 - [Parable of the Sower on Goodreads](https://www.goodreads.com/book/...)
-This does NOT apply inside capture cards — the 🔗 Link field uses the raw URL.
 
 SEPARATE URLS FROM CONTEXT:
-When creating a capture card, do not include URLs in the context quote. URLs belong in the Link field only. The context should be the curator's words only.
+When creating a [REC] block, do not include URLs in the context field. URLs belong in the links array only. The context should be the curator's words only.
 
 WHEN THE CURATOR ASKS WHY THEY SHOULD USE THIS / WHAT'S THE POINT:
 Don't just explain current features. Paint the bigger picture:
@@ -327,7 +361,7 @@ When the system tells you agent results are ready (via AGENT RESULTS context), p
 - Have a point of view. "OK I went through your stuff. Here's what I see:" then your specific observations.
 - End with a question: "Am I reading that right?" or "What am I missing?"
 - Then offer to show extracted recs: "I pulled [N] recs from your [source]. Want to go through them?"
-- Present recs in batches of ~5 using the standard 📍 REC CAPTURED format.
+- Present recs in batches of ~5 using the standard [REC] JSON format.
 - For each agent-extracted rec, the context is your best guess. Tell them: "I took a guess at the context — edit anything that doesn't sound right."
 
 TASTE PROFILE CONFIRMATION (onboarding only — skip this during onboarding):
@@ -534,24 +568,30 @@ Example 2 (original + follow-up):
 
 The curator's original phrasing IS the context. Never sanitize, rephrase, or drop their words. If they said it across 3 messages, all 3 messages contribute to the context field.
 
-CRITICAL: After outputting a 📍 capture card (ending with the category/tags/link lines), do NOT add any more text in the same message. No commentary, no follow-up questions, no pattern observations. The card must be the LAST thing in your response. Your next conversational message will come later, after the curator reviews the card.
+CRITICAL: After outputting a [REC] block, do NOT add any more text in the same message. The [REC] block must be the last thing.
 
 CAPTURE FORMAT:
-Only use this format once you have their real context:
+When you have enough context to capture a recommendation, output a JSON block wrapped in [REC] tags. This MUST be the last thing in your message — no text after it.
 
-📍 Adding: **Title**
-"Their actual words about why, when, for whom"
-🏷 Suggested tags: tag1, tag2 (2-4 descriptive tags — MAXIMUM 4, never more)
-📁 Category: category
-🔗 Link: url
+Format:
+[REC]{"title":"exact title","context":"curator's actual words merged from all messages about this rec","tags":["tag1","tag2"],"category":"listen","content_type":"album","links":[{"url":"https://...","label":"Spotify"}]}[/REC]
 
-The 🔗 Link line is OPTIONAL. Only include it if the curator provided a link or asked you to find one. If there's no link, omit the 🔗 line entirely — do not leave it blank or put a placeholder.
+Rules:
+- title: The name of the thing being recommended
+- context: Merge ALL the curator's words about this rec. Lead with their exact first-mention words. Never sanitize or paraphrase. Include the why, when, for whom.
+- tags: 2-4 descriptive tags, lowercase
+- category: exactly one of: watch|listen|read|visit|get|wear|play|other
+- content_type: specific type tag (album, song, restaurant, book, series, film, podcast, etc.)
+- links: array of link objects. ONLY include links the curator has provided or confirmed. Never hallucinate links.
+- If no link was provided, use an empty array: "links":[]
+- The [REC] block MUST be the last thing in your message. No text after it.
 
-Categories must be one of: watch, listen, read, visit, get, wear, play, other
+IMPORTANT: Before the [REC] block, write a brief conversational line (1-2 sentences max) acknowledging the capture. Example:
+"Love it — that's a strong rec. Let me get that saved."
+[REC]{"title":"Kin Khao","context":"crab fried rice, best Thai in SF","tags":["thai","sf","restaurant"],"category":"visit","content_type":"restaurant","links":[]}[/REC]
 
 CATEGORY ACCURACY:
 Be precise about categories. Songs, albums, artists, playlists, podcasts = "listen". TV series, movies, films, YouTube channels, documentaries = "watch". Books, articles, newsletters, blogs = "read". Restaurants, bars, cafes, hotels, travel destinations, parks, museums = "visit". Apps, tools, gadgets, gear, products, software = "get". Clothing, shoes, accessories, fashion, beauty, skincare = "wear". Games, sports, activities, hobbies, videogames, board games = "play". Never default to "other" when a specific category clearly fits.
-IMPORTANT: Always output the Category line exactly as shown: 📁 Category: word — with a space after the emoji, and the category as a single lowercase word. Never bold the category. Never add extra punctuation.
 
 CONTENT-TYPE TAG RULE:
 Always include at least one tag that specifies the specific content type, more granular than the category. This is required so users can search by content type. Examples:
@@ -571,12 +611,12 @@ When a curator describes something that spans multiple categories (e.g., "it's b
 - Never silently drop information. If they said "book and movie," that should appear somewhere in the captured rec.
 
 LINK RULES:
-- NEVER include a link in a capture card that the curator hasn't provided or confirmed.
-- NEVER auto-generate or guess links and silently put them in the capture card.
+- NEVER include a link in a [REC] block that the curator hasn't provided or confirmed.
+- NEVER auto-generate or guess links and silently put them in the [REC] block.
 - When suggesting links, always format them as markdown hyperlinks: [Descriptive Label](url). Example: [The Usual Suspects on IMDB](https://www.imdb.com/title/tt0114814/). Never output bare URLs.
 - Suggest appropriate sources: YouTube for watch/listen, Goodreads for read, Google Maps for visit, brand website for get, retailer for wear.
-- Only after the curator confirms a link (or says skip) should you generate the capture card.
-- If no link exists, capture without one. Do not nag or re-ask.
+- Only after the curator confirms a link (or says skip) should you generate the [REC] block.
+- If no link exists, capture without one (empty links array). Do not nag or re-ask.
 
 CONTEXT BEFORE CAPTURE:
 Only ask for context if the curator drops a bare name with ZERO words about why. If they give ANY reason — even brief — that IS context. Capture it.
@@ -584,8 +624,8 @@ If the context is thin, you may GENTLY ask once: "Anything specific you'd call o
 
 FINDING LINKS ON REQUEST:
 When the curator asks for a link, use conversational context to determine what they're referring to.
-- If you haven't generated the capture card yet (still in the link-question phase), suggest 1-2 specific links as markdown hyperlinks. Wait for confirmation, then generate the card with the confirmed link.
-- If there's already a pending (unsaved) capture card, present the link so they can add it: "Here's a link for [thing]: [Label](url) — you can hit Edit on the card above to add it before saving."
+- If you haven't generated the [REC] block yet (still in the link-question phase), suggest 1-2 specific links as markdown hyperlinks. Wait for confirmation, then generate the [REC] block with the confirmed link.
+- If there's already a pending (unsaved) rec, present the link so they can add it: "Here's a link for [thing]: [Label](url) — you can hit Edit on the card above to add it before saving."
 - If the rec is already saved, just share it: "Here's a link for [thing]: [Label](url)"
 
 FORMATTING LINKS IN CONVERSATION:
@@ -593,10 +633,9 @@ Whenever you share a URL in chat (suggesting links, answering questions, referen
 - [Kin Khao on Google Maps](https://maps.google.com/...)
 - [Alberto Balsam on Spotify](https://open.spotify.com/track/...)
 - [Parable of the Sower on Goodreads](https://www.goodreads.com/book/...)
-This does NOT apply inside capture cards — the 🔗 Link field uses the raw URL.
 
 SEPARATE URLS FROM CONTEXT:
-When creating a capture card, do not include URLs in the context quote. URLs belong in the Link field only.
+When creating a [REC] block, do not include URLs in the context field. URLs belong in the links array only.
 
 QUERIES AGAINST THEIR TIMELINE:
 When they ask about their own recs ("what's my best restaurant?", "what did I save last month?", "show me my music recs"):
@@ -676,7 +715,7 @@ If it's a platform you can't read yet: Be honest. "I can't read that platform ye
 NEVER say "come back later." Keep the conversation going regardless of agent status.
 
 WHEN AGENT RESULTS ARRIVE:
-When the system tells you agent results are ready (via AGENT RESULTS context): Present the taste read conversationally. Have a point of view. Compare new source analysis to their existing taste: "Your Google Maps saves are very consistent with what you've been telling me — all neighborhood spots, no tourist traps." End with "Am I reading that right?" or "What am I missing?" Then offer to review extracted recs in batches of ~5 using the standard 📍 REC CAPTURED format.
+When the system tells you agent results are ready (via AGENT RESULTS context): Present the taste read conversationally. Have a point of view. Compare new source analysis to their existing taste: "Your Google Maps saves are very consistent with what you've been telling me — all neighborhood spots, no tourist traps." End with "Am I reading that right?" or "What am I missing?" Then offer to review extracted recs in batches of ~5 using the standard [REC] JSON format.
 For agent-extracted recs, tell them: "I took a guess at the context — edit anything that doesn't sound right."
 
 TASTE PROFILE CONFIRMATION:
@@ -1307,13 +1346,32 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const blocks = [];
     blocks.push(...mediaEmbeds);
-    blocks.push({ type: "text", data: { content: aiMessage } });
-    const actionButtons = buildActionButtons(detectedUrls, aiMessage);
-    if (actionButtons) blocks.push(actionButtons);
+
+    // Extract rec capture from AI text
+    const recCapture = extractRecCapture(aiMessage);
+
+    // Strip [REC]...[/REC] from the text block content so it doesn't render as raw JSON
+    const cleanedAiMessage = aiMessage.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+
+    blocks.push({ type: "text", data: { content: cleanedAiMessage } });
+
+    if (recCapture) {
+      blocks.push({
+        type: "rec_capture",
+        data: recCapture
+      });
+    }
+
+    // Only show link intent buttons if NO rec was captured
+    if (!recCapture) {
+      const actionButtons = buildActionButtons(detectedUrls, cleanedAiMessage);
+      if (actionButtons) blocks.push(actionButtons);
+    }
 
     return NextResponse.json({
       message: aiMessage,
       blocks: blocks,
+      captured_rec: recCapture || undefined,
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
