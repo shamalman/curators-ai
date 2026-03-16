@@ -608,13 +608,29 @@ export default function ChatView({ variant }) {
       }
       return msg;
     }));
-    // Persist to DB if we have an id
-    if (!messageId) return;
+    // Persist to DB — resolve the id if we don't have one
+    let dbId = messageId;
+    if (!dbId && profileId) {
+      try {
+        const { data: recent } = await supabase
+          .from('chat_messages')
+          .select('id')
+          .eq('profile_id', profileId)
+          .eq('role', 'assistant')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        dbId = recent?.id;
+      } catch (err) {
+        console.error('Failed to resolve message id for interaction:', err);
+      }
+    }
+    if (!dbId) return;
     try {
       const { data: existing } = await supabase
         .from('chat_messages')
         .select('interactions')
-        .eq('id', messageId)
+        .eq('id', dbId)
         .single();
       await supabase
         .from('chat_messages')
@@ -624,7 +640,7 @@ export default function ChatView({ variant }) {
             interaction
           ]
         })
-        .eq('id', messageId);
+        .eq('id', dbId);
     } catch (err) {
       console.error('Failed to save interaction:', err);
     }
