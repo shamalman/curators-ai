@@ -488,6 +488,7 @@ export default function ChatView({ variant }) {
       });
 
       const data = await response.json();
+      console.log('CHAT RESPONSE DEBUG:', JSON.stringify({ hasBlocks: !!data.blocks, blocksLength: data.blocks?.length, keys: Object.keys(data) }));
       setTyping(false);
       isWaitingForResponse.current = false;
 
