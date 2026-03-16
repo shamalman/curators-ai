@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from "react";
 import { T, F } from "@/lib/constants";
 
 export default function FeedActionButtons({ data, used, onUse }) {
+  const [tapped, setTapped] = useState(false);
+  const isUsed = used || tapped;
+
   if (!data?.options || data.options.length === 0) return null;
   return (
     <div style={{
@@ -10,13 +14,16 @@ export default function FeedActionButtons({ data, used, onUse }) {
       gap: 8,
       flexWrap: "wrap",
       padding: "4px 0",
-      opacity: used ? 0.3 : 1,
-      pointerEvents: used ? "none" : "auto",
+      opacity: isUsed ? 0.3 : 1,
+      pointerEvents: isUsed ? "none" : "auto",
     }}>
       {data.options.map((opt, i) => (
         <button
           key={i}
-          onClick={() => onUse && onUse(opt)}
+          onClick={() => {
+            setTapped(true);
+            if (onUse) onUse(opt);
+          }}
           style={{
             padding: "10px 18px",
             borderRadius: 22,
