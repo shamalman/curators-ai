@@ -693,18 +693,45 @@ export default function ChatView({ variant }) {
     setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true, savedLinks: newItem.links } : m), { role: "ai", text: "\u2713 Saved." }]);
     saveMsgToDb("ai", "\u2713 Saved.");
 
-    // Schedule follow-up nudge after 3s (cancelled if curator starts typing)
+    // Schedule post-save taste reflection after 3s (cancelled if curator starts typing)
     typedSinceSave.current = false;
     if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
     const recCount = items.length + 1; // includes the one just saved
-    nudgeTimer.current = setTimeout(() => {
+    const savedRec = { title: capturedRec.title, category: capturedRec.category || 'other', context: capturedRec.context || '' };
+    nudgeTimer.current = setTimeout(async () => {
       if (typedSinceSave.current) return;
-      const nudges = recCount <= 3
-        ? ["What else you got?", "What else do you wish more people knew about?", "What's another one?"]
-        : ["What else you got?", "Keep going \u2014 what's next?", "What's another one?", "Got more?"];
-      const nudge = nudges[Math.floor(Math.random() * nudges.length)];
-      setMessages(prev => [...prev, { role: "ai", text: nudge }]);
-      saveMsgToDb("ai", nudge);
+      setTyping(true);
+      try {
+        const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile — connect it to patterns you see, be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: reflectionMsg,
+            curatorName: profile.name,
+            curatorHandle: profile.handle?.replace('@', ''),
+            curatorBio: profile.bio || '',
+            profileId,
+            recommendations: items.map(item => ({
+              title: item.title, category: item.category,
+              context: item.context, tags: item.tags, date: item.date,
+              slug: item.slug,
+            })),
+            linkMetadata: null,
+            history: messages.filter(m => !m.type).slice(-10),
+          }),
+        });
+        const data = await res.json();
+        setTyping(false);
+        if (typedSinceSave.current) return;
+        let text = data.message;
+        text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+        setMessages(prev => [...prev, { role: "ai", text, blocks: data.blocks || null, interactions: [] }]);
+        saveMsgToDb("ai", text, null, data.blocks);
+      } catch (err) {
+        console.error('Taste reflection error:', err);
+        setTyping(false);
+      }
     }, 3000);
 
     // Fire style summary generation at milestones or if missing (fire and forget)

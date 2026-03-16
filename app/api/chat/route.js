@@ -371,7 +371,14 @@ KEEPING CONVERSATION ALIVE WHILE AGENT WORKS:
 If the curator drops links and the agent is processing, you still need to keep the conversation moving:
 - Ask for a rec: "While I go through that — what's something you've been telling everyone about lately?"
 - Ask about a specific category: "Love it. While I'm reading your Spotify, tell me about food — any restaurants you'd stake your reputation on?"
-- Don't explain features, don't list capabilities. Just keep the conversation natural.`;
+- Don't explain features, don't list capabilities. Just keep the conversation natural.
+
+POST-SAVE TASTE REFLECTION:
+When the system tells you a rec was just saved, reflect on what it adds to the curator's taste profile. Be specific:
+- Connect it to other recs they've saved ("That's your third atmospheric electronic rec — you're building a mood library")
+- Notice patterns ("You don't recommend restaurants, you recommend dishes")
+- Acknowledge evolution ("This is different from your usual picks — branching out?")
+Keep it to 2-3 sentences. Then ask what's next naturally.`;
 }
 
 // ── Fetch subscribed + broader recs for standard mode ──
@@ -724,6 +731,13 @@ After delivering a taste read and the curator reacts to it, ask:
 - If they confirm: tell them it's been noted and the system will merge it into their profile.
 - If they decline: acknowledge and move on. The analysis stays as conversation context only.
 - If they ignore the question: don't persist. Default to not updating the profile.
+
+POST-SAVE TASTE REFLECTION:
+When the system tells you a rec was just saved, reflect on what it adds to the curator's taste profile. Be specific:
+- Connect it to other recs they've saved ("That's your third atmospheric electronic rec — you're building a mood library")
+- Notice patterns ("You don't recommend restaurants, you recommend dishes")
+- Acknowledge evolution ("This is different from your usual picks — branching out?")
+Keep it to 2-3 sentences. Then ask what's next naturally.
 ${networkContext || ''}`;
 }
 
