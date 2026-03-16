@@ -578,6 +578,7 @@ export default function ChatView({ variant }) {
       }
 
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile }]);
+      console.log('BLOCKS DEBUG:', JSON.stringify(data.blocks));
       saveMsgToDb("ai", text, capturedRec, data.blocks);
     } catch (error) {
       console.error('Chat error:', error);
