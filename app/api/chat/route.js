@@ -959,7 +959,7 @@ function buildActionButtons(urls, aiText) {
       data: {
         options: [
           { label: "Taste read", action: "Do a taste read on this", style: "primary" },
-          { label: urls.length > 1 ? "Capture these recs" : "Capture this rec", action: "Add as a recommendation", style: "secondary" },
+          { label: urls.length > 1 ? "Capture these recs" : "Capture this rec", action: "Add as a recommendation", style: "primary" },
         ]
       }
     };
