@@ -313,16 +313,17 @@ export function CuratorProvider({ children }) {
   };
 
   const saveMsgToDb = async (role, text, capturedRec, blocks) => {
-    if (!profileId) return;
+    if (!profileId) return null;
     try {
-      await supabase.from("chat_messages").insert({
+      const { data } = await supabase.from("chat_messages").insert({
         profile_id: profileId,
         role: role === "ai" ? "assistant" : role,
         text,
         captured_rec: capturedRec || null,
         blocks: blocks || null,
-      });
-    } catch (err) { console.error("Failed to save message:", err); }
+      }).select('id').single();
+      return data?.id || null;
+    } catch (err) { console.error("Failed to save message:", err); return null; }
   };
 
   const refreshSubscriptions = useCallback(async () => {

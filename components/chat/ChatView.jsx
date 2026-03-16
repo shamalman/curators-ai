@@ -416,7 +416,10 @@ export default function ChatView({ variant }) {
           }
         }
         setMessages(m => [...m, { role: "ai", text, capturedRec, blocks: data.blocks || null, interactions: [] }]);
-        saveMsgToDb("ai", text, capturedRec, data.blocks);
+        const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks);
+        if (savedId) {
+          setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
+        }
         hasPendingBanner.current = false;
         isWaitingForResponse.current = false;
       })
@@ -581,7 +584,10 @@ export default function ChatView({ variant }) {
       }
 
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [] }]);
-      saveMsgToDb("ai", text, capturedRec, data.blocks);
+      const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks);
+      if (savedId) {
+        setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
+      }
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);
@@ -591,19 +597,19 @@ export default function ChatView({ variant }) {
   };
 
   const handleInteraction = async (messageId, blockIndex, action) => {
-    if (!messageId) return;
-    // Optimistic update
+    const interaction = { block_index: blockIndex, action, interacted_at: new Date().toISOString() };
+    // Optimistic update — match by id if available, otherwise grey out the last AI message with blocks
     setMessages(prev => prev.map(msg => {
-      if (msg.id !== messageId) return msg;
-      return {
-        ...msg,
-        interactions: [
-          ...(msg.interactions || []),
-          { block_index: blockIndex, action, interacted_at: new Date().toISOString() }
-        ]
-      };
+      if (messageId && msg.id === messageId) {
+        return { ...msg, interactions: [...(msg.interactions || []), interaction] };
+      }
+      if (!messageId && msg.role === "ai" && msg.blocks && msg.blocks.length > 0 && !(msg.interactions || []).length) {
+        return { ...msg, interactions: [interaction] };
+      }
+      return msg;
     }));
-    // Persist to DB
+    // Persist to DB if we have an id
+    if (!messageId) return;
     try {
       const { data: existing } = await supabase
         .from('chat_messages')
@@ -615,7 +621,7 @@ export default function ChatView({ variant }) {
         .update({
           interactions: [
             ...(existing?.interactions || []),
-            { block_index: blockIndex, action, interacted_at: new Date().toISOString() }
+            interaction
           ]
         })
         .eq('id', messageId);
