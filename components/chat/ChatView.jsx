@@ -80,6 +80,7 @@ export default function ChatView({ variant }) {
   const nudgeTimer = useRef(null);
   const typedSinceSave = useRef(false);
   const deliveredJobIds = useRef(new Set());
+  const tappedActionMsgIndices = useRef(new Set());
   const hasPendingBanner = useRef(false);
   const isWaitingForResponse = useRef(false);
 
@@ -878,8 +879,12 @@ export default function ChatView({ variant }) {
                       blocks={msg.blocks}
                       interactions={msg.interactions || []}
                       messageId={msg.id}
+                      tapped={tappedActionMsgIndices.current.has(i)}
                       onSendMessage={(action) => { send(action); }}
-                      onInteraction={handleInteraction}
+                      onInteraction={(msgId, blockIdx, act) => {
+                        tappedActionMsgIndices.current.add(i);
+                        handleInteraction(msgId, blockIdx, act);
+                      }}
                     />
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title.toLowerCase() === msg.capturedRec.title.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8 }}>

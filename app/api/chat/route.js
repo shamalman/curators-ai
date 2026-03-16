@@ -949,6 +949,7 @@ async function fetchLinkMetadataForBlocks(url) {
   } catch (err) {
     console.error('fetchLinkMetadataForBlocks error:', url, err);
   }
+  console.log('fetchLinkMetadataForBlocks result:', url, JSON.stringify({ title: metadata.title, source: metadata.source }));
   return metadata;
 }
 
