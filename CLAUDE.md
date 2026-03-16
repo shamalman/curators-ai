@@ -25,6 +25,9 @@ try { ... } catch (err) { console.error("context:", err) }
 ### Always Check Schema Before Writing Queries
 Before writing any Supabase query, verify the column exists in the schema below. Never assume. The subscriptions table has no `created_at` column — use `subscribed_at` instead.
 
+### Always Reload Schema Cache After Adding Columns
+After adding new columns to any Supabase table, ALWAYS run `NOTIFY pgrst, 'reload schema';` in the SQL Editor. Without this, PostgREST silently drops unknown columns on insert — no error thrown, data just disappears.
+
 ### Always Add RLS Policies for New Write Operations
 Any time a new UPDATE/INSERT/DELETE is added to a table, check that an RLS policy covers it. Supabase silently rejects writes without policies — no error thrown, no rows affected.
 
