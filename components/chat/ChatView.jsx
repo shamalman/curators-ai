@@ -609,7 +609,7 @@ export default function ChatView({ variant }) {
       }
       return msg;
     }));
-    // Persist to DB — resolve the id if we don't have one
+    // Resolve the DB id if we don't have one
     let dbId = messageId;
     if (!dbId && profileId) {
       try {
@@ -627,21 +627,13 @@ export default function ChatView({ variant }) {
       }
     }
     if (!dbId) return;
+    // Persist via server API (bypasses RLS — no UPDATE policy on chat_messages)
     try {
-      const { data: existing } = await supabase
-        .from('chat_messages')
-        .select('interactions')
-        .eq('id', dbId)
-        .single();
-      await supabase
-        .from('chat_messages')
-        .update({
-          interactions: [
-            ...(existing?.interactions || []),
-            interaction
-          ]
-        })
-        .eq('id', dbId);
+      await fetch('/api/chat/interaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: dbId, interaction }),
+      });
     } catch (err) {
       console.error('Failed to save interaction:', err);
     }
