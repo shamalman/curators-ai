@@ -791,12 +791,12 @@ async function getAgentContext(profileId, sb) {
 
 // ── Deliver agent results ONLY when curator clicks the banner ──
 async function getAgentResultsForDelivery(profileId, message, sb) {
-  if (!message) return { block: "", deliveredJobIds: [] };
+  if (!message) return { block: "", deliveredJobIds: [], jobs: [] };
 
   // Check if this message is asking for agent results
   const lc = message.toLowerCase();
   const isAskingForResults = /show me what you found|what did you find|what('d| did) you get|show me your (analysis|read|findings)|let('s| me) see (what|the)|taste read/i.test(lc);
-  if (!isAskingForResults) return { block: "", deliveredJobIds: [] };
+  if (!isAskingForResults) return { block: "", deliveredJobIds: [], jobs: [] };
 
   try {
     const { data: jobs, error } = await sb
@@ -807,7 +807,7 @@ async function getAgentResultsForDelivery(profileId, message, sb) {
       .is("presented_at", null)
       .order("completed_at", { ascending: false });
 
-    if (error || !jobs || jobs.length === 0) return { block: "", deliveredJobIds: [] };
+    if (error || !jobs || jobs.length === 0) return { block: "", deliveredJobIds: [], jobs: [] };
 
     const platforms = jobs.map(j => j.source_type);
 
@@ -840,11 +840,54 @@ INSTRUCTIONS:
 - Do NOT show any rec cards. Taste read only.
 `,
       deliveredJobIds: jobIds,
+      jobs,
     };
   } catch (err) {
     console.error("Failed to get agent results for delivery:", err);
-    return { block: "", deliveredJobIds: [] };
+    return { block: "", deliveredJobIds: [], jobs: [] };
   }
+}
+
+function buildTasteReadBlock(job) {
+  const ta = job.taste_analysis;
+  if (!ta || !ta.taste_thesis) return null;
+
+  const sourceToCategory = {
+    spotify: 'listen', apple_music: 'listen', soundcloud: 'listen',
+    youtube: 'watch', letterboxd: 'watch',
+    goodreads: 'read', google_maps: 'visit',
+  };
+  const sourceToName = {
+    spotify: 'Spotify', apple_music: 'Apple Music', soundcloud: 'SoundCloud',
+    youtube: 'YouTube', letterboxd: 'Letterboxd',
+    goodreads: 'Goodreads', google_maps: 'Google Maps',
+  };
+
+  const sampleSize = job.raw_data?.items?.length || 0;
+
+  // Calculate duration from job timestamps
+  let durationSec = null;
+  if (job.started_at && job.completed_at) {
+    durationSec = Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000);
+  }
+
+  return {
+    type: "taste_read",
+    data: {
+      thesis: ta.taste_thesis,
+      patterns: Array.isArray(ta.patterns) ? ta.patterns : [],
+      genres: Array.isArray(ta.genres) ? ta.genres : [],
+      primary_moods: Array.isArray(ta.primary_moods) ? ta.primary_moods : [],
+      category: sourceToCategory[job.source_type] || 'other',
+      source: {
+        type: job.source_type,
+        name: sourceToName[job.source_type] || job.source_type,
+      },
+      sample_size: sampleSize,
+      total_items: sampleSize,
+      duration_sec: durationSec,
+    }
+  };
 }
 
 // ── Detect URLs and create agent jobs ──
@@ -1031,6 +1074,7 @@ export async function POST(request) {
     // ── Agent integration (curator modes only, not visitor, not opening generation) ──
     let agentBlock = "";
     let agentNotes = [];
+    let deliveredAgentJobs = [];
 
     if (!isVisitor && profileId && !generateOpening) {
       // Check for URLs in message and create agent jobs (no processing — frontend triggers that)
@@ -1051,6 +1095,7 @@ export async function POST(request) {
         const delivery = await getAgentResultsForDelivery(profileId, message, sb);
         if (delivery.block) {
           agentBlock += delivery.block;
+          deliveredAgentJobs = delivery.jobs;
         }
       }
 
@@ -1276,9 +1321,32 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const blocks = [];
     blocks.push(...mediaEmbeds);
+
+    // If this response delivered agent results, add TasteRead blocks
+    if (deliveredAgentJobs.length > 0) {
+      for (const job of deliveredAgentJobs) {
+        const tasteReadBlock = buildTasteReadBlock(job);
+        if (tasteReadBlock) blocks.push(tasteReadBlock);
+      }
+    }
+
     blocks.push({ type: "text", data: { content: aiMessage } });
-    const actionButtons = buildActionButtons(detectedUrls, aiMessage);
-    if (actionButtons) blocks.push(actionButtons);
+
+    // Taste read reaction buttons vs normal action buttons
+    if (deliveredAgentJobs.length > 0) {
+      blocks.push({
+        type: "action_buttons",
+        data: {
+          options: [
+            { label: "Spot on", action: "Spot on \u2014 that's exactly right", style: "primary" },
+            { label: "Missing something", action: "You're missing something", style: "primary" },
+          ]
+        }
+      });
+    } else {
+      const actionButtons = buildActionButtons(detectedUrls, aiMessage);
+      if (actionButtons) blocks.push(actionButtons);
+    }
 
     return NextResponse.json({
       message: aiMessage,
