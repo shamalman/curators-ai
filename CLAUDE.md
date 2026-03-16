@@ -83,7 +83,7 @@ app/
 
 components/
   chat/               # ChatView, CaptureCard, ProfileCaptureCard
-  feed/               # FeedRenderer, FeedBlockGroup, FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedUserBubble, FeedLegacyBubble
+  feed/               # FeedRenderer, FeedBlockGroup, FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedTasteRead, FeedUserBubble, FeedLegacyBubble
   layout/             # CuratorShell, BottomTabs, Sidebar, InviteModal
   visitor/            # VisitorProfile (public profile page)
   screens/            # EditProfile
@@ -116,7 +116,7 @@ lib/
 ## Key Files
 
 ### API Routes
-- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent), content blocks construction (classifyMediaType, hasEmbeddablePlayer, fetchLinkMetadataForBlocks, buildActionButtons)
+- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent), content blocks construction (classifyMediaType, hasEmbeddablePlayer, fetchLinkMetadataForBlocks, buildActionButtons, buildTasteReadBlock)
 - `app/api/chat/interaction/route.js` — Persists ActionButton interactions to chat_messages.interactions JSONB. Uses admin client (service role) because chat_messages has no RLS UPDATE policy
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
@@ -264,9 +264,9 @@ profile_id UUID FK → profiles(id)
 source_type TEXT (spotify, apple_music, youtube, google_maps, letterboxd, goodreads, soundcloud, twitter, webpage)
 source_url TEXT
 status TEXT (pending, processing, completed, failed)
-raw_data JSONB (parser output: metadata + items)
+raw_data JSONB (parser output: { items[], metadata, fetched_at } — item count via raw_data.items.length)
 extracted_recs JSONB (Claude extraction: candidate_recs, items_analyzed, article_summary)
-taste_analysis JSONB (Claude taste analysis: patterns, moods, genres, taste_thesis)
+taste_analysis JSONB (Claude taste analysis: { taste_thesis, patterns[], genres[], primary_moods[], contexts[], content_breakdown })
 error_message TEXT
 started_at TIMESTAMPTZ
 completed_at TIMESTAMPTZ
@@ -440,7 +440,7 @@ All registered in `lib/agent/registry.js`. `implementedParsers`: spotify, apple-
 
 ### Chat Route Agent Functions (app/api/chat/route.js)
 - `getAgentContext(profileId, sb)` — Returns `{ agentBlock }` with pending/processing status ONLY (never completed results)
-- `getAgentResultsForDelivery(profileId, message, sb)` — Fires only on "show me what you found" patterns. Returns `{ block, deliveredJobIds }`. Sets `presented_at` inside the function
+- `getAgentResultsForDelivery(profileId, message, sb)` — Fires only on "show me what you found" patterns. Returns `{ block, deliveredJobIds, jobs }`. Sets `presented_at` inside the function
 - `processUrlsForAgent(message, profileId, sb)` — Creates agent jobs for ALL supported URLs
 - `buildAgentUrlNotes(agentNotes)` — Builds URL-specific prompt notes
 - Link intent: every link asks "recommendation or taste read?" — no exceptions
@@ -466,13 +466,14 @@ spotify → "Spotify", apple_music → "Apple Music", google_maps → "Google Ma
 Feed-based UI where AI responses are full-width editorial content blocks, not chat bubbles. User messages remain right-aligned bubbles. Handoff doc: `phase1-feed-mockup.jsx` for visual targets.
 
 ### Block Schema
-Every block: `{ type: "text | media_embed | action_buttons", data: { ... } }`
+Every block: `{ type: "text | media_embed | action_buttons | taste_read", data: { ... } }`
 No `meta` or `delivery_context` in Phase 1.
 
-### Three Block Types
+### Four Block Types
 - **Text** — Full-width prose, no bubble/border/avatar. Manrope 15px, line-height 1.6, color T.ink. Simple **bold** markdown only.
 - **MediaEmbed** — Rich link preview card. Provider colors/icons hardcoded. `has_embed: true` shows play area. oEmbed data fetched server-side via `fetchLinkMetadataForBlocks()`.
-- **ActionButtons** — Horizontal pill buttons. Grey out (opacity 0.3, pointer-events none) after any button tapped. Link intent buttons both use `primary` style. Taste read reaction uses primary/secondary.
+- **ActionButtons** — Horizontal pill buttons. Grey out (opacity 0.3, pointer-events none) after any button tapped. Only generated for URL-based link intent (taste read vs capture rec). No text-pattern detection.
+- **TasteRead** — Visual card for taste analysis results. Category-colored top bar (3px gradient), header with emoji + "TASTE READ" label + source/count, thesis in Manrope, patterns with colored dashes, genre/mood pills. Component: `FeedTasteRead.jsx`. Backend: `buildTasteReadBlock(job)` exists in chat route but NOT currently wired into block construction — taste reads render as prose in Text blocks for now.
 
 ### Blocks Flow
 1. User sends message with URLs → chat route detects URLs, fetches oEmbed metadata
@@ -488,6 +489,18 @@ No `meta` or `delivery_context` in Phase 1.
 - On reload: `interactions` loaded from DB, `used` prop controls grey-out
 - `handleInteraction` resolves message id from DB if not yet available (race with saveMsgToDb)
 
+### Rec Capture Flow (Current — emoji-parsed, pre-Phase 3)
+1. AI outputs formatted text: `📍 Adding: **Title**\n"context"\n🏷 Suggested tags: ...\n📁 Category: ...\n🔗 Link: ...`
+2. Frontend regex detects `📍\s*Adding:` or `🏷\s*Suggested tags` in response text
+3. Parses title (**bold**), context ("quoted"), tags (🏷 line), category (📁 line), link (🔗 line)
+4. Stores as `capturedRec` on the message object + `captured_rec` JSONB in chat_messages
+5. Renders Save/Edit buttons below the message. Edit opens `CaptureCard` (editable form)
+6. `handleSaveCapture` calls `addRec()`, shows "✓ Saved." toast, schedules 3s nudge
+7. Nudge timer: random follow-up ("What else you got?") after 3s, cancelled if curator starts typing
+8. Style summary generation fires at milestones [3, 6, 10, 15, 20 recs]
+- Parsing is duplicated in two places: `sendAgentResultsRequest` handler (~line 384) and main `send` handler (~line 537)
+- CaptureCard: `components/chat/CaptureCard.jsx` — editable title, context, category pills, tags, links
+
 ### Key Implementation Details
 - `send(overrideMsg)` accepts optional param for ActionButton auto-send
 - `saveMsgToDb` returns inserted row id via `.select('id').single()`
@@ -495,7 +508,7 @@ No `meta` or `delivery_context` in Phase 1.
 - Visitor chat still uses old bubble rendering (not yet migrated)
 
 ### Future Phases
-- Phase 2: Claude tool use for block generation, TasteRead visual card
+- Phase 2 (in progress): TasteRead visual card — FeedTasteRead component live, buildTasteReadBlock ready, block construction not yet wired (prose rendering preferred for now). Next: decide when to activate TasteRead block generation
 - Phase 3: RecCapture card
 - Phase 4: AgentBanner as typed block
 - Phase 6: Email/SMS/push renderers
@@ -555,7 +568,8 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Content blocks Phase 1 (shipped March 16, 2026): feed layout, MediaEmbed, ActionButtons live. Feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
 
 ### Next Up
-- Content blocks Phase 2: Claude tool use, TasteRead visual card
+- Content blocks Phase 2: TasteRead block generation activation (component + backend function ready, wiring deferred)
+- Content blocks Phase 3: RecCapture card
 - In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
