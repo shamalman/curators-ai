@@ -1,6 +1,6 @@
 'use client'
 
-import { T, S, F, CAT } from "@/lib/constants";
+import { T, F, CAT } from "@/lib/constants";
 
 export default function FeedTasteRead({ data }) {
   if (!data) return null;
@@ -47,16 +47,28 @@ export default function FeedTasteRead({ data }) {
         gap: 6,
       }}>
         <span style={{ fontSize: 14 }}>{emoji}</span>
-        <span style={{
-          fontFamily: F,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color,
-        }}>
-          TASTE READ
-        </span>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{
+            fontFamily: F,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color,
+          }}>
+            TASTE READ
+          </span>
+          {data.duration_sec != null && (
+            <span style={{
+              fontFamily: F,
+              fontSize: 10,
+              color: T.ink3,
+              marginTop: 1,
+            }}>
+              {data.duration_sec}s analysis
+            </span>
+          )}
+        </div>
         {sourceCountLabel && (
           <span style={{
             fontFamily: F,
@@ -73,13 +85,12 @@ export default function FeedTasteRead({ data }) {
       {data.thesis && (
         <div style={{
           padding: "14px 16px 10px",
-          fontFamily: S,
-          fontSize: 15.5,
-          fontStyle: "italic",
+          fontFamily: F,
+          fontSize: 14,
           color: T.ink,
           lineHeight: 1.55,
         }}>
-          {"\u201C"}{data.thesis}{"\u201D"}
+          {data.thesis}
         </div>
       )}
 
