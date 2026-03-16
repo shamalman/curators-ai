@@ -8,6 +8,7 @@ import { useCurator } from "@/context/CuratorContext";
 import { supabase } from "@/lib/supabase";
 import CaptureCard from "./CaptureCard";
 import ProfileCaptureCard from "./ProfileCaptureCard";
+import ErrorBoundary from "../shared/ErrorBoundary";
 import FeedUserBubble from "../feed/FeedUserBubble";
 import FeedBlockGroup from "../feed/FeedBlockGroup";
 import FeedLegacyBubble from "../feed/FeedLegacyBubble";
@@ -380,9 +381,10 @@ export default function ChatView({ variant }) {
       .then(r => r.json())
       .then(async data => {
         setTyping(false);
-        let text = data.message;
+        let text = data.message || '';
         // Strip [REC]...[/REC] if present
         text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+        if (!text) text = ' ';
 
         // Check server-extracted rec first, fall back to emoji parsing
         let capturedRec = data.captured_rec || null;
@@ -518,9 +520,10 @@ export default function ChatView({ variant }) {
         setAgentPollingJobs(prev => [...prev, ...data.agentJobs]);
       }
 
-      let text = data.message;
+      let text = data.message || '';
       // Strip [REC]...[/REC] if present
       text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+      if (!text) text = ' ';
 
       // Parse and submit feedback capture blocks
       const feedbackMatch = text.match(/\n?FEEDBACK_CAPTURE:(\{[\s\S]*\})\s*$/);
@@ -662,13 +665,14 @@ export default function ChatView({ variant }) {
   };
 
   const handleSaveCapture = (capturedRec, msgIndex) => {
+    if (!capturedRec?.title) return;
     const newItem = {
       id: Date.now(),
       slug: capturedRec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       title: capturedRec.title,
       category: capturedRec.category || "other",
-      context: capturedRec.context,
-      tags: capturedRec.tags,
+      context: capturedRec.context || '',
+      tags: capturedRec.tags || [],
       date: new Date().toISOString().split("T")[0],
       visibility: "public",
       revision: 1,
@@ -724,8 +728,9 @@ export default function ChatView({ variant }) {
         const data = await res.json();
         setTyping(false);
         if (typedSinceSave.current) return;
-        let text = data.message;
+        let text = data.message || '';
         text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+        if (!text) text = ' ';
         setMessages(prev => [...prev, { role: "ai", text, blocks: data.blocks || null, interactions: [] }]);
         saveMsgToDb("ai", text, null, data.blocks);
       } catch (err) {
@@ -798,6 +803,7 @@ export default function ChatView({ variant }) {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, background: W.bg }}>
           <div ref={chatScrollRef} onScroll={() => { const el = chatScrollRef.current; if (el) setShowScrollBtn(el.scrollTop < el.scrollHeight - el.clientHeight - 100); }} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "none", minHeight: 0, touchAction: "pan-y" }}>
             <div style={{ maxWidth: 700, margin: "0 auto", padding: "12px 16px" }}>
+            <ErrorBoundary>
             {messages.map((msg, i) => {
               // Agent completion banner
               if (msg.type === "agentComplete") {
@@ -1087,6 +1093,7 @@ export default function ChatView({ variant }) {
               }
               return null;
             })}
+            </ErrorBoundary>
             {typing && <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 12 }}>
               <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
             </div>}

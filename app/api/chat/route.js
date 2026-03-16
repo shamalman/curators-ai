@@ -20,6 +20,7 @@ function getSupabaseAdmin() {
 
 // ── Extract structured rec capture from [REC]...[/REC] JSON tags ──
 function extractRecCapture(aiText) {
+  if (!aiText) return null;
   const recMatch = aiText.match(/\[REC\]([\s\S]*?)\[\/REC\]/);
   if (!recMatch) return null;
 
