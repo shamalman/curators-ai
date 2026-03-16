@@ -312,7 +312,7 @@ export function CuratorProvider({ children }) {
     }
   };
 
-  const saveMsgToDb = async (role, text, capturedRec) => {
+  const saveMsgToDb = async (role, text, capturedRec, blocks) => {
     if (!profileId) return;
     try {
       await supabase.from("chat_messages").insert({
@@ -320,6 +320,7 @@ export function CuratorProvider({ children }) {
         role: role === "ai" ? "assistant" : role,
         text,
         captured_rec: capturedRec || null,
+        blocks: blocks || null,
       });
     } catch (err) { console.error("Failed to save message:", err); }
   };

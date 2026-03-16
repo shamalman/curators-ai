@@ -413,7 +413,7 @@ export default function ChatView({ variant }) {
           }
         }
         setMessages(m => [...m, { role: "ai", text, capturedRec }]);
-        saveMsgToDb("ai", text, capturedRec);
+        saveMsgToDb("ai", text, capturedRec, data.blocks);
         hasPendingBanner.current = false;
         isWaitingForResponse.current = false;
       })
@@ -578,7 +578,7 @@ export default function ChatView({ variant }) {
       }
 
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile }]);
-      saveMsgToDb("ai", text, capturedRec);
+      saveMsgToDb("ai", text, capturedRec, data.blocks);
     } catch (error) {
       console.error('Chat error:', error);
       setTyping(false);

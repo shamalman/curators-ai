@@ -904,6 +904,80 @@ async function processUrlsForAgent(message, profileId, sb) {
   return agentNotes;
 }
 
+// ── Content Blocks helpers ──
+function classifyMediaType(url, metadata) {
+  if (url.includes('spotify.com')) return 'audio';
+  if (url.includes('music.apple.com')) return 'audio';
+  if (url.includes('soundcloud.com')) return 'audio';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'video';
+  if (url.includes('maps.google.com') || url.includes('maps.app.goo.gl')) return 'place';
+  if (url.includes('letterboxd.com')) {
+    return url.includes('/film/') ? 'article' : 'profile';
+  }
+  if (url.includes('goodreads.com')) return 'book';
+  return 'article';
+}
+
+function hasEmbeddablePlayer(provider) {
+  return ['Spotify', 'YouTube', 'SoundCloud', 'Apple Music'].includes(provider);
+}
+
+async function fetchLinkMetadataForBlocks(url) {
+  let metadata = { title: null, source: null, author: null, thumbnail_url: null, embed_html: null };
+  try {
+    if (url.includes('spotify.com')) {
+      metadata.source = 'Spotify';
+      const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
+      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
+    } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      metadata.source = 'YouTube';
+      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
+    } else if (url.includes('soundcloud.com')) {
+      metadata.source = 'SoundCloud';
+      const res = await fetch(`https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
+    } else if (url.includes('music.apple.com')) {
+      metadata.source = 'Apple Music';
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CuratorsBot/1.0)' } });
+      if (res.ok) { const html = await res.text(); const t = html.match(/<title[^>]*>([^<]+)<\/title>/i); if (t) metadata.title = t[1].trim(); }
+    } else {
+      metadata.source = 'Website';
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CuratorsBot/1.0)' } });
+      if (res.ok) { const html = await res.text(); const t = html.match(/<title[^>]*>([^<]+)<\/title>/i); if (t) metadata.title = t[1].trim(); }
+    }
+  } catch (err) {
+    console.error('fetchLinkMetadataForBlocks error:', url, err);
+  }
+  return metadata;
+}
+
+function buildActionButtons(urls, aiText) {
+  if (urls.length > 0) {
+    return {
+      type: "action_buttons",
+      data: {
+        options: [
+          { label: "Taste read", action: "Do a taste read on this", style: "primary" },
+          { label: urls.length > 1 ? "Capture these recs" : "Capture this rec", action: "Add as a recommendation", style: "secondary" },
+        ]
+      }
+    };
+  }
+  if (aiText.includes('gravitate toward') || aiText.includes('taste profile')) {
+    return {
+      type: "action_buttons",
+      data: {
+        options: [
+          { label: "Spot on", action: "Spot on — that's exactly right", style: "primary" },
+          { label: "Missing something", action: "You're missing something", style: "secondary" },
+        ]
+      }
+    };
+  }
+  return null;
+}
+
 // ── Build agent notes for system prompt injection ──
 function buildAgentUrlNotes(agentNotes) {
   if (!agentNotes || agentNotes.length === 0) return "";
@@ -1157,8 +1231,55 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       .filter(n => n.type === 'agent_started')
       .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
 
+    // ── Build content blocks ──
+    const detectedUrls = message ? (message.match(URL_REGEX) || []) : [];
+
+    let mediaEmbeds = [];
+    if (!isVisitor && !generateOpening && detectedUrls.length > 0) {
+      mediaEmbeds = await Promise.all(
+        detectedUrls.map(async (url) => {
+          try {
+            const metadata = await fetchLinkMetadataForBlocks(url);
+            const provider = metadata.source || "generic";
+            return {
+              type: "media_embed",
+              data: {
+                url,
+                provider,
+                title: metadata.title || url,
+                author: metadata.author || null,
+                description: null,
+                thumbnail_url: metadata.thumbnail_url || null,
+                media_type: classifyMediaType(url, metadata),
+                has_embed: hasEmbeddablePlayer(provider),
+                embed_html: metadata.embed_html || null,
+                rating: null,
+              }
+            };
+          } catch (e) {
+            console.error('MediaEmbed fetch error:', url, e);
+            return {
+              type: "media_embed",
+              data: {
+                url, provider: "generic", title: url, author: null,
+                description: null, thumbnail_url: null, media_type: "article",
+                has_embed: false, embed_html: null, rating: null,
+              }
+            };
+          }
+        })
+      );
+    }
+
+    const blocks = [];
+    blocks.push(...mediaEmbeds);
+    blocks.push({ type: "text", data: { content: aiMessage } });
+    const actionButtons = buildActionButtons(detectedUrls, aiMessage);
+    if (actionButtons) blocks.push(actionButtons);
+
     return NextResponse.json({
       message: aiMessage,
+      blocks: blocks,
       agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
