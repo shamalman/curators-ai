@@ -67,7 +67,7 @@ app/
     edit/             # → EditProfile (owner only)
     [slug]/           # → Rec detail page
   api/
-    chat/             # Claude API integration
+    chat/             # Claude API integration + interaction persistence
     auth/             # Signup, callback
     invite/           # Invite code CRUD
     link-metadata/    # URL metadata fetcher
@@ -82,7 +82,8 @@ app/
   login/, signup/, onboarding/, forgot-password/, reset-password/
 
 components/
-  chat/               # ChatView, MessageBubble, CaptureCard, ProfileCaptureCard
+  chat/               # ChatView, CaptureCard, ProfileCaptureCard
+  feed/               # FeedRenderer, FeedBlockGroup, FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedUserBubble, FeedLegacyBubble
   layout/             # CuratorShell, BottomTabs, Sidebar, InviteModal
   visitor/            # VisitorProfile (public profile page)
   screens/            # EditProfile
@@ -115,7 +116,8 @@ lib/
 ## Key Files
 
 ### API Routes
-- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent)
+- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent), content blocks construction (classifyMediaType, hasEmbeddablePlayer, fetchLinkMetadataForBlocks, buildActionButtons)
+- `app/api/chat/interaction/route.js` — Persists ActionButton interactions to chat_messages.interactions JSONB. Uses admin client (service role) because chat_messages has no RLS UPDATE policy
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
 - `app/api/generate-style-summary/route.js` — AI-generated curator style/personality JSON
@@ -141,11 +143,11 @@ lib/
 - `components/visitor/VisitorProfile.jsx` — Public profile page. Stats row clickable (toggles recs/subscriptions/subscribers). Bookmarks pulled from CuratorContext directly (NOT useCurator())
 - `components/recs/RecCard.jsx` — Shared rec row with category emoji, title, context, date, optional curator handle, optional bookmark
 - `components/screens/EditProfile.jsx` — Uses useContext(CuratorContext) directly + useContext(VisitorContext) for refresh
-- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary. Image/screenshot upload (camera icon + paste, base64 to Claude vision API, NOT stored in DB). Agent banner system with polling, deliveredJobIds ref, hasPendingBanner ref, isWaitingForResponse ref
+- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. Curator chat uses feed-based rendering (FeedBlockGroup for blocks, FeedLegacyBubble for old messages, FeedUserBubble for user messages). Visitor chat still uses old bubble style. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary. Image/screenshot upload (camera icon + paste, base64 to Claude vision API, NOT stored in DB). Agent banner system with polling, deliveredJobIds ref, hasPendingBanner ref, isWaitingForResponse ref. send() accepts optional overrideMsg param for ActionButton auto-send
 - `components/layout/BottomTabs.jsx` / `Sidebar.jsx` — Feedback tab shown only for handle === "shamal" (hardcoded)
 
 ### Context
-- `context/CuratorContext.jsx` — Exposes savedRecIds (Set, never null), saveRec, unsaveRec. isFirstTime = dbLoaded && tasteItems.length === 0 && (!bio || bio starts with "[note")
+- `context/CuratorContext.jsx` — Exposes savedRecIds (Set, never null), saveRec, unsaveRec. isFirstTime = dbLoaded && tasteItems.length === 0 && (!bio || bio starts with "[note"). saveMsgToDb returns inserted row id. Message loading includes id, blocks, interactions fields
 - `context/VisitorContext.jsx` — Does NOT expose savedRecIds/saveRec/unsaveRec. Exposes refresh()
 
 ---
@@ -272,8 +274,21 @@ presented_at TIMESTAMPTZ (null until banner clicked and results delivered)
 created_at TIMESTAMPTZ
 ```
 
+### chat_messages
+```
+id UUID PK
+profile_id UUID FK → profiles(id)
+role TEXT (user | assistant)
+text TEXT
+captured_rec JSONB
+blocks JSONB (array of content blocks — null for legacy messages)
+interactions JSONB DEFAULT '[]' (ActionButton tap records: [{block_index, action, interacted_at}])
+created_at TIMESTAMPTZ
+```
+RLS: Owners can SELECT and INSERT. No UPDATE policy — use service role for updates (e.g. /api/chat/interaction).
+⚠️ When blocks is non-null, frontend renders via feed components. When null, renders legacy bubble style.
+
 ### Other tables
-- chat_messages: id, profile_id, role, text, captured_rec JSONB, created_at
 - saved_recs: id, profile_id, rec_id, created_at
 - revisions: id, recommendation_id, revision_number, context, tags, links, created_at
 
@@ -281,7 +296,7 @@ created_at TIMESTAMPTZ
 Before adding any new write operation, verify RLS policy exists:
 - profiles: Anyone can read, owner can update
 - recommendations: Public can read approved+public, owners can CRUD
-- chat_messages: Owners only
+- chat_messages: Owners can SELECT/INSERT. No UPDATE policy — use /api/chat/interaction (service role) for updates
 - subscriptions: auth.uid() IS NOT NULL for SELECT; owners can INSERT/UPDATE
 - invite_codes: Anyone can read (SELECT true); owners can INSERT; UPDATE policy exists for setting used_by/used_at
 - saved_recs: Owners only
@@ -446,19 +461,45 @@ spotify → "Spotify", apple_music → "Apple Music", google_maps → "Google Ma
 
 ---
 
-## Content Blocks Architecture (Next Major Phase)
+## Content Blocks (Phase 1 — Live)
 
-Migrating from text-based chat to structured content blocks. Architecture doc: `curators-content-blocks-architecture-v2.docx`
+Feed-based UI where AI responses are full-width editorial content blocks, not chat bubbles. User messages remain right-aligned bubbles. Handoff doc: `phase1-feed-mockup.jsx` for visual targets.
 
-- Every AI response becomes an array of typed blocks, not a text string
-- Block types: Text, TasteRead, RecCapture, AgentBanner, ActionButtons, MediaEmbed (future: NewsCard, DiscoveryCard, MilestoneCard, PromptCard)
-- Claude produces blocks via tool use / function calling — no more emoji parsing
-- Each block has renderers for: web app, mobile, email, SMS/WhatsApp, push notifications
-- Block schema: `{ type, data, meta: { timestamp, source, priority, category, freshness, actionability }, delivery_context: { audience, reason, trigger } }`
-- oEmbed strategy: fetch once at block level, store raw data, each channel renderer uses different parts. Fallback: oEmbed → OG tags → parser metadata
-- Analytics: every block defines `events[]` schema at design time — not retrofitted
-- Migration is incremental: 6 phases, each independently shippable. Phase 1: Foundation + MediaEmbed + ActionButtons
-- Replaces the current ad-hoc banner system with typed blocks with explicit lifecycle
+### Block Schema
+Every block: `{ type: "text | media_embed | action_buttons", data: { ... } }`
+No `meta` or `delivery_context` in Phase 1.
+
+### Three Block Types
+- **Text** — Full-width prose, no bubble/border/avatar. Manrope 15px, line-height 1.6, color T.ink. Simple **bold** markdown only.
+- **MediaEmbed** — Rich link preview card. Provider colors/icons hardcoded. `has_embed: true` shows play area. oEmbed data fetched server-side via `fetchLinkMetadataForBlocks()`.
+- **ActionButtons** — Horizontal pill buttons. Grey out (opacity 0.3, pointer-events none) after any button tapped. Link intent buttons both use `primary` style. Taste read reaction uses primary/secondary.
+
+### Blocks Flow
+1. User sends message with URLs → chat route detects URLs, fetches oEmbed metadata
+2. Claude generates text response
+3. Route constructs blocks array: MediaEmbed(s) → Text → ActionButtons (conditional)
+4. Response includes both `message` (string, backward compat) and `blocks` (array)
+5. Frontend saves blocks to DB via `saveMsgToDb`, backfills message id in state
+6. Frontend renders via FeedBlockGroup (blocks present) or FeedLegacyBubble (blocks null)
+
+### ActionButtons Interaction Persistence
+- Tapping a button: local `tapped` state greys out immediately + `tappedActionMsgIndices` ref survives re-renders
+- DB persistence via `/api/chat/interaction` endpoint (service role, bypasses RLS)
+- On reload: `interactions` loaded from DB, `used` prop controls grey-out
+- `handleInteraction` resolves message id from DB if not yet available (race with saveMsgToDb)
+
+### Key Implementation Details
+- `send(overrideMsg)` accepts optional param for ActionButton auto-send
+- `saveMsgToDb` returns inserted row id via `.select('id').single()`
+- URL detection for blocks strips `[Link metadata: ...]` and `[Pending link: ...]` annotations to avoid duplicate MediaEmbed on follow-up
+- Visitor chat still uses old bubble rendering (not yet migrated)
+
+### Future Phases
+- Phase 2: Claude tool use for block generation, TasteRead visual card
+- Phase 3: RecCapture card
+- Phase 4: AgentBanner as typed block
+- Phase 6: Email/SMS/push renderers
+- Full architecture doc: `curators-content-blocks-architecture-v2.docx`
 
 ---
 
@@ -511,9 +552,11 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Agent pipeline: 9 source parsers, Claude extraction, polling-based banner delivery
 - Image/screenshot upload in chat (base64 to Claude vision API)
 - Agent completion email notifications (Resend)
+- Content blocks Phase 1: feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
 
 ### Next Up
-- Content blocks architecture (Phase 1: Foundation + MediaEmbed + ActionButtons)
+- Content blocks Phase 1 polish: interaction persistence verification, MediaEmbed oEmbed title debugging
+- Content blocks Phase 2: Claude tool use, TasteRead visual card
 - In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
