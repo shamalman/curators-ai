@@ -488,7 +488,6 @@ export default function ChatView({ variant }) {
       });
 
       const data = await response.json();
-      console.log('CHAT RESPONSE DEBUG:', JSON.stringify({ hasBlocks: !!data.blocks, blocksLength: data.blocks?.length, keys: Object.keys(data) }));
       setTyping(false);
       isWaitingForResponse.current = false;
 
@@ -579,7 +578,6 @@ export default function ChatView({ variant }) {
       }
 
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile }]);
-      console.log('BLOCKS DEBUG:', JSON.stringify(data.blocks));
       saveMsgToDb("ai", text, capturedRec, data.blocks);
     } catch (error) {
       console.error('Chat error:', error);
