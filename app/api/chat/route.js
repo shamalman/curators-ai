@@ -1074,7 +1074,6 @@ export async function POST(request) {
     // ── Agent integration (curator modes only, not visitor, not opening generation) ──
     let agentBlock = "";
     let agentNotes = [];
-    let deliveredAgentJobs = [];
 
     if (!isVisitor && profileId && !generateOpening) {
       // Check for URLs in message and create agent jobs (no processing — frontend triggers that)
@@ -1095,7 +1094,6 @@ export async function POST(request) {
         const delivery = await getAgentResultsForDelivery(profileId, message, sb);
         if (delivery.block) {
           agentBlock += delivery.block;
-          deliveredAgentJobs = delivery.jobs;
         }
       }
 
@@ -1321,32 +1319,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     const blocks = [];
     blocks.push(...mediaEmbeds);
-
-    // If this response delivered agent results, add TasteRead blocks
-    if (deliveredAgentJobs.length > 0) {
-      for (const job of deliveredAgentJobs) {
-        const tasteReadBlock = buildTasteReadBlock(job);
-        if (tasteReadBlock) blocks.push(tasteReadBlock);
-      }
-    }
-
     blocks.push({ type: "text", data: { content: aiMessage } });
-
-    // Taste read reaction buttons vs normal action buttons
-    if (deliveredAgentJobs.length > 0) {
-      blocks.push({
-        type: "action_buttons",
-        data: {
-          options: [
-            { label: "Spot on", action: "Spot on \u2014 that's exactly right", style: "primary" },
-            { label: "Missing something", action: "You're missing something", style: "primary" },
-          ]
-        }
-      });
-    } else {
-      const actionButtons = buildActionButtons(detectedUrls, aiMessage);
-      if (actionButtons) blocks.push(actionButtons);
-    }
+    const actionButtons = buildActionButtons(detectedUrls, aiMessage);
+    if (actionButtons) blocks.push(actionButtons);
 
     return NextResponse.json({
       message: aiMessage,
