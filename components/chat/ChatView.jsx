@@ -377,7 +377,7 @@ export default function ChatView({ variant }) {
       }),
     })
       .then(r => r.json())
-      .then(data => {
+      .then(async data => {
         setTyping(false);
         let text = data.message;
         const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
