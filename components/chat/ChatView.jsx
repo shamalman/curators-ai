@@ -840,7 +840,6 @@ export default function ChatView({ variant }) {
                   </div>
                 );
               }
-              console.log('MSG RENDER:', msg.role, 'hasBlocks:', !!msg.blocks, 'blocksLen:', msg.blocks?.length);
               // User message
               if (msg.role === "user") {
                 return (
