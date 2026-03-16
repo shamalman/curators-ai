@@ -992,7 +992,6 @@ async function fetchLinkMetadataForBlocks(url) {
   } catch (err) {
     console.error('fetchLinkMetadataForBlocks error:', url, err);
   }
-  console.log('fetchLinkMetadataForBlocks result:', url, JSON.stringify({ title: metadata.title, source: metadata.source }));
   return metadata;
 }
 
@@ -1004,17 +1003,6 @@ function buildActionButtons(urls, aiText) {
         options: [
           { label: "Taste read", action: "Do a taste read on this", style: "primary" },
           { label: urls.length > 1 ? "Capture these recs" : "Capture this rec", action: "Add as a recommendation", style: "primary" },
-        ]
-      }
-    };
-  }
-  if (aiText.includes('gravitate toward') || aiText.includes('taste profile')) {
-    return {
-      type: "action_buttons",
-      data: {
-        options: [
-          { label: "Spot on", action: "Spot on — that's exactly right", style: "primary" },
-          { label: "Missing something", action: "You're missing something", style: "secondary" },
         ]
       }
     };
