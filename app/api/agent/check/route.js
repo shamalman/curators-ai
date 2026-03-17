@@ -61,7 +61,7 @@ export async function GET() {
     // Find completed but unpresented agent jobs
     const { data: jobs, error } = await admin
       .from("agent_jobs")
-      .select("id, source_type")
+      .select("id, source_type, source_url")
       .eq("profile_id", profile.id)
       .eq("status", "completed")
       .is("presented_at", null)
@@ -74,7 +74,7 @@ export async function GET() {
     // Also check for processing jobs
     const { data: processingJobs } = await admin
       .from("agent_jobs")
-      .select("id, source_type")
+      .select("id, source_type, source_url")
       .eq("profile_id", profile.id)
       .in("status", ["pending", "processing"])
       .order("created_at", { ascending: false });
@@ -84,11 +84,13 @@ export async function GET() {
         jobId: j.id,
         sourceType: j.source_type,
         sourceName: sourceName(j.source_type),
+        sourceUrl: j.source_url,
       })),
       processing: (processingJobs || []).map(j => ({
         jobId: j.id,
         sourceType: j.source_type,
         sourceName: sourceName(j.source_type),
+        sourceUrl: j.source_url,
       })),
     });
   } catch (error) {

@@ -265,22 +265,36 @@ export default function ChatView({ variant }) {
   }, [dbLoaded]);
 
   // Create a DB-persisted agent_banner block for a completed job
-  const createAgentBannerBlock = async (jobId, sourceType, sourceName) => {
-    // Dedup: check if a banner already exists for this job_id in DB
-    const { data: existing } = await supabase
+  const createAgentBannerBlock = async (jobId, sourceType, sourceName, sourceUrl) => {
+    // Dedup by job_id
+    const { data: existingJob } = await supabase
       .from("chat_messages")
       .select("id")
       .eq("profile_id", profileId)
       .filter("blocks", "cs", JSON.stringify([{ data: { job_id: jobId } }]))
       .limit(1);
-    if (existing && existing.length > 0) return;
+    if (existingJob && existingJob.length > 0) return;
+
+    // Dedup by source_type — only one banner per source type at a time
+    if (sourceType) {
+      const { data: existingSource } = await supabase
+        .from("chat_messages")
+        .select("id")
+        .eq("profile_id", profileId)
+        .filter("blocks", "cs", JSON.stringify([{ type: "agent_banner", data: { source_type: sourceType } }]))
+        .limit(1);
+      if (existingSource && existingSource.length > 0) return;
+    }
+
+    // Resolve source name if missing
+    const resolvedName = sourceName || { spotify: "Spotify", apple_music: "Apple Music", google_maps: "Google Maps", youtube: "YouTube", letterboxd: "Letterboxd", goodreads: "Goodreads", soundcloud: "SoundCloud", twitter: "X (Twitter)", webpage: "Webpage" }[sourceType] || sourceType;
 
     const blocks = [{
       type: "agent_banner",
       data: {
         job_id: jobId,
         source_type: sourceType,
-        source_name: sourceName,
+        source_name: resolvedName,
         status: "completed",
         cta_text: "See what I found",
       },
@@ -301,7 +315,7 @@ export default function ChatView({ variant }) {
       .then(data => {
         if (data.jobs && data.jobs.length > 0) {
           for (const job of data.jobs) {
-            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName);
+            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName, job.sourceUrl);
           }
         }
         // Resume polling for any processing jobs
@@ -331,7 +345,7 @@ export default function ChatView({ variant }) {
           const data = await res.json();
           if (data.status === 'completed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName);
+            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName, job.sourceUrl);
           } else if (data.status === 'failed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
           }

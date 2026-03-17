@@ -10,6 +10,11 @@ const anthropic = new Anthropic({
   }
 });
 
+function sourceNameFromType(t) {
+  const map = { spotify: "Spotify", apple_music: "Apple Music", google_maps: "Google Maps", youtube: "YouTube", letterboxd: "Letterboxd", goodreads: "Goodreads", soundcloud: "SoundCloud", twitter: "X (Twitter)", webpage: "Webpage" };
+  return map[t] || t;
+}
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -1283,7 +1288,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     // Include pending agent jobs so frontend can trigger processing
     const pendingAgentJobs = agentNotes
       .filter(n => n.type === 'agent_started')
-      .map(n => ({ jobId: n.jobId, sourceType: n.sourceType }));
+      .map(n => ({ jobId: n.jobId, sourceType: n.sourceType, sourceUrl: n.url, sourceName: sourceNameFromType(n.sourceType) }));
 
     // ── Build content blocks ──
     // Strip metadata annotations added by the frontend to avoid duplicate URL detection
