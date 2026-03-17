@@ -1123,7 +1123,7 @@ export default function ChatView({ variant }) {
               <button onClick={() => imageInputRef.current?.click()} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: "transparent", color: T.ink3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="14" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/></svg>
               </button>
-              <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: (input.trim() || pendingImage) ? T.acc : W.bdr, color: (input.trim() || pendingImage) ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
+              <button onClick={() => send()} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: (input.trim() || pendingImage) ? T.acc : W.bdr, color: (input.trim() || pendingImage) ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
             </div>
           </div>
         </div>
@@ -1215,7 +1215,7 @@ export default function ChatView({ variant }) {
             style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${V.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: V.inputBg, color: T.ink }}
             onFocus={e => e.target.style.borderColor = T.acc} onBlur={e => e.target.style.borderColor = V.inputBdr}
           />
-          <button onClick={send} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : V.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
+          <button onClick={() => send()} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : V.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
         </div>
       </div>
     </div>
