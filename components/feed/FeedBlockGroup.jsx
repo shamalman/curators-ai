@@ -4,6 +4,7 @@ import FeedTextBlock from "./FeedTextBlock";
 import FeedMediaEmbed from "./FeedMediaEmbed";
 import FeedActionButtons from "./FeedActionButtons";
 import FeedTasteRead from "./FeedTasteRead";
+import FeedAgentBanner from "./FeedAgentBanner";
 
 export default function FeedBlockGroup({ blocks, interactions, messageId, tapped, onSendMessage, onInteraction }) {
   if (!blocks || blocks.length === 0) return null;
@@ -27,6 +28,20 @@ export default function FeedBlockGroup({ blocks, interactions, messageId, tapped
                 onUse={(option) => {
                   if (onInteraction) onInteraction(messageId, i, option.action);
                   if (onSendMessage) onSendMessage(option.action);
+                }}
+              />
+            );
+          }
+          case 'agent_banner': {
+            const isUsed = (interactions || []).some(x => x.block_index === i);
+            return (
+              <FeedAgentBanner
+                key={i}
+                data={block.data}
+                used={isUsed}
+                onAction={(bannerData) => {
+                  if (onInteraction) onInteraction(messageId, i, 'banner_clicked');
+                  if (onSendMessage) onSendMessage(`Show me what you found from my ${bannerData.source_name || bannerData.sourceName || 'source'}`);
                 }}
               />
             );
