@@ -489,17 +489,18 @@ No `meta` or `delivery_context` in Phase 1.
 - On reload: `interactions` loaded from DB, `used` prop controls grey-out
 - `handleInteraction` resolves message id from DB if not yet available (race with saveMsgToDb)
 
-### Rec Capture Flow (Current — emoji-parsed, pre-Phase 3)
-1. AI outputs formatted text: `📍 Adding: **Title**\n"context"\n🏷 Suggested tags: ...\n📁 Category: ...\n🔗 Link: ...`
-2. Frontend regex detects `📍\s*Adding:` or `🏷\s*Suggested tags` in response text
-3. Parses title (**bold**), context ("quoted"), tags (🏷 line), category (📁 line), link (🔗 line)
-4. Stores as `capturedRec` on the message object + `captured_rec` JSONB in chat_messages
-5. Renders Save/Edit buttons below the message. Edit opens `CaptureCard` (editable form)
-6. `handleSaveCapture` calls `addRec()`, shows "✓ Saved." toast, schedules 3s nudge
-7. Nudge timer: random follow-up ("What else you got?") after 3s, cancelled if curator starts typing
+### Rec Capture Flow (Current — [REC] JSON format, Phase 3)
+1. AI outputs `[REC]{"title":"...","context":"...","tags":[...],"category":"...","content_type":"...","links":[...]}[/REC]` as the last thing in its message
+2. Server-side `extractRecCapture()` parses JSON from `[REC]...[/REC]` tags, validates title exists, normalizes fields
+3. Server strips `[REC]` tags from text block, adds `rec_capture` block to blocks array, passes `captured_rec` in response
+4. Frontend checks `data.captured_rec` first (server-extracted), falls back to legacy emoji regex parsing (backward compat)
+5. Renders inline rec preview card (title, context, tags, category) with Save/Edit buttons. Edit opens `CaptureCard` (editable form)
+6. `handleSaveCapture` calls `addRec()`, shows "✓ Saved." toast, schedules 3s taste reflection API call
+7. Taste reflection: real API call asks Claude to connect the saved rec to curator's existing taste patterns (replaces generic nudges)
 8. Style summary generation fires at milestones [3, 6, 10, 15, 20 recs]
-- Parsing is duplicated in two places: `sendAgentResultsRequest` handler (~line 384) and main `send` handler (~line 537)
+- Emoji parsing fallback still in two places: `sendAgentResultsRequest` handler and main `send` handler
 - CaptureCard: `components/chat/CaptureCard.jsx` — editable title, context, category pills, tags, links
+- ErrorBoundary (`components/shared/ErrorBoundary.jsx`) wraps message rendering to catch render crashes
 
 ### Key Implementation Details
 - `send(overrideMsg)` accepts optional param for ActionButton auto-send
@@ -509,7 +510,7 @@ No `meta` or `delivery_context` in Phase 1.
 
 ### Future Phases
 - Phase 2 (in progress): TasteRead visual card — FeedTasteRead component live, buildTasteReadBlock ready, block construction not yet wired (prose rendering preferred for now). Next: decide when to activate TasteRead block generation
-- Phase 3: RecCapture card
+- Phase 3 Deploy 2: FeedRecCapture preview card (new component, one-tap Save/Edit/Skip)
 - Phase 4: AgentBanner as typed block
 - Phase 6: Email/SMS/push renderers
 - Full architecture doc: `curators-content-blocks-architecture-v2.docx`
@@ -566,10 +567,12 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Image/screenshot upload in chat (base64 to Claude vision API)
 - Agent completion email notifications (Resend)
 - Content blocks Phase 1 (shipped March 16, 2026): feed layout, MediaEmbed, ActionButtons live. Feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
+- Content blocks Phase 3 Deploy 1 (shipped March 16, 2026): [REC] JSON capture format replaces emoji-based rec capture. Server-side extractRecCapture() parses [REC]{"title":...}[/REC] tags, constructs rec_capture block, passes captured_rec in response. Frontend checks data.captured_rec first, falls back to emoji regex parsing. Rec preview card shows title/context/tags/category inline with Save/Edit buttons. ErrorBoundary wraps message rendering area.
+- Content blocks Phase 3 Deploy 3 (shipped March 16, 2026): Post-save taste reflections replace generic nudge messages. After 3s silence post-save, real API call asks Claude to reflect on how the saved rec connects to curator's taste patterns. POST-SAVE TASTE REFLECTION instructions added to both system prompts.
 
 ### Next Up
 - Content blocks Phase 2: TasteRead block generation activation (component + backend function ready, wiring deferred)
-- Content blocks Phase 3: RecCapture card
+- Content blocks Phase 3 Deploy 2: FeedRecCapture preview card (new component with one-tap Save/Edit/Skip, replaces inline rec preview)
 - In-app badges on Subs tab for new subscribers
 
 ### Deferred / Backlog
