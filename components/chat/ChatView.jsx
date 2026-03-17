@@ -264,22 +264,29 @@ export default function ChatView({ variant }) {
     setMessages([{ role: "ai", text: openingMessage }]);
   }, [dbLoaded]);
 
-  // Add agent banner if not already showing one for this job
-  const addAgentBanner = (jobId, sourceType, sourceName) => {
-    console.log('addAgentBanner called:', jobId, 'isWaiting:', isWaitingForResponse.current, 'hasPending:', hasPendingBanner.current);
-    if (deliveredJobIds.current.has(jobId)) {
-      console.log('addAgentBanner BLOCKED by ref:', jobId);
-      return;
-    }
-    setMessages(m => {
-      if (m.some(msg => msg.type === 'agentComplete' && msg.jobId === jobId)) {
-        console.log('addAgentBanner BLOCKED by messages:', jobId);
-        return m;
-      }
-      console.log('addAgentBanner ADDING:', jobId, sourceName);
-      hasPendingBanner.current = true;
-      return [...m, { type: 'agentComplete', jobId, sourceType, sourceName }];
-    });
+  // Create a DB-persisted agent_banner block for a completed job
+  const createAgentBannerBlock = async (jobId, sourceType, sourceName) => {
+    // Dedup: check if a banner already exists for this job_id in DB
+    const { data: existing } = await supabase
+      .from("chat_messages")
+      .select("id")
+      .eq("profile_id", profileId)
+      .filter("blocks", "cs", JSON.stringify([{ data: { job_id: jobId } }]))
+      .limit(1);
+    if (existing && existing.length > 0) return;
+
+    const blocks = [{
+      type: "agent_banner",
+      data: {
+        job_id: jobId,
+        source_type: sourceType,
+        source_name: sourceName,
+        status: "completed",
+        cta_text: "See what I found",
+      },
+    }];
+    const savedId = await saveMsgToDb("ai", "", null, blocks);
+    setMessages(m => [...m, { role: "assistant", text: null, blocks, id: savedId, interactions: [] }]);
     shouldScroll.current = true;
   };
 
@@ -293,10 +300,8 @@ export default function ChatView({ variant }) {
       .then(r => r.json())
       .then(data => {
         if (data.jobs && data.jobs.length > 0) {
-          const newJobs = data.jobs.filter(j => !deliveredJobIds.current.has(j.jobId));
-          for (const job of newJobs) {
-            console.log('BANNER SOURCE: mount check', job.jobId);
-            addAgentBanner(job.jobId, job.sourceType, job.sourceName);
+          for (const job of data.jobs) {
+            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName);
           }
         }
         // Resume polling for any processing jobs
@@ -320,19 +325,13 @@ export default function ChatView({ variant }) {
         return;
       }
       for (const job of agentPollingJobs) {
-        if (deliveredJobIds.current.has(job.jobId)) continue;
         try {
           const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
           if (!res.ok) continue;
           const data = await res.json();
           if (data.status === 'completed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            const sourceName = job.sourceType === 'spotify' ? 'Spotify'
-              : job.sourceType === 'apple_music' ? 'Apple Music'
-              : job.sourceType === 'google_maps' ? 'Google Maps'
-              : job.sourceType;
-            console.log('BANNER SOURCE: polling', job.jobId);
-            addAgentBanner(job.jobId, job.sourceType, sourceName);
+            createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName);
           } else if (data.status === 'failed') {
             setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
           }
