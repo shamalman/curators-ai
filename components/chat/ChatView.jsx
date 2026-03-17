@@ -80,9 +80,7 @@ export default function ChatView({ variant }) {
   const isBackNav = useRef(messages.length > 0);
   const nudgeTimer = useRef(null);
   const typedSinceSave = useRef(false);
-  const deliveredJobIds = useRef(new Set());
   const tappedActionMsgIndices = useRef(new Set());
-  const hasPendingBanner = useRef(false);
   const isWaitingForResponse = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
@@ -320,8 +318,8 @@ export default function ChatView({ variant }) {
     if (agentPollingJobs.length === 0) return;
     const startTime = Date.now();
     const interval = setInterval(async () => {
-      // Don't poll while a banner is showing or while waiting for a chat response
-      if (hasPendingBanner.current || isWaitingForResponse.current) return;
+      // Don't poll while waiting for a chat response
+      if (isWaitingForResponse.current) return;
       if (Date.now() - startTime > 120000) {
         setAgentPollingJobs([]);
         clearInterval(interval);
@@ -345,105 +343,6 @@ export default function ChatView({ variant }) {
     }, 5000);
     return () => clearInterval(interval);
   }, [agentPollingJobs]);
-
-  const sendAgentResultsRequest = (jobId, sourceName) => {
-    const msg = `Show me what you found from my ${sourceName}`;
-    // Immediately block this job from future banners
-    deliveredJobIds.current.add(jobId);
-    // Remove this banner from messages immediately, add user message
-    setMessages(m => [
-      ...m.filter(x => !(x.type === 'agentComplete' && x.jobId === jobId)),
-      { role: "user", text: msg },
-    ]);
-    shouldScroll.current = true;
-    saveMsgToDb("user", msg);
-    setInput("");
-    setTyping(true);
-    isWaitingForResponse.current = true;
-
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: msg,
-        isVisitor: false,
-        curatorName: profile.name,
-        curatorHandle: profile.handle?.replace('@', ''),
-        curatorBio: profile.bio || '',
-        profileId,
-        recommendations: items.map(item => ({
-          title: item.title, category: item.category,
-          context: item.context, tags: item.tags, date: item.date,
-          slug: item.slug,
-        })),
-        linkMetadata: null,
-        history: messages.filter(m => !m.type).slice(-10),
-      }),
-    })
-      .then(r => r.json())
-      .then(async data => {
-        setTyping(false);
-        let text = data.message || '';
-        // Strip [REC]...[/REC] if present
-        text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
-        if (!text) text = ' ';
-
-        // Check server-extracted rec first, fall back to emoji parsing
-        let capturedRec = data.captured_rec || null;
-
-        // Legacy emoji parsing fallback (backward compat during transition)
-        if (!capturedRec) {
-          const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
-          if (isCapturedRec) {
-            const titleMatch = text.match(/\*\*([^*]+)\*\*/);
-            const contextMatch = text.match(/"([^"]+)"/);
-            const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
-            const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
-            const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
-            const validCategories = ["watch", "listen", "read", "visit", "get", "wear", "play", "other"];
-            const parseCategory = (match) => {
-              if (!match) return 'other';
-              const raw = match[1].toLowerCase();
-              if (validCategories.includes(raw)) return raw;
-              if (raw === 'tv' || raw === 'film' || raw === 'movies' || raw === 'movie' || raw === 'television' || raw === 'show' || raw === 'shows') return 'watch';
-              if (raw === 'music' || raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist' || raw === 'podcast') return 'listen';
-              if (raw === 'book' || raw === 'books') return 'read';
-              if (raw === 'restaurant' || raw === 'restaurants' || raw === 'dining' || raw === 'food' || raw === 'travel') return 'visit';
-              if (raw === 'product' || raw === 'products') return 'get';
-              return 'other';
-            };
-            if (titleMatch) {
-              const parsedUrl = linkMatch ? linkMatch[1] : null;
-              let linkLabel = '';
-              if (parsedUrl) {
-                try { linkLabel = new URL(parsedUrl).hostname.replace('www.', ''); } catch { linkLabel = 'Link'; }
-              }
-              capturedRec = {
-                title: titleMatch[1].replace(' \u2014 ', ' - '),
-                context: contextMatch ? contextMatch[1] : '',
-                tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
-                category: parseCategory(categoryMatch),
-                links: parsedUrl ? [{ url: parsedUrl, label: linkLabel, type: 'website' }] : [],
-              };
-            }
-          }
-        }
-        setMessages(m => [...m, { role: "ai", text, capturedRec, blocks: data.blocks || null, interactions: [] }]);
-        const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks);
-        if (savedId) {
-          setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
-        }
-        hasPendingBanner.current = false;
-        isWaitingForResponse.current = false;
-      })
-      .catch(err => {
-        console.error('Agent results request error:', err);
-        setTyping(false);
-        hasPendingBanner.current = false;
-        isWaitingForResponse.current = false;
-        setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
-      });
-  };
 
   const send = async (overrideMsg) => {
     const msg = overrideMsg || input.trim();
@@ -807,40 +706,6 @@ export default function ChatView({ variant }) {
             <div style={{ maxWidth: 700, margin: "0 auto", padding: "12px 16px" }}>
             <ErrorBoundary>
             {messages.map((msg, i) => {
-              // Agent completion banner
-              if (msg.type === "agentComplete") {
-                if (msg.consumed) return null;
-                return (
-                  <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                    <div style={{
-                      padding: "16px 18px", borderRadius: 16,
-                      background: T.s2, borderLeft: `3px solid ${T.acc}`,
-                      border: `1px solid ${W.bdr}`, borderLeftWidth: 3, borderLeftColor: T.acc,
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 10, background: `${T.acc}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: T.acc, fontFamily: F }}>C</span>
-                          </div>
-                          <div>
-                            <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>
-                              Your AI has a read on your taste
-                            </div>
-                            <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>
-                              Based on your {msg.sourceName}
-                            </div>
-                          </div>
-                        </div>
-                        <button onClick={() => sendAgentResultsRequest(msg.jobId, msg.sourceName)} style={{
-                          padding: "8px 16px", borderRadius: 10, border: "none",
-                          background: T.acc, color: "#fff", fontSize: 13, fontWeight: 600,
-                          cursor: "pointer", fontFamily: F, whiteSpace: "nowrap",
-                        }}>See what I found</button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
               // Request alert card
               if (msg.type === "requestAlert") {
                 return (
