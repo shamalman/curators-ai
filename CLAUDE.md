@@ -493,17 +493,25 @@ No `meta` or `delivery_context` in Phase 1.
 1. AI outputs `[REC]{"title":"...","context":"...","tags":[...],"category":"...","content_type":"...","links":[...]}[/REC]` as the last thing in its message
 2. Server-side `extractRecCapture()` parses JSON from `[REC]...[/REC]` tags, validates title exists, normalizes fields
 3. Server strips `[REC]` tags from text block, adds `rec_capture` block to blocks array, passes `captured_rec` in response
-4. Frontend checks `data.captured_rec` first (server-extracted), falls back to legacy emoji regex parsing (backward compat)
-5. Renders inline rec preview card (title, context, tags, category) with Save/Edit buttons. Edit opens `CaptureCard` (editable form)
-6. `handleSaveCapture` calls `addRec()`, shows "✓ Saved." toast, schedules 3s taste reflection API call
-7. Taste reflection: real API call asks Claude to connect the saved rec to curator's existing taste patterns (replaces generic nudges)
-8. Style summary generation fires at milestones [3, 6, 10, 15, 20 recs]
+4. Server-side link fallback: if rec has empty links but user's message had URLs (detectedUrls), injects those URLs into rec_capture
+5. Frontend checks `data.captured_rec` first (server-extracted), falls back to legacy emoji regex parsing (backward compat)
+6. Renders inline rec preview card (title, context, tags, category) with Save/Edit buttons. Edit opens `CaptureCard` (editable form)
+7. `handleSaveCapture` calls `addRec()`, shows "✓ Saved." toast, schedules 3s taste reflection API call
+8. Taste reflection: real API call asks Claude to connect the saved rec to curator's existing taste patterns (replaces generic nudges)
+9. Style summary generation fires at milestones [3, 6, 10, 15, 20 recs]
 - Emoji parsing fallback still in two places: `sendAgentResultsRequest` handler and main `send` handler
 - CaptureCard: `components/chat/CaptureCard.jsx` — editable title, context, category pills, tags, links
 - ErrorBoundary (`components/shared/ErrorBoundary.jsx`) wraps message rendering to catch render crashes
 
+### Prompt Capture Rules (March 17, 2026)
+- WHAT + WHY → capture immediately. Never ask "got a link?" before capturing.
+- Link-drop recs: if curator pasted a URL that started the rec conversation, include it in [REC] links array
+- AI never suggests, generates, or offers to find links. Any link it generates will be hallucinated.
+- If curator asks for a link: "I don't have a verified link for that — you can add one after saving by tapping Edit."
+- FINDING LINKS ON REQUEST section removed from both prompts
+
 ### Key Implementation Details
-- `send(overrideMsg)` accepts optional param for ActionButton auto-send
+- `send(overrideMsg)` accepts optional param for ActionButton auto-send. Send buttons use `onClick={() => send()}` (arrow function) to avoid passing click event as overrideMsg
 - `saveMsgToDb` returns inserted row id via `.select('id').single()`
 - URL detection for blocks strips `[Link metadata: ...]` and `[Pending link: ...]` annotations to avoid duplicate MediaEmbed on follow-up
 - Visitor chat still uses old bubble rendering (not yet migrated)
