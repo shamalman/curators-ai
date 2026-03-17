@@ -1025,7 +1025,9 @@ async function fetchLinkMetadataForBlocks(url) {
     if (url.includes('spotify.com')) {
       metadata.source = 'Spotify';
       const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
-      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
+      console.log('[MediaEmbed] Spotify oEmbed:', { url, status: res.status, ok: res.ok });
+      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; console.log('[MediaEmbed] Spotify result:', { url, title: d.title, author: d.author_name }); }
+      else { console.log('[MediaEmbed] Spotify oEmbed FAILED:', { url, status: res.status, statusText: res.statusText }); }
     } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
       metadata.source = 'YouTube';
       const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
