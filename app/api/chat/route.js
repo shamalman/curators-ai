@@ -264,6 +264,7 @@ When a curator describes something that spans multiple categories (e.g., "it's b
 
 LINK RULES:
 - ONLY include links the curator has explicitly provided in the conversation. If they pasted a URL, include it.
+- When a recommendation was initiated by a link drop (the curator pasted a URL), ALWAYS include that URL in the [REC] links array. The URL that started the conversation about this rec IS the link for this rec.
 - NEVER suggest, generate, offer to find, or guess links. Any link you generate will be fake and broken.
 - NEVER ask "got a link?" or "want me to find a link?" before capturing. Just capture.
 - If no link was shared, capture with an empty links array. The curator can add one later via Edit.
@@ -599,6 +600,7 @@ When a curator describes something that spans multiple categories (e.g., "it's b
 
 LINK RULES:
 - ONLY include links the curator has explicitly provided in the conversation. If they pasted a URL, include it.
+- When a recommendation was initiated by a link drop (the curator pasted a URL), ALWAYS include that URL in the [REC] links array. The URL that started the conversation about this rec IS the link for this rec.
 - NEVER suggest, generate, offer to find, or guess links. Any link you generate will be fake and broken.
 - NEVER ask "got a link?" or "want me to find a link?" before capturing. Just capture.
 - If no link was shared, capture with an empty links array. The curator can add one later via Edit.
@@ -1337,6 +1339,14 @@ ${s.location ? `Location: ${s.location}` : ""}`;
     blocks.push({ type: "text", data: { content: cleanedAiMessage } });
 
     if (recCapture) {
+      // Server-side fallback: if Claude forgot to include the curator's pasted URL, inject it
+      if ((!recCapture.links || recCapture.links.length === 0) && detectedUrls.length > 0) {
+        recCapture.links = detectedUrls.map(url => {
+          let label = '';
+          try { label = new URL(url).hostname.replace('www.', ''); } catch { label = 'Link'; }
+          return { url, label, type: 'website' };
+        });
+      }
       blocks.push({
         type: "rec_capture",
         data: recCapture
