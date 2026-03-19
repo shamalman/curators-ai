@@ -83,7 +83,7 @@ app/
 
 components/
   chat/               # ChatView, CaptureCard, ProfileCaptureCard
-  feed/               # FeedRenderer, FeedBlockGroup, FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedTasteRead, FeedUserBubble, FeedLegacyBubble
+  feed/               # FeedRenderer, FeedBlockGroup, FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedTasteRead, FeedAgentBanner, FeedUserBubble, FeedLegacyBubble
   layout/             # CuratorShell, BottomTabs, Sidebar, InviteModal
   visitor/            # VisitorProfile (public profile page)
   screens/            # EditProfile
@@ -106,6 +106,9 @@ lib/
   resend.js           # Email (Resend) client
   email-tokens.js     # Signed token generate/validate/consume for email actions
   email-templates.js  # HTML email templates (new subscriber, weekly digest)
+  prompts/
+    onboarding.js     # buildOnboardingPrompt — new curator system prompt
+    standard.js       # buildStandardPrompt — established curator system prompt
   agent/
     registry.js       # Source parser registry — detectSource(), getParser()
     parsers/          # One file per source platform
@@ -116,7 +119,9 @@ lib/
 ## Key Files
 
 ### API Routes
-- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent), content blocks construction (classifyMediaType, hasEmbeddablePlayer, fetchLinkMetadataForBlocks, buildActionButtons, buildTasteReadBlock)
+- `app/api/chat/route.js` — Claude API integration, 3 system prompt modes (onboarding, standard, visitor — prompts in lib/prompts/), network recs injection, opening message generation, agent integration (getAgentContext, getAgentResultsForDelivery, processUrlsForAgent), content blocks construction (classifyMediaType, hasEmbeddablePlayer, fetchLinkMetadataForBlocks, buildActionButtons, buildTasteReadBlock)
+- `lib/prompts/onboarding.js` — buildOnboardingPrompt: system prompt for new curators (0 recs, no bio)
+- `lib/prompts/standard.js` — buildStandardPrompt: system prompt for established curators
 - `app/api/chat/interaction/route.js` — Persists ActionButton interactions to chat_messages.interactions JSONB. Uses admin client (service role) because chat_messages has no RLS UPDATE policy
 - `app/api/link-metadata/route.js` — Fetches title/source from pasted URLs
 - `app/api/invite/route.js` — Invite code CRUD (generate, fetch, history, update note)
@@ -143,7 +148,7 @@ lib/
 - `components/visitor/VisitorProfile.jsx` — Public profile page. Stats row clickable (toggles recs/subscriptions/subscribers). Bookmarks pulled from CuratorContext directly (NOT useCurator())
 - `components/recs/RecCard.jsx` — Shared rec row with category emoji, title, context, date, optional curator handle, optional bookmark
 - `components/screens/EditProfile.jsx` — Uses useContext(CuratorContext) directly + useContext(VisitorContext) for refresh
-- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. Curator chat uses feed-based rendering (FeedBlockGroup for blocks, FeedLegacyBubble for old messages, FeedUserBubble for user messages). Visitor chat still uses old bubble style. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary. Image/screenshot upload (camera icon + paste, base64 to Claude vision API, NOT stored in DB). Agent banner system with polling, deliveredJobIds ref, hasPendingBanner ref, isWaitingForResponse ref. send() accepts optional overrideMsg param for ActionButton auto-send
+- `components/chat/ChatView.jsx` — Chat UI for curator and visitor. Curator chat uses feed-based rendering (FeedBlockGroup for blocks, FeedLegacyBubble for old messages, FeedUserBubble for user messages). Visitor chat still uses old bubble style. First-time curator opening makes API call with generateOpening:true. Visitor opening uses content-type tags + style summary. Image/screenshot upload (camera icon + paste, base64 to Claude vision API, NOT stored in DB). Agent banners: createAgentBannerBlock persists agent_banner blocks to DB, rendered by FeedAgentBanner. Polling via /api/agent/check + /api/agent/status. send() accepts optional overrideMsg param for ActionButton/AgentBanner auto-send
 - `components/layout/BottomTabs.jsx` / `Sidebar.jsx` — Feedback tab shown only for handle === "shamal" (hardcoded)
 
 ### Context
@@ -447,13 +452,13 @@ All registered in `lib/agent/registry.js`. `implementedParsers`: spotify, apple-
 - After taste reads, AI asks "Want this as part of your official taste profile?"
 
 ### ChatView Banner Architecture (components/chat/ChatView.jsx)
-- Polling via `/api/agent/check` is the ONLY source of banners (no agentReady in chat response)
-- `deliveredJobIds` ref — permanent Set tracking all clicked banner jobIds
-- `hasPendingBanner` ref — pauses polling while a banner is visible
-- `isWaitingForResponse` ref — set during both `send()` AND `sendAgentResultsRequest()`
+- Agent banners are `agent_banner` typed blocks persisted in chat_messages, rendered by FeedAgentBanner via FeedBlockGroup
+- `createAgentBannerBlock(jobId, sourceType, sourceName, sourceUrl)` — dedup-checks by job_id via JSONB contains query, persists assistant message with agent_banner block to DB, adds to local state
+- Mount check (`/api/agent/check`) and polling both call `createAgentBannerBlock` sequentially with `await` to prevent dedup races
+- Banner click: FeedBlockGroup records interaction (greys out CTA to "Delivered") + calls `send()` with "Show me what you found from my {source}"
+- `isWaitingForResponse` ref — pauses polling during chat response
 - `mountCheckDone` ref — ensures mount check fires only once
-- Banner click: immediately adds to `deliveredJobIds`, removes banner from DOM, sends "Show me what you found"
-- Polling skips when `hasPendingBanner || isWaitingForResponse` is true
+- Old refs removed: `deliveredJobIds`, `hasPendingBanner`. Old function removed: `sendAgentResultsRequest`
 
 ### Source Name Mappings
 Exist in BOTH `app/api/agent/check/route.js` AND `app/api/chat/route.js`:
@@ -466,14 +471,15 @@ spotify → "Spotify", apple_music → "Apple Music", google_maps → "Google Ma
 Feed-based UI where AI responses are full-width editorial content blocks, not chat bubbles. User messages remain right-aligned bubbles. Handoff doc: `phase1-feed-mockup.jsx` for visual targets.
 
 ### Block Schema
-Every block: `{ type: "text | media_embed | action_buttons | taste_read", data: { ... } }`
+Every block: `{ type: "text | media_embed | action_buttons | taste_read | agent_banner", data: { ... } }`
 No `meta` or `delivery_context` in Phase 1.
 
-### Four Block Types
+### Block Types
 - **Text** — Full-width prose, no bubble/border/avatar. Manrope 15px, line-height 1.6, color T.ink. Simple **bold** markdown only.
 - **MediaEmbed** — Rich link preview card. Provider colors/icons hardcoded. `has_embed: true` shows play area. oEmbed data fetched server-side via `fetchLinkMetadataForBlocks()`.
 - **ActionButtons** — Horizontal pill buttons. Grey out (opacity 0.3, pointer-events none) after any button tapped. Only generated for URL-based link intent (taste read vs capture rec). No text-pattern detection.
 - **TasteRead** — Visual card for taste analysis results. Category-colored top bar (3px gradient), header with emoji + "TASTE READ" label + source/count, thesis in Manrope, patterns with colored dashes, genre/mood pills. Component: `FeedTasteRead.jsx`. Backend: `buildTasteReadBlock(job)` exists in chat route but NOT currently wired into block construction — taste reads render as prose in Text blocks for now.
+- **AgentBanner** — Taste read completion banner. Created by `createAgentBannerBlock` in ChatView when agent job completes. DB-persisted, survives reload. CTA greys out to "Delivered" on click via interaction tracking. Component: `FeedAgentBanner.jsx`. Schema: `{ job_id, source_type, source_name, status, cta_text }`.
 
 ### Blocks Flow
 1. User sends message with URLs → chat route detects URLs, fetches oEmbed metadata
@@ -519,7 +525,6 @@ No `meta` or `delivery_context` in Phase 1.
 ### Future Phases
 - Phase 2 (in progress): TasteRead visual card — FeedTasteRead component live, buildTasteReadBlock ready, block construction not yet wired (prose rendering preferred for now). Next: decide when to activate TasteRead block generation
 - Phase 3 Deploy 2: FeedRecCapture preview card (new component, one-tap Save/Edit/Skip)
-- Phase 4: AgentBanner as typed block
 - Phase 6: Email/SMS/push renderers
 - Full architecture doc: `curators-content-blocks-architecture-v2.docx`
 
@@ -527,7 +532,7 @@ No `meta` or `delivery_context` in Phase 1.
 
 ## Known Issues & Decisions
 
-- **Banner duplicate race condition**: Polling can fire between banner click and `presented_at` DB write. Mitigated by `deliveredJobIds` ref + `hasPendingBanner` + `isWaitingForResponse`. Fully resolved by content blocks migration (AgentBanner as typed block with lifecycle)
+- **Banner duplicate prevention**: Agent banners dedup by job_id via JSONB contains query on chat_messages. Mount check and polling process banners sequentially with `await` to prevent races. Job-level dedup in `processUrlsForAgent` prevents duplicate agent_jobs for the same URL.
 - **SoundCloud playlist limit**: Only ~5 tracks extracted (hydration data limitation). Partial data rule in extraction prompt handles this honestly
 - **Google Maps lists**: Cannot be scraped (JS-rendered). Only single places work
 - **Twitter/X profiles**: Likely blocked server-side. oEmbed works for single tweets. Syndication endpoint works sometimes
@@ -577,6 +582,8 @@ Vercel auto-deploys in ~60s. No local dev environment — all changes go directl
 - Content blocks Phase 1 (shipped March 16, 2026): feed layout, MediaEmbed, ActionButtons live. Feed-based UI (Text, MediaEmbed, ActionButtons), blocks stored in chat_messages.blocks JSONB, interaction persistence via /api/chat/interaction, feed components (FeedTextBlock, FeedMediaEmbed, FeedActionButtons, FeedBlockGroup, FeedUserBubble, FeedLegacyBubble), backward-compatible with legacy bubble rendering for old messages
 - Content blocks Phase 3 Deploy 1 (shipped March 16, 2026): [REC] JSON capture format replaces emoji-based rec capture. Server-side extractRecCapture() parses [REC]{"title":...}[/REC] tags, constructs rec_capture block, passes captured_rec in response. Frontend checks data.captured_rec first, falls back to emoji regex parsing. Rec preview card shows title/context/tags/category inline with Save/Edit buttons. ErrorBoundary wraps message rendering area.
 - Content blocks Phase 3 Deploy 3 (shipped March 16, 2026): Post-save taste reflections replace generic nudge messages. After 3s silence post-save, real API call asks Claude to reflect on how the saved rec connects to curator's taste patterns. POST-SAVE TASTE REFLECTION instructions added to both system prompts.
+- Content blocks Phase 4 (shipped March 18, 2026): AgentBanner as typed block. FeedAgentBanner component renders agent_banner blocks in feed. Banners are DB-persisted (survive reload), dedup by job_id via JSONB contains query. Banner click records interaction (greys out to "Delivered") + sends message through standard `send()` flow. Old ad-hoc banner system removed: `addAgentBanner`, `sendAgentResultsRequest`, `deliveredJobIds` ref, `hasPendingBanner` ref, `agentComplete` message type.
+- System prompts extracted to lib/prompts/ (March 18, 2026): buildOnboardingPrompt → lib/prompts/onboarding.js, buildStandardPrompt → lib/prompts/standard.js. Chat route imports and calls them — same signatures, no logic changes.
 
 ### Next Up
 - Content blocks Phase 2: TasteRead block generation activation (component + backend function ready, wiring deferred)
