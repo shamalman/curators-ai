@@ -78,20 +78,22 @@ function validateRecContext(recCapture, history, currentMessage) {
 
   const titleLower = recCapture.title.toLowerCase();
   const skipWords = ['the', 'a', 'an', 'in', 'of', 'on', 'at', 'to', 'for', 'and', 'or', 'is', 'it', 'my', 'i'];
-  const firstSignificantWord = titleLower.split(' ').find(w => !skipWords.includes(w)) || titleLower;
+  const significantWords = titleLower.split(' ').filter(w => !skipWords.includes(w) && w.length > 0);
 
-  const relevantMessages = [];
+  const relevantSet = new Set();
   for (const msg of userMessages) {
     const msgLower = msg.toLowerCase();
     if (msgLower.includes(titleLower) ||
-        msgLower.includes(firstSignificantWord)) {
-      relevantMessages.push(msg);
+        significantWords.some(w => msgLower.includes(w))) {
+      relevantSet.add(msg);
     }
   }
 
-  if (relevantMessages.length === 0) {
-    relevantMessages.push(userMessages[userMessages.length - 1]);
-  }
+  // Always include the last user message (triggered the capture)
+  const lastMsg = userMessages[userMessages.length - 1];
+  if (lastMsg) relevantSet.add(lastMsg);
+
+  const relevantMessages = [...relevantSet];
 
   const rebuiltContext = relevantMessages
     .map(m => m.trim())
