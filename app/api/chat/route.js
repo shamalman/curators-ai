@@ -56,6 +56,52 @@ function extractRecCapture(aiText) {
 }
 
 
+function validateRecContext(recCapture, history, currentMessage) {
+  if (!recCapture || !recCapture.title) return recCapture;
+
+  const userMessages = [];
+  if (history && Array.isArray(history)) {
+    for (const msg of history) {
+      if ((msg.role === 'user') && msg.text) {
+        userMessages.push(msg.text);
+      }
+    }
+  }
+  if (currentMessage) {
+    userMessages.push(currentMessage);
+  }
+
+  if (userMessages.length === 0) {
+    recCapture.context = '';
+    return recCapture;
+  }
+
+  const titleLower = recCapture.title.toLowerCase();
+  const relevantMessages = [];
+  for (const msg of userMessages) {
+    const msgLower = msg.toLowerCase();
+    if (msgLower.includes(titleLower) ||
+        msgLower.includes(titleLower.split(' ')[0])) {
+      relevantMessages.push(msg);
+    }
+  }
+
+  if (relevantMessages.length === 0) {
+    relevantMessages.push(...userMessages.slice(-3));
+  }
+
+  const rebuiltContext = relevantMessages
+    .map(m => m.trim())
+    .filter(m => m.length > 0)
+    .join('. ')
+    .replace(/\.\./g, '.')
+    .trim();
+
+  recCapture.context = rebuiltContext;
+  return recCapture;
+}
+
+
 // ── Fetch subscribed + broader recs for standard mode ──
 async function getSubscribedRecs(profileId) {
   try {
@@ -784,6 +830,11 @@ ${s.location ? `Location: ${s.location}` : ""}`;
 
     // Extract rec capture from AI text
     const recCapture = extractRecCapture(aiMessage);
+
+    // Validate context against actual curator messages — prevents hallucinated context
+    if (recCapture) {
+      validateRecContext(recCapture, history, message);
+    }
 
     // Strip [REC]...[/REC] from the text block content so it doesn't render as raw JSON
     const cleanedAiMessage = aiMessage.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
