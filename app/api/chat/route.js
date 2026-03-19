@@ -77,17 +77,20 @@ function validateRecContext(recCapture, history, currentMessage) {
   }
 
   const titleLower = recCapture.title.toLowerCase();
+  const skipWords = ['the', 'a', 'an', 'in', 'of', 'on', 'at', 'to', 'for', 'and', 'or', 'is', 'it', 'my', 'i'];
+  const firstSignificantWord = titleLower.split(' ').find(w => !skipWords.includes(w)) || titleLower;
+
   const relevantMessages = [];
   for (const msg of userMessages) {
     const msgLower = msg.toLowerCase();
     if (msgLower.includes(titleLower) ||
-        msgLower.includes(titleLower.split(' ')[0])) {
+        msgLower.includes(firstSignificantWord)) {
       relevantMessages.push(msg);
     }
   }
 
   if (relevantMessages.length === 0) {
-    relevantMessages.push(...userMessages.slice(-3));
+    relevantMessages.push(userMessages[userMessages.length - 1]);
   }
 
   const rebuiltContext = relevantMessages
