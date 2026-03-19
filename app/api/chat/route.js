@@ -648,20 +648,52 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       }
       systemPrompt = `${VISITOR_SYSTEM_PROMPT}${styleBlock}\n\nCURATOR: ${curatorName}${recsContext}`;
     } else if (isOnboarding && profileId) {
+      // Fetch taste profile for injection
+      let tasteProfileBlock = '';
+      try {
+        const { data: tasteProfile } = await sb
+          .from('taste_profiles')
+          .select('content')
+          .eq('profile_id', profileId)
+          .single();
+        if (tasteProfile?.content) {
+          tasteProfileBlock = `\n\nCURATOR'S TASTE PROFILE:\n${tasteProfile.content}`;
+        }
+      } catch (err) {
+        console.error('Failed to fetch taste profile:', err);
+      }
+
       const inviterCtx = await getInviterContext(profileId);
       systemPrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
+        tasteProfileBlock,
       }) + recsContext + agentBlock;
     } else {
+      // Fetch taste profile for injection
+      let tasteProfileBlock = '';
+      try {
+        const { data: tasteProfile } = await sb
+          .from('taste_profiles')
+          .select('content')
+          .eq('profile_id', profileId)
+          .single();
+        if (tasteProfile?.content) {
+          tasteProfileBlock = `\n\nCURATOR'S TASTE PROFILE:\n${tasteProfile.content}`;
+        }
+      } catch (err) {
+        console.error('Failed to fetch taste profile:', err);
+      }
+
       const networkContext = profileId ? await getSubscribedRecs(profileId) : '';
       systemPrompt = buildStandardPrompt({
         curatorName,
         curatorHandle: curatorHandle || '',
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
+        tasteProfileBlock,
       }) + recsContext + agentBlock;
     }
 
