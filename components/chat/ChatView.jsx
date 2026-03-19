@@ -651,6 +651,16 @@ export default function ChatView({ variant }) {
       }).catch(() => {});
     }
 
+    // Regenerate taste profile after every Nth rec save (fire and forget)
+    const TASTE_PROFILE_REGEN_INTERVAL = 1;
+    if (recCount >= 3 && recCount % TASTE_PROFILE_REGEN_INTERVAL === 0) {
+      fetch('/api/generate-taste-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId }),
+      }).catch(() => {});
+    }
+
     setPendingLink(null);
     setEditingCapture(null);
     setCaptureLinkInputs(prev => { const next = { ...prev }; delete next[msgIndex]; return next; });
