@@ -77,14 +77,10 @@ function validateRecContext(recCapture, history, currentMessage) {
   }
 
   const titleLower = recCapture.title.toLowerCase();
-  const skipWords = ['the', 'a', 'an', 'in', 'of', 'on', 'at', 'to', 'for', 'and', 'or', 'is', 'it', 'my', 'i'];
-  const significantWords = titleLower.split(' ').filter(w => !skipWords.includes(w) && w.length > 0);
 
   const relevantSet = new Set();
   for (const msg of userMessages) {
-    const msgLower = msg.toLowerCase();
-    if (msgLower.includes(titleLower) ||
-        significantWords.some(w => msgLower.includes(w))) {
+    if (msg.toLowerCase().includes(titleLower)) {
       relevantSet.add(msg);
     }
   }
