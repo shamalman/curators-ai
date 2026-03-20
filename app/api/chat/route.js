@@ -537,8 +537,10 @@ function buildAgentUrlNotes(agentNotes) {
 
   const lines = [];
   for (const note of agentNotes) {
-    if (note.type === "link_detected") {
-      lines.push(`URL DETECTED: ${note.url} — This is a ${sourceNameFromType(note.sourceType)} link. Acknowledge what you see (title, platform) and let the action buttons offer the choice. Do NOT start analyzing content yet.`);
+    if (note.type === "link_parsed") {
+      lines.push(`URL DETECTED: ${note.url} -- The content from this link has been parsed and is available in your context above. Engage with it naturally. Do NOT say you can't read it.`);
+    } else if (note.type === "link_parse_failed") {
+      lines.push(`URL DETECTED: ${note.url} -- I tried to read this link but couldn't access the content: ${note.error}. Be honest about this and suggest alternatives (paste again, send a screenshot, tell you about it).`);
     } else if (note.type === "coming_soon") {
       lines.push(`URL DETECTED: ${note.url} — This is a ${note.sourceType} link. I can't read this platform yet, but it's on my list. Be honest about it.`);
     } else if (note.type === "unsupported") {
@@ -571,8 +573,8 @@ function findRecentUrl(history, currentMessage) {
   return null;
 }
 
-// ── Detect taste read intent ──
-const TASTE_READ_INTENT = /^(do a )?taste read( on this)?$|^taste read$/i;
+// ── Detect taste read intent (for messages without a URL, referring to a previous link) ──
+const TASTE_READ_INTENT = /^(do a )?taste read( on this)?$|^taste read$|^read (this|that|those|the link|it)$|^analyze (this|that|it)$|^dive into (this|that|it|those)$|^what do you think of (this|that)$|^check (this|that) out$|^look at (this|that)$/i;
 
 function isTasteReadIntent(message) {
   if (!message) return false;
@@ -661,15 +663,23 @@ export async function POST(request) {
     let agentBlock = "";
     let agentNotes = [];
 
+    // Track parsed link content for prompt injection
+    let parsedLinkBlocks = [];
+
     if (!isVisitor && profileId && !generateOpening) {
-      // Detect URLs in message for metadata — but do NOT create agent jobs.
-      // Taste reads happen inline; agent jobs are reserved for future features.
+      // Detect URLs in message and parse content inline (cap at 3 links)
       if (message) {
-        const urls = message.match(URL_REGEX) || [];
+        const urls = (message.match(URL_REGEX) || []).slice(0, 3);
         for (const url of urls) {
           const detection = detectSource(url);
           if (detection.supported && detection.implemented) {
-            agentNotes.push({ url, type: "link_detected", sourceType: detection.sourceType, classification: detection.classification });
+            const parsed = await parseContentForTasteRead(url);
+            if (parsed.error) {
+              agentNotes.push({ url, type: "link_parse_failed", sourceType: detection.sourceType, error: parsed.error });
+            } else {
+              agentNotes.push({ url, type: "link_parsed", sourceType: detection.sourceType });
+              parsedLinkBlocks.push({ url, metadata: parsed.metadata, content: parsed.content });
+            }
           } else if (detection.supported && !detection.implemented) {
             agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
           } else {
@@ -697,6 +707,28 @@ export async function POST(request) {
       // Add URL-specific notes for this message
       const urlNotes = buildAgentUrlNotes(agentNotes);
       if (urlNotes) agentBlock += urlNotes;
+
+      // Inject parsed link content into prompt
+      if (parsedLinkBlocks.length > 0) {
+        for (const block of parsedLinkBlocks) {
+          const meta = block.metadata;
+          agentBlock += `\n\n## Content from Shared Link
+The curator shared this link in their message.
+URL: ${block.url}
+Title: ${meta.title || 'Unknown'}
+Provider: ${meta.providerName || meta.source || 'Unknown'}
+Author: ${meta.author || 'Unknown'}
+
+Parsed content:
+${block.content}
+
+You now have the actual content from this link. Use it naturally in conversation.
+If the curator is talking about it, engage with specifics from the content.
+If they ask for a taste read, deliver one using this content and their taste profile.
+If they want to capture it as a rec, ask for their context first.
+Do NOT say "I can't read this link" or "I don't have access to the content." You have it.`;
+        }
+      }
     }
 
     // Build the recommendations context
@@ -875,28 +907,25 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       cleanedMessages.shift();
     }
 
-    // ── Inline taste read: detect intent, parse content, inject into prompt ──
-    let isTasteRead = false;
-    let tasteReadTiming = null;
+    // ── Taste read on previous link: curator says "read those links" without pasting a new URL ──
+    let hasLinkContent = parsedLinkBlocks.length > 0;
 
-    if (!isVisitor && !generateOpening && message && isTasteReadIntent(message)) {
+    if (!isVisitor && !generateOpening && message && !hasLinkContent && isTasteReadIntent(message)) {
       const tasteReadStart = Date.now();
-      const recentUrl = findRecentUrl(history, null); // Don't check current message — it's the intent, not the URL
+      const recentUrl = findRecentUrl(history, null);
 
       if (recentUrl) {
-        isTasteRead = true;
         const parsed = await parseContentForTasteRead(recentUrl.url);
         const durationMs = Date.now() - tasteReadStart;
-        tasteReadTiming = { url: recentUrl.url, parserName: parsed.parserName, durationMs };
 
         if (parsed.error) {
-          // Inject the error so Claude can communicate it naturally
           systemPrompt += `\n\n## Taste Read Error\nThe curator asked for a taste read but parsing failed: ${parsed.error}\nAcknowledge the error naturally and suggest alternatives (paste again, send a screenshot, tell you about it).`;
           console.error(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=error`);
         } else {
+          hasLinkContent = true;
           const meta = parsed.metadata;
-          systemPrompt += `\n\n## Source Content for Taste Read
-The curator wants your taste read on this link.
+          systemPrompt += `\n\n## Content from Shared Link
+The curator wants you to engage with this link they shared earlier.
 URL: ${recentUrl.url}
 Title: ${meta.title || 'Unknown'}
 Provider: ${meta.providerName || meta.source || 'Unknown'}
@@ -905,20 +934,20 @@ Author: ${meta.author || 'Unknown'}
 Parsed content:
 ${parsed.content}
 
-Deliver a taste read based on this content and the curator's taste profile.
+You now have the actual content from this link. Use it naturally in conversation.
 Connect what you find to patterns in their existing taste.
 Be specific: name actual items, tracks, dishes, films from the content.
-End with a question that invites the curator to confirm or correct your read.`;
+Do NOT say "I can't read this link" or "I don't have access to the content." You have it.`;
 
           console.log(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=success`);
           if (durationMs > 45000) {
-            console.warn(`[TASTE_READ_SLOW] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} — approaching Vercel timeout`);
+            console.warn(`[TASTE_READ_SLOW] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} -- approaching Vercel timeout`);
           }
         }
       }
     }
 
-    const maxTokens = isTasteRead ? 1000 : (agentBlock.includes('AGENT RESULTS READY') ? 800 : 600);
+    const maxTokens = hasLinkContent ? 1000 : (agentBlock.includes('AGENT RESULTS READY') ? 800 : 600);
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
