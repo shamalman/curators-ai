@@ -203,7 +203,7 @@ After extractRecCapture(), validates that context field contains ONLY curator's 
 
 ## Source Parsers (lib/agent/parsers/)
 
-9 live parsers: Spotify, Apple Music, YouTube, SoundCloud, Letterboxd, Goodreads, Google Maps (single places only), Twitter/X (oEmbed for single tweets), Generic Webpage fallback.
+9 live parsers: Spotify, Apple Music, YouTube, SoundCloud, Letterboxd, Goodreads, Google Maps (single places only), Twitter/X (oEmbed for single tweets), Generic Webpage (defuddle + linkedom for clean content extraction and markdown output).
 
 Instagram deferred (aggressive anti-scraping). Bandcamp deferred.
 
