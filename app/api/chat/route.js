@@ -1010,12 +1010,6 @@ End with a question that invites the curator to confirm or correct your read.`;
       });
     }
 
-    // Only show link intent buttons if NO rec was captured
-    if (!recCapture) {
-      const actionButtons = buildActionButtons(detectedUrls, cleanedAiMessage);
-      if (actionButtons) blocks.push(actionButtons);
-    }
-
     return NextResponse.json({
       message: aiMessage,
       blocks: blocks,
