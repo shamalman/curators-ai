@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { detectSource } from "../../../lib/agent/registry.js";
+import { detectSource, getParser } from "../../../lib/agent/registry.js";
 import { buildOnboardingPrompt } from "../../../lib/prompts/onboarding.js";
 import { buildStandardPrompt } from "../../../lib/prompts/standard.js";
 
@@ -549,6 +549,93 @@ function buildAgentUrlNotes(agentNotes) {
   return lines.length > 0 ? `\nURLs IN THIS MESSAGE:\n${lines.join("\n")}\n` : "";
 }
 
+// ── Find most recent URL from chat history ──
+function findRecentUrl(history, currentMessage) {
+  // Check current message first
+  if (currentMessage) {
+    const match = currentMessage.match(URL_REGEX);
+    if (match) return { url: match[0] };
+  }
+
+  // Search backwards through history for the most recent user message with a URL
+  if (history && Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      if (msg.role === 'user' && msg.text) {
+        const match = msg.text.match(URL_REGEX);
+        if (match) return { url: match[0] };
+      }
+    }
+  }
+
+  return null;
+}
+
+// ── Detect taste read intent ──
+const TASTE_READ_INTENT = /^(do a )?taste read( on this)?$|^taste read$/i;
+
+function isTasteReadIntent(message) {
+  if (!message) return false;
+  const trimmed = message.trim();
+  return TASTE_READ_INTENT.test(trimmed);
+}
+
+// ── Parse content inline for taste read ──
+const MAX_TASTE_READ_CONTENT = 12000; // ~4000 tokens
+
+async function parseContentForTasteRead(url) {
+  const detection = detectSource(url);
+  if (!detection.supported || !detection.implemented) {
+    return { error: `I can't read ${url} yet. That platform isn't supported.`, parserName: null };
+  }
+
+  const parser = getParser(detection.parserName);
+  if (!parser || !parser.parse) {
+    return { error: `No parser available for ${detection.sourceType}.`, parserName: detection.parserName };
+  }
+
+  try {
+    const parseStart = Date.now();
+    const result = await Promise.race([
+      parser.parse(url),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Parser timeout — site took too long to respond')), 10000))
+    ]);
+    const parseMs = Date.now() - parseStart;
+    console.log(`[TASTE_READ_PARSE] url=${url} parser=${detection.parserName} duration_ms=${parseMs}`);
+
+    const metadata = result.metadata || {};
+    const items = result.items || [];
+
+    // Build content string from parsed items
+    let content = '';
+    for (const item of items) {
+      if (item.itemType === 'article_content' && item.text) {
+        content += item.text + '\n\n';
+      } else if (item.text) {
+        content += `- ${item.text}\n`;
+      }
+    }
+
+    if (content.length > MAX_TASTE_READ_CONTENT) {
+      content = content.slice(0, MAX_TASTE_READ_CONTENT) + '\n[content truncated]';
+    }
+
+    if (!content && !metadata.title) {
+      return { error: `I couldn't extract any content from that link. Try pasting it again or send me a screenshot.`, parserName: detection.parserName };
+    }
+
+    return {
+      content,
+      metadata,
+      parserName: detection.parserName,
+      error: null,
+    };
+  } catch (err) {
+    console.error('Inline taste read parse error:', url, err.message);
+    return { error: `I couldn't read that link: ${err.message}. Try pasting it again or send me a screenshot of the content.`, parserName: detection.parserName };
+  }
+}
+
 export async function POST(request) {
   try {
     const {
@@ -788,7 +875,50 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       cleanedMessages.shift();
     }
 
-    const maxTokens = agentBlock.includes('AGENT RESULTS READY') ? 800 : 600;
+    // ── Inline taste read: detect intent, parse content, inject into prompt ──
+    let isTasteRead = false;
+    let tasteReadTiming = null;
+
+    if (!isVisitor && !generateOpening && message && isTasteReadIntent(message)) {
+      const tasteReadStart = Date.now();
+      const recentUrl = findRecentUrl(history, null); // Don't check current message — it's the intent, not the URL
+
+      if (recentUrl) {
+        isTasteRead = true;
+        const parsed = await parseContentForTasteRead(recentUrl.url);
+        const durationMs = Date.now() - tasteReadStart;
+        tasteReadTiming = { url: recentUrl.url, parserName: parsed.parserName, durationMs };
+
+        if (parsed.error) {
+          // Inject the error so Claude can communicate it naturally
+          systemPrompt += `\n\n## Taste Read Error\nThe curator asked for a taste read but parsing failed: ${parsed.error}\nAcknowledge the error naturally and suggest alternatives (paste again, send a screenshot, tell you about it).`;
+          console.error(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=error`);
+        } else {
+          const meta = parsed.metadata;
+          systemPrompt += `\n\n## Source Content for Taste Read
+The curator wants your taste read on this link.
+URL: ${recentUrl.url}
+Title: ${meta.title || 'Unknown'}
+Provider: ${meta.providerName || meta.source || 'Unknown'}
+Author: ${meta.author || 'Unknown'}
+
+Parsed content:
+${parsed.content}
+
+Deliver a taste read based on this content and the curator's taste profile.
+Connect what you find to patterns in their existing taste.
+Be specific: name actual items, tracks, dishes, films from the content.
+End with a question that invites the curator to confirm or correct your read.`;
+
+          console.log(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=success`);
+          if (durationMs > 45000) {
+            console.warn(`[TASTE_READ_SLOW] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} — approaching Vercel timeout`);
+          }
+        }
+      }
+    }
+
+    const maxTokens = isTasteRead ? 1000 : (agentBlock.includes('AGENT RESULTS READY') ? 800 : 600);
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
