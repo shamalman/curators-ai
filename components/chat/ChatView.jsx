@@ -93,17 +93,6 @@ export default function ChatView({ variant }) {
 
   useEffect(() => { return () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }; }, []);
 
-  // Generate style summary if missing and curator has 5+ recs
-  useEffect(() => {
-    if (isCurator && dbLoaded && profileId && !profile?.styleSummary && items.length >= 3) {
-      fetch('/api/generate-style-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId }),
-      }).catch(() => {});
-    }
-  }, [dbLoaded]);
-
   // Image handling
   const handleImageFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -639,17 +628,6 @@ export default function ChatView({ variant }) {
         setTyping(false);
       }
     }, 3000);
-
-    // Fire style summary generation at milestones or if missing (fire and forget)
-    const milestones = [3, 6, 10, 15, 20];
-    const shouldGenerate = milestones.includes(recCount) || (!profile?.styleSummary && recCount >= 3);
-    if (shouldGenerate) {
-      fetch('/api/generate-style-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId }),
-      }).catch(() => {});
-    }
 
     // Regenerate taste profile after every Nth rec save (fire and forget)
     const TASTE_PROFILE_REGEN_INTERVAL = 1;
