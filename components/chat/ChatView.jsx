@@ -952,10 +952,11 @@ export default function ChatView({ variant }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input value={input} onChange={e => { setInput(e.target.value); if (e.target.value) { typedSinceSave.current = true; if (nudgeTimer.current) { clearTimeout(nudgeTimer.current); nudgeTimer.current = null; } } }} onKeyDown={e => e.key === "Enter" && send()}
+              <textarea value={input} onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; if (e.target.value) { typedSinceSave.current = true; if (nudgeTimer.current) { clearTimeout(nudgeTimer.current); nudgeTimer.current = null; } } }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); e.target.style.height = 'auto'; } }}
                 onPaste={e => { const file = e.clipboardData?.files?.[0]; if (file && file.type.startsWith('image/')) { e.preventDefault(); handleImageFile(file); } }}
                 placeholder="Drop a rec, paste a link, or ask anything..."
-                style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink }}
+                rows={1}
+                style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink, resize: "none", lineHeight: "1.4" }}
                 onFocus={e => e.target.style.borderColor = W.accent} onBlur={e => e.target.style.borderColor = W.inputBdr}
               />
               <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { handleImageFile(e.target.files?.[0]); e.target.value = ''; }} />
@@ -1049,9 +1050,10 @@ export default function ChatView({ variant }) {
       </div>
       <div style={{ padding: "10px 16px 28px", flexShrink: 0, background: V.bg }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
+          <textarea value={input} onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); e.target.style.height = 'auto'; } }}
             placeholder={`Ask ${profile.name} anything...`}
-            style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${V.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: V.inputBg, color: T.ink }}
+            rows={1}
+            style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${V.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: V.inputBg, color: T.ink, resize: "none", lineHeight: "1.4" }}
             onFocus={e => e.target.style.borderColor = T.acc} onBlur={e => e.target.style.borderColor = V.inputBdr}
           />
           <button onClick={() => send()} style={{ width: 46, height: 46, borderRadius: 23, border: "none", background: input.trim() ? T.acc : V.bdr, color: input.trim() ? T.accText : T.ink3, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0, fontWeight: 600 }}>{"\u2191"}</button>
