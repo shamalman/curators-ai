@@ -348,13 +348,10 @@ export default function ChatView({ variant }) {
     const isVis = !isCurator;
 
     const urlMatch = msg.match(/https?:\/\/[^\s]+/);
-    let enrichedMsg = msg;
     let linkMetadata = null;
 
-    if (pendingLink && !urlMatch && !isVis) {
-      enrichedMsg = `${msg}\n[Pending link: "${pendingLink.title}" from ${pendingLink.source}, url: ${pendingLink.url}]`;
-      linkMetadata = pendingLink;
-    } else if (urlMatch && !isVis) {
+    if (urlMatch && !isVis) {
+      // Track pending link for rec capture flow — no metadata injection into message
       try {
         const metaRes = await fetch('/api/link-metadata', {
           method: 'POST',
@@ -364,7 +361,6 @@ export default function ChatView({ variant }) {
         const meta = await metaRes.json();
         if (meta.title) {
           linkMetadata = { url: urlMatch[0], title: meta.title, source: meta.source };
-          enrichedMsg = `${msg}\n[Link metadata: "${meta.title}" from ${meta.source}]`;
           setPendingLink(linkMetadata);
         }
       } catch (e) {
@@ -377,7 +373,7 @@ export default function ChatView({ variant }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: enrichedMsg,
+          message: msg,
           isVisitor: isVis,
           curatorName: profile.name,
           curatorHandle: profile.handle?.replace('@', ''),
@@ -397,18 +393,6 @@ export default function ChatView({ variant }) {
       const data = await response.json();
       setTyping(false);
       isWaitingForResponse.current = false;
-
-      // Trigger agent processing for any new jobs + start polling
-      if (data.agentJobs && data.agentJobs.length > 0) {
-        for (const job of data.agentJobs) {
-          fetch('/api/agent/process', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId: job.jobId }),
-          }).catch(err => console.error('Agent process failed:', err));
-        }
-        setAgentPollingJobs(prev => [...prev, ...data.agentJobs]);
-      }
 
       let text = data.message || '';
       // Strip [REC]...[/REC] if present

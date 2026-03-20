@@ -537,18 +537,8 @@ function buildAgentUrlNotes(agentNotes) {
 
   const lines = [];
   for (const note of agentNotes) {
-    if (note.type === "agent_started") {
-      if (note.classification === "single_item") {
-        lines.push(`URL DETECTED: ${note.url} — This is a single ${note.sourceType} item. Agent is analyzing it in the background. Ask the curator: "Want me to add this as a recommendation, or give you a taste read on it?"`);
-      } else {
-        lines.push(`URL DETECTED: ${note.url} — Agent is now analyzing this ${note.sourceType} source. Acknowledge it and keep the conversation going.`);
-      }
-    } else if (note.type === "already_processing") {
-      if (note.status === "completed") {
-        lines.push(`URL DETECTED: ${note.url} — Already analyzed this source. Results are in the agent context above.`);
-      } else {
-        lines.push(`URL DETECTED: ${note.url} — Already processing this source. Let them know it's being worked on.`);
-      }
+    if (note.type === "link_detected") {
+      lines.push(`URL DETECTED: ${note.url} — This is a ${sourceNameFromType(note.sourceType)} link. Acknowledge what you see (title, platform) and let the action buttons offer the choice. Do NOT start analyzing content yet.`);
     } else if (note.type === "coming_soon") {
       lines.push(`URL DETECTED: ${note.url} — This is a ${note.sourceType} link. I can't read this platform yet, but it's on my list. Be honest about it.`);
     } else if (note.type === "unsupported") {
@@ -585,12 +575,23 @@ export async function POST(request) {
     let agentNotes = [];
 
     if (!isVisitor && profileId && !generateOpening) {
-      // Check for URLs in message and create agent jobs (no processing — frontend triggers that)
+      // Detect URLs in message for metadata — but do NOT create agent jobs.
+      // Taste reads happen inline; agent jobs are reserved for future features.
       if (message) {
-        agentNotes = await processUrlsForAgent(message, profileId, sb);
+        const urls = message.match(URL_REGEX) || [];
+        for (const url of urls) {
+          const detection = detectSource(url);
+          if (detection.supported && detection.implemented) {
+            agentNotes.push({ url, type: "link_detected", sourceType: detection.sourceType, classification: detection.classification });
+          } else if (detection.supported && !detection.implemented) {
+            agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
+          } else {
+            agentNotes.push({ url, type: "unsupported" });
+          }
+        }
       }
 
-      // Query existing agent jobs for pending/processing status
+      // Query existing agent jobs for pending/processing status (legacy jobs still in flight)
       try {
         const agentCtx = await getAgentContext(profileId, sb);
         agentBlock = agentCtx.agentBlock;
@@ -598,7 +599,7 @@ export async function POST(request) {
         console.error("getAgentContext failed:", agentErr.message);
       }
 
-      // Check if curator is asking for agent results (banner click)
+      // Check if curator is asking for agent results (legacy banner click)
       if (message) {
         const delivery = await getAgentResultsForDelivery(profileId, message, sb);
         if (delivery.block) {
@@ -748,11 +749,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       messages.push({ role: "assistant", content: "Understood. I'll only reference your current recommendations." });
     }
 
-    // Add the current message
+    // Add the current message — no metadata injection, URL is in the message text
     let currentMessageText = message || "What's this?";
-    if (linkMetadata) {
-      currentMessageText += `\n[Link: "${linkMetadata.title}" from ${linkMetadata.source}, url: ${linkMetadata.url}]`;
-    }
 
     if (image && image.base64 && image.mimeType) {
       // Strip data URI prefix — Claude expects raw base64
@@ -811,15 +809,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       if (trackingError) console.error('TRACKING ERROR:', trackingError);
     }
 
-    // Include pending agent jobs so frontend can trigger processing
-    const pendingAgentJobs = agentNotes
-      .filter(n => n.type === 'agent_started')
-      .map(n => ({ jobId: n.jobId, sourceType: n.sourceType, sourceUrl: n.url, sourceName: sourceNameFromType(n.sourceType) }));
-
     // ── Build content blocks ──
-    // Strip metadata annotations added by the frontend to avoid duplicate URL detection
-    const rawMsgForBlocks = message ? message.replace(/\n\[(?:Link metadata|Pending link):.*\]$/s, '') : '';
-    const detectedUrls = rawMsgForBlocks.match(URL_REGEX) || [];
+    const detectedUrls = message ? (message.match(URL_REGEX) || []) : [];
 
     let mediaEmbeds = [];
     if (!isVisitor && !generateOpening && detectedUrls.length > 0) {
@@ -899,7 +890,6 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       message: aiMessage,
       blocks: blocks,
       captured_rec: recCapture || undefined,
-      agentJobs: pendingAgentJobs.length > 0 ? pendingAgentJobs : undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);
