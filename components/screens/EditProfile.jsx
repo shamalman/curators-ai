@@ -49,7 +49,7 @@ export default function EditProfile() {
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ width: 76, height: 76, borderRadius: 22, margin: "0 auto 10px", background: T.s, border: `2px solid ${T.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <span style={{ fontFamily: S, fontSize: 30, color: T.acc }}>{profile.name[0]}</span>
+            <span style={{ fontFamily: S, fontSize: 30, color: T.acc }}>{(profile.name || '')[0]}</span>
           </div>
           <button style={{ background: "none", border: "none", color: T.acc, fontSize: 13, fontFamily: F, fontWeight: 600, cursor: "pointer" }}>Change photo</button>
         </div>
@@ -57,7 +57,7 @@ export default function EditProfile() {
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 8 }}>Display name</label>
           <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value.slice(0, 30) }))} maxLength={30} style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 15, fontFamily: F, outline: "none", background: T.s, color: T.ink }} />
-          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{profile.name.length}/30</p>
+          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{(profile.name || '').length}/30</p>
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -74,10 +74,10 @@ export default function EditProfile() {
 
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", display: "block", marginBottom: 8 }}>Bio</label>
-          <textarea value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} rows={3}
+          <textarea value={profile.bio || ''} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} rows={3}
             style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${T.bdr}`, fontSize: 14, fontFamily: F, outline: "none", resize: "none", background: T.s, color: T.ink, lineHeight: 1.6 }}
           />
-          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{profile.bio.length}/160</p>
+          <p style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6, textAlign: "right" }}>{(profile.bio || '').length}/160</p>
         </div>
 
         {/* Section: Social Links */}
