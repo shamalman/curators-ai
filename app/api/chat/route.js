@@ -86,9 +86,24 @@ function isScaffoldingMessage(msg) {
 function validateRecContext(recCapture, history, currentMessage) {
   if (!recCapture || !recCapture.title) return recCapture;
 
+  // Find the last [REC] block in history to scope context to current rec only.
+  // Everything before the last [REC] belongs to a previous rec.
+  let lastRecIndex = -1;
+  if (history && Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      if ((msg.role === 'ai' || msg.role === 'assistant') && msg.text && /\[REC\]/.test(msg.text)) {
+        lastRecIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Collect only user messages AFTER the last [REC] block
   const userMessages = [];
   if (history && Array.isArray(history)) {
-    for (const msg of history) {
+    for (let i = lastRecIndex + 1; i < history.length; i++) {
+      const msg = history[i];
       if ((msg.role === 'user') && msg.text) {
         userMessages.push(msg.text);
       }
@@ -105,13 +120,11 @@ function validateRecContext(recCapture, history, currentMessage) {
 
   const titleLower = recCapture.title.toLowerCase();
 
-  // Collect context messages: must mention the title OR contain descriptive content,
-  // and must NOT be scaffolding (intent declarations, confirmations, bare URLs)
+  // Filter out scaffolding (intent, confirmation, bare URLs), keep descriptive context
   const contextMessages = [];
   for (const msg of userMessages) {
     if (isScaffoldingMessage(msg)) continue;
     const lc = msg.toLowerCase();
-    // Include if it mentions the title or if it's a descriptive message in the thread
     if (lc.includes(titleLower) || msg.length > 30) {
       contextMessages.push(msg);
     }
