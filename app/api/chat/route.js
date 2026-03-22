@@ -56,6 +56,33 @@ function extractRecCapture(aiText) {
 }
 
 
+// Messages that are conversational scaffolding, not rec context
+const INTENT_PATTERNS = /^(I want to recommend|I'd like to add|add this as a rec|capture this|save this|recommend this|I('d| would) like to recommend)/i;
+const CONFIRMATION_PATTERNS = /^(yes|yeah|yep|yup|do it|save it|capture it|exactly|sure|ok|go ahead|go for it|that's right|correct|absolutely)\.?$/i;
+const URL_ONLY_PATTERN = /^https?:\/\/[^\s]+$/i;
+
+function isScaffoldingMessage(msg) {
+  const trimmed = msg.trim();
+  if (CONFIRMATION_PATTERNS.test(trimmed)) return true;
+  if (URL_ONLY_PATTERN.test(trimmed)) return true;
+  // Intent messages that are ONLY intent with no descriptive content after the title
+  // e.g. "I want to recommend Put it on by Bob Marley" has no WHY
+  if (INTENT_PATTERNS.test(trimmed)) {
+    // Check if there's substantial context beyond the intent phrase
+    // Strip the intent prefix and see what's left
+    const afterIntent = trimmed
+      .replace(/^(I want to recommend|I'd like to add|add this as a rec|capture this|save this|recommend this|I('d| would) like to recommend)\s*/i, '')
+      .replace(/^[^a-zA-Z]*/, '') // strip leading punctuation
+      .trim();
+    // If what's left is just a title (short, no sentence structure), it's scaffolding
+    // If it contains descriptive words beyond the title, keep it
+    if (afterIntent.length < 80 && !afterIntent.includes('.') && !afterIntent.includes(',') && !afterIntent.includes(' because ') && !afterIntent.includes(' since ')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validateRecContext(recCapture, history, currentMessage) {
   if (!recCapture || !recCapture.title) return recCapture;
 
@@ -78,20 +105,19 @@ function validateRecContext(recCapture, history, currentMessage) {
 
   const titleLower = recCapture.title.toLowerCase();
 
-  const relevantSet = new Set();
+  // Collect context messages: must mention the title OR contain descriptive content,
+  // and must NOT be scaffolding (intent declarations, confirmations, bare URLs)
+  const contextMessages = [];
   for (const msg of userMessages) {
-    if (msg.toLowerCase().includes(titleLower)) {
-      relevantSet.add(msg);
+    if (isScaffoldingMessage(msg)) continue;
+    const lc = msg.toLowerCase();
+    // Include if it mentions the title or if it's a descriptive message in the thread
+    if (lc.includes(titleLower) || msg.length > 30) {
+      contextMessages.push(msg);
     }
   }
 
-  // Always include the last user message (triggered the capture)
-  const lastMsg = userMessages[userMessages.length - 1];
-  if (lastMsg) relevantSet.add(lastMsg);
-
-  const relevantMessages = [...relevantSet];
-
-  const rebuiltContext = relevantMessages
+  const rebuiltContext = contextMessages
     .map(m => m.trim())
     .filter(m => m.length > 0)
     .join('. ')
