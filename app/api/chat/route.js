@@ -56,88 +56,27 @@ function extractRecCapture(aiText) {
 }
 
 
-// Messages that are conversational scaffolding, not rec context
-const INTENT_PATTERNS = /^(I want to recommend|I'd like to add|add this as a rec|capture this|save this|recommend this|I('d| would) like to recommend)/i;
-const CONFIRMATION_PATTERNS = /^(yes|yeah|yep|yup|do it|save it|capture it|exactly|sure|ok|go ahead|go for it|that's right|correct|absolutely)\.?$/i;
-const URL_ONLY_PATTERN = /^https?:\/\/[^\s]+$/i;
-
-function isScaffoldingMessage(msg) {
-  const trimmed = msg.trim();
-  if (CONFIRMATION_PATTERNS.test(trimmed)) return true;
-  if (URL_ONLY_PATTERN.test(trimmed)) return true;
-  // Intent messages that are ONLY intent with no descriptive content after the title
-  // e.g. "I want to recommend Put it on by Bob Marley" has no WHY
-  if (INTENT_PATTERNS.test(trimmed)) {
-    // Check if there's substantial context beyond the intent phrase
-    // Strip the intent prefix and see what's left
-    const afterIntent = trimmed
-      .replace(/^(I want to recommend|I'd like to add|add this as a rec|capture this|save this|recommend this|I('d| would) like to recommend)\s*/i, '')
-      .replace(/^[^a-zA-Z]*/, '') // strip leading punctuation
-      .trim();
-    // If what's left is just a title (short, no sentence structure), it's scaffolding
-    // If it contains descriptive words beyond the title, keep it
-    if (afterIntent.length < 80 && !afterIntent.includes('.') && !afterIntent.includes(',') && !afterIntent.includes(' because ') && !afterIntent.includes(' since ')) {
-      return true;
-    }
-  }
-  return false;
-}
-
+// Trust the AI's context field, validate instead of reconstruct.
+// The AI reflected the curator's words back and got confirmation.
+// The [REC] JSON it produces should already have the right context.
 function validateRecContext(recCapture, history, currentMessage) {
   if (!recCapture || !recCapture.title) return recCapture;
 
-  // Find the last [REC] block in history to scope context to current rec only.
-  // Everything before the last [REC] belongs to a previous rec.
-  let lastRecIndex = -1;
-  if (history && Array.isArray(history)) {
-    for (let i = history.length - 1; i >= 0; i--) {
-      const msg = history[i];
-      if ((msg.role === 'ai' || msg.role === 'assistant') && msg.text && /\[REC\]/.test(msg.text)) {
-        lastRecIndex = i;
-        break;
-      }
+  let context = recCapture.context || '';
+
+  // Strip any metadata pollution
+  context = context.replace(/\[Pending link:.*?\]/gs, '').trim();
+  context = context.replace(/\[Link metadata:.*?\]/gs, '').trim();
+  context = context.replace(/\[REC\].*?\[\/REC\]/gs, '').trim();
+
+  // If context is empty or just the title, use last user message as fallback
+  if (!context || context.toLowerCase() === recCapture.title.toLowerCase()) {
+    if (currentMessage) {
+      context = currentMessage.replace(/\[Pending link:.*?\]/gs, '').trim();
     }
   }
 
-  // Collect only user messages AFTER the last [REC] block
-  const userMessages = [];
-  if (history && Array.isArray(history)) {
-    for (let i = lastRecIndex + 1; i < history.length; i++) {
-      const msg = history[i];
-      if ((msg.role === 'user') && msg.text) {
-        userMessages.push(msg.text);
-      }
-    }
-  }
-  if (currentMessage) {
-    userMessages.push(currentMessage);
-  }
-
-  if (userMessages.length === 0) {
-    recCapture.context = '';
-    return recCapture;
-  }
-
-  const titleLower = recCapture.title.toLowerCase();
-
-  // Filter out scaffolding (intent, confirmation, bare URLs), keep descriptive context
-  const contextMessages = [];
-  for (const msg of userMessages) {
-    if (isScaffoldingMessage(msg)) continue;
-    const lc = msg.toLowerCase();
-    if (lc.includes(titleLower) || msg.length > 30) {
-      contextMessages.push(msg);
-    }
-  }
-
-  const rebuiltContext = contextMessages
-    .map(m => m.trim())
-    .filter(m => m.length > 0)
-    .join('. ')
-    .replace(/\.\./g, '.')
-    .trim();
-
-  recCapture.context = rebuiltContext;
+  recCapture.context = context;
   return recCapture;
 }
 
