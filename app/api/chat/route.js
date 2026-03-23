@@ -8,6 +8,7 @@ import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-ext
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
 import { URL_REGEX, sourceNameFromType, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
+import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -243,69 +244,6 @@ async function processUrlsForAgent(message, profileId, sb) {
   }
 
   return agentNotes;
-}
-
-// ── Content Blocks helpers ──
-function classifyMediaType(url, metadata) {
-  if (url.includes('spotify.com')) return 'audio';
-  if (url.includes('music.apple.com')) return 'audio';
-  if (url.includes('soundcloud.com')) return 'audio';
-  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'video';
-  if (url.includes('maps.google.com') || url.includes('maps.app.goo.gl')) return 'place';
-  if (url.includes('letterboxd.com')) {
-    return url.includes('/film/') ? 'article' : 'profile';
-  }
-  if (url.includes('goodreads.com')) return 'book';
-  return 'article';
-}
-
-function hasEmbeddablePlayer(provider) {
-  return ['Spotify', 'YouTube', 'SoundCloud', 'Apple Music'].includes(provider);
-}
-
-async function fetchLinkMetadataForBlocks(url) {
-  let metadata = { title: null, source: null, author: null, thumbnail_url: null, embed_html: null };
-  try {
-    if (url.includes('spotify.com')) {
-      metadata.source = 'Spotify';
-      const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
-      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
-    } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      metadata.source = 'YouTube';
-      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
-    } else if (url.includes('soundcloud.com')) {
-      metadata.source = 'SoundCloud';
-      const res = await fetch(`https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-      if (res.ok) { const d = await res.json(); metadata.title = d.title; metadata.author = d.author_name || null; metadata.thumbnail_url = d.thumbnail_url || null; metadata.embed_html = d.html || null; }
-    } else if (url.includes('music.apple.com')) {
-      metadata.source = 'Apple Music';
-      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CuratorsBot/1.0)' } });
-      if (res.ok) { const html = await res.text(); const t = html.match(/<title[^>]*>([^<]+)<\/title>/i); if (t) metadata.title = t[1].trim(); }
-    } else {
-      metadata.source = 'Website';
-      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CuratorsBot/1.0)' } });
-      if (res.ok) { const html = await res.text(); const t = html.match(/<title[^>]*>([^<]+)<\/title>/i); if (t) metadata.title = t[1].trim(); }
-    }
-  } catch (err) {
-    console.error('fetchLinkMetadataForBlocks error:', url, err);
-  }
-  return metadata;
-}
-
-function buildActionButtons(urls, aiText) {
-  if (urls.length > 0) {
-    return {
-      type: "action_buttons",
-      data: {
-        options: [
-          { label: "Taste read", action: "Do a taste read on this", style: "primary" },
-          { label: urls.length > 1 ? "Capture these recs" : "Capture this rec", action: "Add as a recommendation", style: "primary" },
-        ]
-      }
-    };
-  }
-  return null;
 }
 
 export async function POST(request) {
@@ -643,39 +581,7 @@ Do NOT say "I can't read this link" or "I don't have access to the content." You
 
     let mediaEmbeds = [];
     if (!isVisitor && !generateOpening && detectedUrls.length > 0) {
-      mediaEmbeds = await Promise.all(
-        detectedUrls.map(async (url) => {
-          try {
-            const metadata = await fetchLinkMetadataForBlocks(url);
-            const provider = metadata.source || "generic";
-            return {
-              type: "media_embed",
-              data: {
-                url,
-                provider,
-                title: metadata.title || url,
-                author: metadata.author || null,
-                description: null,
-                thumbnail_url: metadata.thumbnail_url || null,
-                media_type: classifyMediaType(url, metadata),
-                has_embed: hasEmbeddablePlayer(provider),
-                embed_html: metadata.embed_html || null,
-                rating: null,
-              }
-            };
-          } catch (e) {
-            console.error('MediaEmbed fetch error:', url, e);
-            return {
-              type: "media_embed",
-              data: {
-                url, provider: "generic", title: url, author: null,
-                description: null, thumbnail_url: null, media_type: "article",
-                has_embed: false, embed_html: null, rating: null,
-              }
-            };
-          }
-        })
-      );
+      mediaEmbeds = await buildMediaEmbedBlocks(detectedUrls, parsedLinkBlocks);
     }
 
     const blocks = [];
