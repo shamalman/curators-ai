@@ -1,14 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { detectSource, getParser } from "../../../lib/agent/registry.js";
+import { detectSource } from "../../../lib/agent/registry.js";
 import { buildOnboardingPrompt } from "../../../lib/prompts/onboarding.js";
 import { buildStandardPrompt } from "../../../lib/prompts/standard.js";
 import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
-import { URL_REGEX, sourceNameFromType, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
+import { URL_REGEX, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 
 const anthropic = new Anthropic({
@@ -26,197 +26,11 @@ function getSupabaseAdmin() {
   );
 }
 
-
-// ── Agent context: query agent_jobs and build prompt context ──
-async function getAgentContext(profileId, sb) {
-  try {
-    // Fetch pending/processing agent jobs only
-    const { data: jobs, error } = await sb
-      .from("agent_jobs")
-      .select("id, status, source_type, source_url")
-      .eq("profile_id", profileId)
-      .in("status", ["pending", "processing"])
-      .order("created_at", { ascending: false });
-
-    if (error || !jobs || jobs.length === 0) return { agentBlock: "" };
-
-    let agentBlock = "";
-
-    if (jobs.length > 0) {
-      const sources = jobs.map(j => `${j.source_type} (${j.source_url})`).join(", ");
-      agentBlock += `\nAGENT STATUS:\nI'm currently reading through your ${sources}. This might take a minute.\nWhile I work on that, let's keep talking. When I'm done, I'll share what I found.\n`;
-    }
-
-    return { agentBlock };
-  } catch (err) {
-    console.error("Failed to get agent context:", err);
-    return { agentBlock: "" };
-  }
-}
-
-// ── Deliver agent results ONLY when curator clicks the banner ──
-async function getAgentResultsForDelivery(profileId, message, sb) {
-  if (!message) return { block: "", deliveredJobIds: [], jobs: [] };
-
-  // Check if this message is asking for agent results
-  const lc = message.toLowerCase();
-  const isAskingForResults = /show me what you found|what did you find|what('d| did) you get|show me your (analysis|read|findings)|let('s| me) see (what|the)|taste read/i.test(lc);
-  if (!isAskingForResults) return { block: "", deliveredJobIds: [], jobs: [] };
-
-  try {
-    const { data: jobs, error } = await sb
-      .from("agent_jobs")
-      .select("*")
-      .eq("profile_id", profileId)
-      .eq("status", "completed")
-      .is("presented_at", null)
-      .order("completed_at", { ascending: false });
-
-    if (error || !jobs || jobs.length === 0) return { block: "", deliveredJobIds: [], jobs: [] };
-
-    const platforms = jobs.map(j => j.source_type);
-
-    // Build taste read from job analyses
-    const tasteTheses = jobs
-      .map(j => j.taste_analysis?.taste_thesis)
-      .filter(Boolean);
-
-    const tasteRead = tasteTheses.length > 0
-      ? tasteTheses.join(" ")
-      : "I found some interesting patterns in your sources.";
-
-    // Mark jobs as presented NOW
-    const jobIds = jobs.map(j => j.id);
-    await sb.from("agent_jobs")
-      .update({ presented_at: new Date().toISOString() })
-      .in("id", jobIds);
-
-    return {
-      block: `\nAGENT RESULTS READY:
-I finished analyzing your ${platforms.join(" and ")}.
-
-TASTE READ to deliver:
-${tasteRead}
-
-INSTRUCTIONS:
-- Deliver the taste read conversationally. Have a point of view.
-- End with "Am I reading that right?" or "What am I missing?"
-- After delivering the taste read, transition naturally back to conversation. Ask about their taste or ask for a rec.
-- Do NOT show any rec cards. Taste read only.
-`,
-      deliveredJobIds: jobIds,
-      jobs,
-    };
-  } catch (err) {
-    console.error("Failed to get agent results for delivery:", err);
-    return { block: "", deliveredJobIds: [], jobs: [] };
-  }
-}
-
-function buildTasteReadBlock(job) {
-  const ta = job.taste_analysis;
-  if (!ta || !ta.taste_thesis) return null;
-
-  const sourceToCategory = {
-    spotify: 'listen', apple_music: 'listen', soundcloud: 'listen',
-    youtube: 'watch', letterboxd: 'watch',
-    goodreads: 'read', google_maps: 'visit',
-  };
-  const sourceToName = {
-    spotify: 'Spotify', apple_music: 'Apple Music', soundcloud: 'SoundCloud',
-    youtube: 'YouTube', letterboxd: 'Letterboxd',
-    goodreads: 'Goodreads', google_maps: 'Google Maps',
-  };
-
-  const sampleSize = job.raw_data?.items?.length || 0;
-
-  // Calculate duration from job timestamps
-  let durationSec = null;
-  if (job.started_at && job.completed_at) {
-    durationSec = Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000);
-  }
-
-  return {
-    type: "taste_read",
-    data: {
-      thesis: ta.taste_thesis,
-      patterns: Array.isArray(ta.patterns) ? ta.patterns : [],
-      genres: Array.isArray(ta.genres) ? ta.genres : [],
-      primary_moods: Array.isArray(ta.primary_moods) ? ta.primary_moods : [],
-      category: sourceToCategory[job.source_type] || 'other',
-      source: {
-        type: job.source_type,
-        name: sourceToName[job.source_type] || job.source_type,
-      },
-      sample_size: sampleSize,
-      total_items: sampleSize,
-      duration_sec: durationSec,
-    }
-  };
-}
-
-// ── Detect URLs and create agent jobs ──
-async function processUrlsForAgent(message, profileId, sb) {
-  const urls = message.match(URL_REGEX) || [];
-  const agentNotes = [];
-
-  for (const url of urls) {
-    try {
-      const detection = detectSource(url);
-
-      if (!detection.supported) {
-        try {
-          await sb.from("unsupported_source_requests").insert({
-            profile_id: profileId, source_url: url, source_type: "unknown",
-          });
-        } catch (err) {
-          console.error("Failed to log unsupported source:", err);
-        }
-        agentNotes.push({ url, type: "unsupported" });
-        continue;
-      }
-
-      if (!detection.implemented) {
-        agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
-        continue;
-      }
-
-      // Check for existing job
-      const { data: existing } = await sb.from("agent_jobs")
-        .select("id, status")
-        .eq("profile_id", profileId).eq("source_url", url)
-        .in("status", ["pending", "processing", "completed"])
-        .limit(1).maybeSingle();
-
-      if (existing) {
-        agentNotes.push({ url, type: "already_processing", sourceType: detection.sourceType, jobId: existing.id, status: existing.status });
-        continue;
-      }
-
-      // Create agent job — processing happens separately via frontend
-      const { data: job, error: jobErr } = await sb.from("agent_jobs")
-        .insert({ profile_id: profileId, source_type: detection.sourceType, source_url: url, status: "pending" })
-        .select("id").single();
-
-      if (jobErr) {
-        console.error("Failed to create agent job:", url, jobErr);
-        continue;
-      }
-
-      agentNotes.push({ url, type: "agent_started", sourceType: detection.sourceType, jobId: job.id, classification: detection.classification });
-    } catch (err) {
-      console.error("Error processing URL for agent:", url, err);
-    }
-  }
-
-  return agentNotes;
-}
-
 export async function POST(request) {
   try {
     const {
       message, isVisitor, curatorName, curatorHandle, curatorBio,
-      profileId, recommendations, linkMetadata, history,
+      profileId, recommendations, history,
       generateOpening, image,
     } = await request.json();
 
@@ -229,15 +43,12 @@ export async function POST(request) {
 
     // Detect mode: onboarding until 3+ recs AND bio, then standard
     const isOnboarding = !isVisitor && (recCount < 3 || !hasBio);
-    const isStandard = !isVisitor && !isOnboarding;
 
     const sb = getSupabaseAdmin();
 
-    // ── Agent integration (curator modes only, not visitor, not opening generation) ──
-    let agentBlock = "";
+    // ── Link parsing (curator modes only, not visitor, not opening generation) ──
+    let linkContextBlock = "";
     let agentNotes = [];
-
-    // Track parsed link content for prompt injection
     let parsedLinkBlocks = [];
 
     if (!isVisitor && profileId && !generateOpening) {
@@ -262,31 +73,15 @@ export async function POST(request) {
         }
       }
 
-      // Query existing agent jobs for pending/processing status (legacy jobs still in flight)
-      try {
-        const agentCtx = await getAgentContext(profileId, sb);
-        agentBlock = agentCtx.agentBlock;
-      } catch (agentErr) {
-        console.error("getAgentContext failed:", agentErr.message);
-      }
-
-      // Check if curator is asking for agent results (legacy banner click)
-      if (message) {
-        const delivery = await getAgentResultsForDelivery(profileId, message, sb);
-        if (delivery.block) {
-          agentBlock += delivery.block;
-        }
-      }
-
       // Add URL-specific notes for this message
       const urlNotes = buildAgentUrlNotes(agentNotes);
-      if (urlNotes) agentBlock += urlNotes;
+      if (urlNotes) linkContextBlock += urlNotes;
 
       // Inject parsed link content into prompt
       if (parsedLinkBlocks.length > 0) {
         for (const block of parsedLinkBlocks) {
           const meta = block.metadata;
-          agentBlock += `\n\n## Content from Shared Link
+          linkContextBlock += `\n\n## Content from Shared Link
 The curator shared this link in their message.
 URL: ${block.url}
 Title: ${meta.title || 'Unknown'}
@@ -364,7 +159,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
         tasteProfileBlock,
-      }) + recsContext + agentBlock;
+      }) + recsContext + linkContextBlock;
     } else {
       // Fetch taste profile for injection
       let tasteProfileBlock = '';
@@ -388,7 +183,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
         tasteProfileBlock,
-      }) + recsContext + agentBlock;
+      }) + recsContext + linkContextBlock;
     }
 
     // Handle opening message generation (no user message yet)
@@ -521,7 +316,7 @@ Do NOT say "I can't read this link" or "I don't have access to the content." You
       }
     }
 
-    const maxTokens = hasLinkContent ? 1000 : (agentBlock.includes('AGENT RESULTS READY') ? 800 : 600);
+    const maxTokens = hasLinkContent ? 1000 : 600;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
