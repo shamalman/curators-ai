@@ -318,12 +318,30 @@ Do NOT say "I can't read this link" or "I don't have access to the content." You
 
     const maxTokens = hasLinkContent ? 1000 : 600;
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: cleanedMessages,
-    });
+    let response;
+    const apiStart = Date.now();
+    try {
+      response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: cleanedMessages,
+      });
+    } catch (apiError) {
+      const durationMs = Date.now() - apiStart;
+      const isTimeout = apiError.status === 408 || apiError.error?.type === 'timeout' || /timeout/i.test(apiError.message);
+
+      if (isTimeout) {
+        console.error(`[CHAT_API_TIMEOUT] duration_ms=${durationMs} profileId=${profileId} mode=${isVisitor ? 'visitor' : isOnboarding ? 'onboarding' : 'standard'}`);
+      }
+      console.error(`[CHAT_API_ERROR] status=${apiError.status || 'unknown'} type=${apiError.error?.type || 'unknown'} duration_ms=${durationMs} profileId=${profileId} message=${apiError.message}`);
+
+      const friendlyMessage = "I'm having trouble thinking right now. Give me a moment and try again.";
+      return NextResponse.json({
+        message: friendlyMessage,
+        blocks: [{ type: "text", data: { content: friendlyMessage } }],
+      });
+    }
 
     const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
 
