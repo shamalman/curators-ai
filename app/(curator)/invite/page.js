@@ -4,7 +4,7 @@ import { useState, useEffect, useContext } from "react";
 import { T, F, S, MN } from "@/lib/constants";
 import { CuratorContext } from "@/context/CuratorContext";
 
-const MAX_UNUSED = 5;
+const MAX_UNUSED = 25;
 
 export default function InvitePage() {
   const { profileId } = useContext(CuratorContext);
@@ -18,6 +18,7 @@ export default function InvitePage() {
   const [copiedId, setCopiedId] = useState(null);
   const [shareToast, setShareToast] = useState(null);
   const [showAllUsed, setShowAllUsed] = useState(false);
+  const [unlimitedInvites, setUnlimitedInvites] = useState(false);
 
   const fetchCodes = async () => {
     if (!profileId) return;
@@ -26,6 +27,7 @@ export default function InvitePage() {
       const data = await res.json();
       setUnused(data.unused || []);
       setUsed(data.used || []);
+      if (data.unlimitedInvites) setUnlimitedInvites(true);
     } catch {}
     setLoading(false);
   };
@@ -123,10 +125,10 @@ export default function InvitePage() {
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <h2 style={{ fontFamily: F, fontSize: 12, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".08em", margin: 0 }}>Your Invite Codes</h2>
-            <span style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>{unused.length}/{MAX_UNUSED} slots used</span>
+            {!unlimitedInvites && <span style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>{unused.length}/{MAX_UNUSED} slots used</span>}
           </div>
 
-          {unused.length < MAX_UNUSED ? (
+          {unlimitedInvites || unused.length < MAX_UNUSED ? (
             <button onClick={generateNew} disabled={generating} style={{
               width: "100%", padding: "12px", borderRadius: 10, border: `1px dashed ${T.bdr}`,
               background: "transparent", color: T.acc, fontSize: 13, fontWeight: 600,

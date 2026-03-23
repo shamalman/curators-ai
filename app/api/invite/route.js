@@ -36,6 +36,7 @@ export async function GET(request) {
       .eq("id", profileId)
       .single();
     const unlimitedInvites = curatorProfile?.unlimited_invites === true;
+    console.log(`[INVITE] profileId=${profileId} unlimited_invites=${curatorProfile?.unlimited_invites} resolved=${unlimitedInvites}`);
 
     const mode = searchParams.get("mode");
     const isHistory = searchParams.get("history") === "1";
