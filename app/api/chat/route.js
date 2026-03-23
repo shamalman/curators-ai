@@ -6,6 +6,7 @@ import { buildOnboardingPrompt } from "../../../lib/prompts/onboarding.js";
 import { buildStandardPrompt } from "../../../lib/prompts/standard.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
+import { getInviterContext } from "../../../lib/chat/inviter-context.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -62,45 +63,6 @@ Never say things like "has some fantastic recommendations!" or "Here's what they
 LINKING RECS:
 When mentioning a recommendation, link to it using markdown format: [Title](/handle/slug). Example: [Alberto Balsam](/shamal/alberto-balsam-by-aphex-twin). This lets visitors tap through to the full recommendation. Each rec in the data below includes a [link: /handle/slug] — use that path in your markdown links.`;
 
-// ── Look up inviter info for onboarding mode ──
-async function getInviterContext(profileId) {
-  try {
-    const sb = getSupabaseAdmin();
-
-    // Get the curator's invited_by
-    const { data: profile } = await sb
-      .from("profiles")
-      .select("invited_by")
-      .eq("id", profileId)
-      .single();
-
-    if (!profile?.invited_by) return { inviterName: null, inviterHandle: null, inviterNote: null };
-
-    // Get inviter's profile
-    const { data: inviter } = await sb
-      .from("profiles")
-      .select("name, handle")
-      .eq("id", profile.invited_by)
-      .single();
-
-    // Get the inviter_note from the invite code that was used for this curator
-    // The invite code's created_by matches the inviter, and it was used (has used_at set)
-    const { data: inviteCode } = await sb
-      .from("invite_codes")
-      .select("inviter_note")
-      .eq("used_by", profileId)
-      .single();
-
-    return {
-      inviterName: inviter?.name || null,
-      inviterHandle: inviter?.handle || null,
-      inviterNote: inviteCode?.inviter_note || null,
-    };
-  } catch (err) {
-    console.error("Failed to look up inviter context:", err);
-    return { inviterName: null, inviterHandle: null, inviterNote: null };
-  }
-}
 
 // ── Extract URLs from message text ──
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
