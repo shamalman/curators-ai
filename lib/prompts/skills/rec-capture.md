@@ -94,7 +94,12 @@ Rules:
   series, film, podcast, etc.)
 - links: array of link objects. ONLY include links the curator has
   provided or confirmed. Never hallucinate links.
-- If no link was provided, use an empty array: "links":[]
+- CRITICAL: Only include a link in the [REC] links array if the curator
+  explicitly provided that link FOR THIS SPECIFIC RECOMMENDATION.
+  A link shared earlier in conversation for a different purpose (taste read,
+  discussion, etc.) does NOT belong in the rec's links array.
+  If the curator did not provide a link for this rec, use an empty array: "links":[]
+  The curator can add a link later via Edit.
 - The [REC] block MUST be the last thing in your message.
 
 CRITICAL: After outputting a [REC] block, do NOT add any more text
