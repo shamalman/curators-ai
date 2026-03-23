@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { T, F, S, MN } from "@/lib/constants";
 
-const MAX_UNUSED = 5;
+const MAX_UNUSED = 25;
 
 export default function InviteModal({ profileId, onClose }) {
   const [inviteCode, setInviteCode] = useState(null);
@@ -15,6 +15,7 @@ export default function InviteModal({ profileId, onClose }) {
   const [unusedCount, setUnusedCount] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [shareToast, setShareToast] = useState(false);
+  const [unlimitedInvites, setUnlimitedInvites] = useState(false);
 
   useEffect(() => {
     if (!profileId) return;
@@ -27,6 +28,7 @@ export default function InviteModal({ profileId, onClose }) {
           setNote(data.code.inviter_note || "");
           setUnusedCount(data.unusedCount || 1);
         }
+        if (data.unlimitedInvites) setUnlimitedInvites(true);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -179,7 +181,7 @@ export default function InviteModal({ profileId, onClose }) {
               )}
 
               {/* New invite button */}
-              {unusedCount < MAX_UNUSED ? (
+              {unlimitedInvites || unusedCount < MAX_UNUSED ? (
                 <button onClick={generateNew} disabled={generating} style={{
                   width: "100%", padding: "10px", borderRadius: 10, border: `1px dashed ${T.bdr}`,
                   background: "transparent", color: T.ink3, fontSize: 12, fontWeight: 500,

@@ -16,7 +16,7 @@ function generateCode() {
   return `CURATORS-${rand}`;
 }
 
-const MAX_UNUSED = 5;
+const MAX_UNUSED = 25;
 
 // GET: Fetch or generate an invite code, or return history
 export async function GET(request) {
@@ -28,6 +28,15 @@ export async function GET(request) {
     }
 
     const sb = getSupabaseAdmin();
+
+    // Check if curator has unlimited invites
+    const { data: curatorProfile } = await sb
+      .from("profiles")
+      .select("unlimited_invites")
+      .eq("id", profileId)
+      .single();
+    const unlimitedInvites = curatorProfile?.unlimited_invites === true;
+
     const mode = searchParams.get("mode");
     const isHistory = searchParams.get("history") === "1";
 
@@ -86,10 +95,10 @@ export async function GET(request) {
       if (mode === "all") {
         const unused = history.filter(c => !c.used_at);
         const used = history.filter(c => c.used_at);
-        return NextResponse.json({ unused, used, unusedCount: unused.length });
+        return NextResponse.json({ unused, used, unusedCount: unused.length, unlimitedInvites });
       }
 
-      return NextResponse.json({ history });
+      return NextResponse.json({ history, unlimitedInvites });
     }
 
     // Get all unused codes by this curator
@@ -103,7 +112,7 @@ export async function GET(request) {
     const unused = unusedCodes || [];
 
     if (unused.length > 0) {
-      return NextResponse.json({ code: unused[0], unusedCount: unused.length });
+      return NextResponse.json({ code: unused[0], unusedCount: unused.length, unlimitedInvites });
     }
 
     // No unused codes — auto-generate one
@@ -127,7 +136,7 @@ export async function GET(request) {
     }).eq('id', profileId);
     if (trackingError) console.error('TRACKING ERROR:', trackingError);
 
-    return NextResponse.json({ code: created, unusedCount: 1 });
+    return NextResponse.json({ code: created, unusedCount: 1, unlimitedInvites });
   } catch (error) {
     console.error("Invite fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch invite" }, { status: 500 });
@@ -146,13 +155,22 @@ export async function POST(request) {
         return NextResponse.json({ error: "Missing profileId" }, { status: 400 });
       }
 
+      // Check if curator has unlimited invites
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("unlimited_invites")
+        .eq("id", profileId)
+        .single();
+
+      const unlimited = profile?.unlimited_invites === true;
+
       const { data: unusedCodes } = await sb
         .from("invite_codes")
         .select("id")
         .eq("created_by", profileId)
         .is("used_at", null);
 
-      if ((unusedCodes || []).length >= MAX_UNUSED) {
+      if (!unlimited && (unusedCodes || []).length >= MAX_UNUSED) {
         return NextResponse.json({ error: "limit_reached", max: MAX_UNUSED }, { status: 429 });
       }
 
