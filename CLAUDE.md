@@ -135,7 +135,7 @@ Categories: watch | listen | read | visit | get | wear | play | other
 ## Database Schema
 
 ### profiles
-id, name, handle, bio, location, auth_user_id, invited_by, style_summary (JSONB), onboarding_complete, social_links, weekly_digest_enabled, new_subscriber_email_enabled, ai_enabled, show_recs, show_subscriptions, show_subscribers, last_seen_at, last_action, last_action_at, created_at, updated_at
+id, name, handle, bio, location, auth_user_id, invited_by, style_summary (JSONB), onboarding_complete, social_links, weekly_digest_enabled, new_subscriber_email_enabled, ai_enabled, show_recs, show_subscriptions, show_subscribers, unlimited_invites (BOOLEAN DEFAULT false), last_seen_at, last_action, last_action_at, created_at, updated_at
 
 ### recommendations
 id, profile_id, title, slug, category, context, tags (text[]), links (JSONB), visibility, source, created_at, updated_at
