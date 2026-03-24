@@ -940,7 +940,7 @@ export default function ChatView({ variant }) {
             {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>{"\u2193"}</button>}
             </div>
           </div>
-          <div style={{ padding: "10px 16px 28px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
+          <div style={{ padding: "10px 16px 12px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
             {pendingImage && (
               <div style={{ marginBottom: 8, display: "inline-flex", position: "relative" }}>
                 <img src={pendingImage.previewUrl} alt="" style={{ height: 60, borderRadius: 10, border: `1px solid ${T.bdr}`, display: "block" }} />
@@ -1048,7 +1048,7 @@ export default function ChatView({ variant }) {
           }}>{chip.label}</button>
         ))}
       </div>
-      <div style={{ padding: "10px 16px 28px", flexShrink: 0, background: V.bg }}>
+      <div style={{ padding: "10px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))", flexShrink: 0, background: V.bg }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <textarea value={input} onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); e.target.style.height = 'auto'; } }}
             placeholder={`Ask ${profile.name} anything...`}

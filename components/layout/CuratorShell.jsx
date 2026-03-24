@@ -44,9 +44,9 @@ export default function CuratorShell({ children }) {
           style={{
             marginLeft: 220, background: T.bg,
             ...(needsFlexLayout ? {
-              height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden",
+              height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden",
             } : {
-              minHeight: "100vh",
+              minHeight: "100dvh",
             }),
           }}
         >
