@@ -6,10 +6,16 @@
 }
 
 html, body, #__next {
-  height: 100dvh;
+  height: 100%;
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+}
+
+@supports (height: 100dvh) {
+  html, body, #__next {
+    height: 100dvh;
+  }
 }
 
 @media (max-width: 767px) {
