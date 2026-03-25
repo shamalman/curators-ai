@@ -8,7 +8,7 @@ import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
-import { URL_REGEX, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
+import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 
 const anthropic = new Anthropic({
@@ -53,8 +53,10 @@ export async function POST(request) {
 
     if (!isVisitor && profileId && !generateOpening) {
       // Detect URLs in message and parse ALL synchronously before calling Claude (cap at 3 links)
+      // Normalize bare domains (Safari strips https:// when copying from address bar)
       if (message) {
-        const urls = (message.match(URL_REGEX) || []).slice(0, 3);
+        const normalizedMessage = normalizeUrls(message);
+        const urls = (normalizedMessage.match(URL_REGEX) || []).slice(0, 3);
 
         // Parse all URLs concurrently for speed
         const parseResults = await Promise.all(
@@ -77,6 +79,14 @@ export async function POST(request) {
             agentNotes.push({ url: result.url, type: "link_parsed", sourceType: result.sourceType });
           } else {
             agentNotes.push({ url: result.url, type: "link_parse_failed", sourceType: result.sourceType, error: result.error });
+            // Track failed parses for logging too
+            parsedLinkBlocks.push({
+              url: result.url,
+              quality: 'failed',
+              sourceType: result.sourceType,
+              parseTimeMs: result.parseTimeMs,
+              error: result.error,
+            });
           }
         }
       }
@@ -418,7 +428,7 @@ ${parsed.content}
     }
 
     // ── Build content blocks ──
-    const detectedUrls = message ? (message.match(URL_REGEX) || []) : [];
+    const detectedUrls = message ? (normalizeUrls(message).match(URL_REGEX) || []) : [];
 
     let mediaEmbeds = [];
     if (!isVisitor && !generateOpening && detectedUrls.length > 0) {
@@ -456,17 +466,17 @@ ${parsed.content}
       });
     }
 
-    // ── Log link parse results (fire-and-forget) ──
+    // ── Log link parse results (awaited -- fire-and-forget drops on Vercel Lambda shutdown) ──
     if (parsedLinkBlocks.length > 0 && profileId) {
       const HONEST_PHRASES = ["couldn't read", "can't read", "couldn't access", "can't access", "unable to read", "couldn't open", "paste the text", "paste the content", "tell me about it", "tell me what"];
       const aiLower = aiMessage.toLowerCase();
 
-      for (const block of parsedLinkBlocks) {
+      const logInserts = parsedLinkBlocks.map(block => {
         const aiAcknowledgedFailure = block.quality === 'failed'
           ? HONEST_PHRASES.some(p => aiLower.includes(p))
           : null;
 
-        sb.from('link_parse_log').insert({
+        return sb.from('link_parse_log').insert({
           profile_id: profileId,
           url: block.url,
           source_type: block.sourceType || 'unknown',
@@ -477,9 +487,12 @@ ${parsed.content}
           ai_response_excerpt: aiMessage.substring(0, 500),
           ai_acknowledged_failure: aiAcknowledgedFailure,
           metadata: block.metadata || null,
-        }).then(({ error }) => {
-          if (error) console.error('[LINK_PARSE_LOG_ERROR]', error.message);
         });
+      });
+
+      const logResults = await Promise.all(logInserts);
+      for (const { error } of logResults) {
+        if (error) console.error('[LINK_PARSE_LOG_ERROR]', error.message);
       }
     }
 
