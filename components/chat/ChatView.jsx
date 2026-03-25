@@ -84,7 +84,6 @@ export default function ChatView({ variant }) {
   const isWaitingForResponse = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
-  const [agentPollingJobs, setAgentPollingJobs] = useState([]);
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -251,87 +250,6 @@ export default function ChatView({ variant }) {
     setMessages([{ role: "ai", text: openingMessage }]);
   }, [dbLoaded]);
 
-  // Create a DB-persisted agent_banner block for a completed job
-  const createAgentBannerBlock = async (jobId, sourceType, sourceName, sourceUrl) => {
-    // Dedup by job_id
-    const { data: existingJob } = await supabase
-      .from("chat_messages")
-      .select("id")
-      .eq("profile_id", profileId)
-      .filter("blocks", "cs", JSON.stringify([{ data: { job_id: jobId } }]))
-      .limit(1);
-    if (existingJob && existingJob.length > 0) return;
-
-    // Resolve source name if missing
-    const resolvedName = sourceName || { spotify: "Spotify", apple_music: "Apple Music", google_maps: "Google Maps", youtube: "YouTube", letterboxd: "Letterboxd", goodreads: "Goodreads", soundcloud: "SoundCloud", twitter: "X (Twitter)", webpage: "Webpage" }[sourceType] || sourceType;
-
-    const blocks = [{
-      type: "agent_banner",
-      data: {
-        job_id: jobId,
-        source_type: sourceType,
-        source_name: resolvedName,
-        status: "completed",
-        cta_text: "See what I found",
-      },
-    }];
-    const savedId = await saveMsgToDb("ai", "", null, blocks);
-    setMessages(m => [...m, { role: "assistant", text: null, blocks, id: savedId, interactions: [] }]);
-    shouldScroll.current = true;
-  };
-
-  // Check for completed unpresented agent jobs on mount (runs once)
-  const mountCheckDone = useRef(false);
-  useEffect(() => {
-    if (!isCurator || !profileId || !dbLoaded) return;
-    if (mountCheckDone.current) return;
-    mountCheckDone.current = true;
-    fetch('/api/agent/check')
-      .then(r => r.json())
-      .then(async data => {
-        if (data.jobs && data.jobs.length > 0) {
-          for (const job of data.jobs) {
-            await createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName, job.sourceUrl);
-          }
-        }
-        // Resume polling for any processing jobs
-        if (data.processing && data.processing.length > 0) {
-          setAgentPollingJobs(prev => [...prev, ...data.processing]);
-        }
-      })
-      .catch(err => console.error('Agent check error:', err));
-  }, [isCurator, profileId, dbLoaded]);
-
-  // Poll agent jobs for completion
-  useEffect(() => {
-    if (agentPollingJobs.length === 0) return;
-    const startTime = Date.now();
-    const interval = setInterval(async () => {
-      // Don't poll while waiting for a chat response
-      if (isWaitingForResponse.current) return;
-      if (Date.now() - startTime > 120000) {
-        setAgentPollingJobs([]);
-        clearInterval(interval);
-        return;
-      }
-      for (const job of agentPollingJobs) {
-        try {
-          const res = await fetch(`/api/agent/status?jobId=${job.jobId}`);
-          if (!res.ok) continue;
-          const data = await res.json();
-          if (data.status === 'completed') {
-            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-            await createAgentBannerBlock(job.jobId, job.sourceType, job.sourceName, job.sourceUrl);
-          } else if (data.status === 'failed') {
-            setAgentPollingJobs(prev => prev.filter(j => j.jobId !== job.jobId));
-          }
-        } catch (err) {
-          console.error('Agent poll error:', err);
-        }
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [agentPollingJobs]);
 
   const send = async (overrideMsg) => {
     const msg = overrideMsg || input.trim();

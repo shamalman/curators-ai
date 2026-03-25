@@ -52,23 +52,31 @@ export async function POST(request) {
     let parsedLinkBlocks = [];
 
     if (!isVisitor && profileId && !generateOpening) {
-      // Detect URLs in message and parse content inline (cap at 3 links)
+      // Detect URLs in message and parse ALL synchronously before calling Claude (cap at 3 links)
       if (message) {
         const urls = (message.match(URL_REGEX) || []).slice(0, 3);
-        for (const url of urls) {
-          const detection = detectSource(url);
-          if (detection.supported && detection.implemented) {
+
+        // Parse all URLs concurrently for speed
+        const parseResults = await Promise.all(
+          urls.map(async (url) => {
             const parsed = await parseContentForTasteRead(url);
-            if (parsed.error) {
-              agentNotes.push({ url, type: "link_parse_failed", sourceType: detection.sourceType, error: parsed.error });
-            } else {
-              agentNotes.push({ url, type: "link_parsed", sourceType: detection.sourceType });
-              parsedLinkBlocks.push({ url, metadata: parsed.metadata, content: parsed.content });
-            }
-          } else if (detection.supported && !detection.implemented) {
-            agentNotes.push({ url, type: "coming_soon", sourceType: detection.sourceType, parserName: detection.parserName });
+            return { url, ...parsed };
+          })
+        );
+
+        for (const result of parseResults) {
+          if (result.quality === 'full' || result.quality === 'partial') {
+            parsedLinkBlocks.push({
+              url: result.url,
+              metadata: result.metadata,
+              content: result.content,
+              quality: result.quality,
+              sourceType: result.sourceType,
+              parseTimeMs: result.parseTimeMs,
+            });
+            agentNotes.push({ url: result.url, type: "link_parsed", sourceType: result.sourceType });
           } else {
-            agentNotes.push({ url, type: "unsupported" });
+            agentNotes.push({ url: result.url, type: "link_parse_failed", sourceType: result.sourceType, error: result.error });
           }
         }
       }
@@ -77,25 +85,38 @@ export async function POST(request) {
       const urlNotes = buildAgentUrlNotes(agentNotes);
       if (urlNotes) linkContextBlock += urlNotes;
 
-      // Inject parsed link content into prompt
-      if (parsedLinkBlocks.length > 0) {
-        for (const block of parsedLinkBlocks) {
-          const meta = block.metadata;
-          linkContextBlock += `\n\n## Content from Shared Link
-The curator shared this link in their message.
-URL: ${block.url}
-Title: ${meta.title || 'Unknown'}
-Provider: ${meta.providerName || meta.source || 'Unknown'}
-Author: ${meta.author || 'Unknown'}
+      // Inject parsed link content into prompt with quality signals
+      for (const block of parsedLinkBlocks) {
+        const meta = block.metadata || {};
+        if (block.quality === 'full') {
+          linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
+Quality: FULL -- you have the complete content. Reference it specifically.
+${meta.title ? `Title: ${meta.title}` : ''}
+${meta.providerName || meta.source ? `Provider: ${meta.providerName || meta.source}` : ''}
+${meta.author ? `Author: ${meta.author}` : ''}
 
-Parsed content:
 ${block.content}
+=== END PARSED CONTENT ===`;
+        } else if (block.quality === 'partial') {
+          linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
+Quality: PARTIAL -- you have some content but not everything.
+Name the specific items you can see. Acknowledge you have a sample, not the full content.
+${meta.title ? `Title: ${meta.title}` : ''}
+${meta.providerName || meta.source ? `Provider: ${meta.providerName || meta.source}` : ''}
+${meta.author ? `Author: ${meta.author}` : ''}
 
-You now have the actual content from this link. Use it naturally in conversation.
-If the curator is talking about it, engage with specifics from the content.
-If they ask for a taste read, deliver one using this content and their taste profile.
-If they want to capture it as a rec, ask for their context first.
-Do NOT say "I can't read this link" or "I don't have access to the content." You have it.`;
+${block.content}
+=== END PARSED CONTENT ===`;
+        }
+      }
+
+      // Add explicit FAILED blocks for URLs that couldn't be parsed
+      for (const note of agentNotes) {
+        if (note.type === 'link_parse_failed') {
+          linkContextBlock += `\n\n=== LINK PARSE FAILED (${note.url}) ===
+You could NOT read this link. Do NOT describe, summarize, or reference its contents.
+Tell the curator honestly: "I couldn't read that link. Can you paste the content or tell me about it?"
+=== END ===`;
         }
       }
     }
@@ -287,28 +308,30 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         const parsed = await parseContentForTasteRead(recentUrl.url);
         const durationMs = Date.now() - tasteReadStart;
 
-        if (parsed.error) {
-          systemPrompt += `\n\n## Taste Read Error\nThe curator asked for a taste read but parsing failed: ${parsed.error}\nAcknowledge the error naturally and suggest alternatives (paste again, send a screenshot, tell you about it).`;
+        if (parsed.quality === 'failed') {
+          systemPrompt += `\n\n=== LINK PARSE FAILED (${recentUrl.url}) ===\nThe curator asked for a taste read but parsing failed: ${parsed.error}\nYou could NOT read this link. Do NOT describe, summarize, or reference its contents.\nTell the curator honestly: "I couldn't read that link. Can you paste the content or tell me about it?"\n=== END ===`;
           console.error(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=error`);
+          // Track failed parse
+          parsedLinkBlocks.push({ url: recentUrl.url, quality: 'failed', sourceType: parsed.sourceType, parseTimeMs: durationMs, error: parsed.error });
         } else {
           hasLinkContent = true;
           const meta = parsed.metadata;
-          systemPrompt += `\n\n## Content from Shared Link
+          const qualityLabel = parsed.quality === 'full' ? 'FULL' : 'PARTIAL';
+          const qualityNote = parsed.quality === 'full'
+            ? 'you have the complete content. Reference it specifically.'
+            : 'you have some content but not everything. Name the specific items you can see.';
+          systemPrompt += `\n\n=== PARSED LINK CONTENT (${recentUrl.url}) ===
+Quality: ${qualityLabel} -- ${qualityNote}
 The curator wants you to engage with this link they shared earlier.
-URL: ${recentUrl.url}
 Title: ${meta.title || 'Unknown'}
 Provider: ${meta.providerName || meta.source || 'Unknown'}
 Author: ${meta.author || 'Unknown'}
 
-Parsed content:
 ${parsed.content}
+=== END PARSED CONTENT ===`;
 
-You now have the actual content from this link. Use it naturally in conversation.
-Connect what you find to patterns in their existing taste.
-Be specific: name actual items, tracks, dishes, films from the content.
-Do NOT say "I can't read this link" or "I don't have access to the content." You have it.`;
-
-          console.log(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} status=success`);
+          parsedLinkBlocks.push({ url: recentUrl.url, quality: parsed.quality, metadata: parsed.metadata, content: parsed.content, sourceType: parsed.sourceType, parseTimeMs: durationMs });
+          console.log(`[TASTE_READ_TIMING] url=${recentUrl.url} parser=${parsed.parserName} quality=${parsed.quality} duration_ms=${durationMs} status=success`);
           if (durationMs > 45000) {
             console.warn(`[TASTE_READ_SLOW] url=${recentUrl.url} parser=${parsed.parserName} duration_ms=${durationMs} -- approaching Vercel timeout`);
           }
@@ -343,7 +366,46 @@ Do NOT say "I can't read this link" or "I don't have access to the content." You
       });
     }
 
-    const aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
+    let aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
+
+    // ── Extract and process feedback if present ──
+    const feedbackMatch = aiMessage.match(/\[FEEDBACK\]([\s\S]*?)\[\/FEEDBACK\]/);
+    if (feedbackMatch) {
+      try {
+        const feedback = JSON.parse(feedbackMatch[1].trim());
+
+        // Save to feedback table
+        const { error: fbError } = await sb.from('feedback').insert({
+          profile_id: profileId,
+          message: feedback.message,
+          summary: feedback.summary,
+          category: feedback.type,
+        });
+        if (fbError) {
+          console.error('[FEEDBACK_DB_ERROR]', fbError.message);
+        }
+
+        // Send email notification to founder
+        try {
+          const { resend } = await import('../../../lib/resend.js');
+          await resend.emails.send({
+            from: 'Curators AI <noreply@curators.ai>',
+            to: process.env.FEEDBACK_EMAIL || 'shamal@curators.ai',
+            subject: `[Feedback] ${feedback.type}: ${feedback.summary}`,
+            text: `Feedback from ${curatorName} (@${curatorHandle}):\n\n"${feedback.message}"\n\nType: ${feedback.type}\nSummary: ${feedback.summary}`,
+          });
+        } catch (emailErr) {
+          console.error('[FEEDBACK_EMAIL_ERROR]', emailErr.message);
+        }
+
+        console.log(`[FEEDBACK_CAPTURED] profile=${profileId} type=${feedback.type} summary=${feedback.summary}`);
+      } catch (parseErr) {
+        console.error('[FEEDBACK_PARSE_ERROR]', parseErr.message);
+      }
+
+      // Strip the [FEEDBACK] block from the visible message
+      aiMessage = aiMessage.replace(/\[FEEDBACK\][\s\S]*?\[\/FEEDBACK\]/, '').trim();
+    }
 
     if (profileId) {
       console.log('TRACKING: sent a message, profileId:', profileId);
@@ -392,6 +454,33 @@ Do NOT say "I can't read this link" or "I don't have access to the content." You
         type: "rec_capture",
         data: recCapture
       });
+    }
+
+    // ── Log link parse results (fire-and-forget) ──
+    if (parsedLinkBlocks.length > 0 && profileId) {
+      const HONEST_PHRASES = ["couldn't read", "can't read", "couldn't access", "can't access", "unable to read", "couldn't open", "paste the text", "paste the content", "tell me about it", "tell me what"];
+      const aiLower = aiMessage.toLowerCase();
+
+      for (const block of parsedLinkBlocks) {
+        const aiAcknowledgedFailure = block.quality === 'failed'
+          ? HONEST_PHRASES.some(p => aiLower.includes(p))
+          : null;
+
+        sb.from('link_parse_log').insert({
+          profile_id: profileId,
+          url: block.url,
+          source_type: block.sourceType || 'unknown',
+          parse_quality: block.quality,
+          content_length: block.content?.length || 0,
+          parse_time_ms: block.parseTimeMs || null,
+          error_message: block.error || null,
+          ai_response_excerpt: aiMessage.substring(0, 500),
+          ai_acknowledged_failure: aiAcknowledgedFailure,
+          metadata: block.metadata || null,
+        }).then(({ error }) => {
+          if (error) console.error('[LINK_PARSE_LOG_ERROR]', error.message);
+        });
+      }
     }
 
     return NextResponse.json({
