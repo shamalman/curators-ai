@@ -538,16 +538,43 @@ ${parsed.content}
       }
     }
 
-    // Include parsed content for the frontend to persist on the user's chat_messages row
+    // ── Persist parsed content on the user's most recent chat_messages row ──
+    // Done server-side with service role key (bypasses RLS -- frontend update silently fails)
     const parsedContentForStorage = parsedLinkBlocks
       .filter(b => b.quality !== 'failed')
       .map(b => ({ url: b.url, content: b.content, metadata: b.metadata, quality: b.quality, sourceType: b.sourceType }));
+
+    if (parsedContentForStorage.length > 0 && profileId) {
+      try {
+        const { data: latestUserMsg } = await sb
+          .from('chat_messages')
+          .select('id')
+          .eq('profile_id', profileId)
+          .eq('role', 'user')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestUserMsg) {
+          const { error: updateErr } = await sb
+            .from('chat_messages')
+            .update({ parsed_content: parsedContentForStorage })
+            .eq('id', latestUserMsg.id);
+          if (updateErr) {
+            console.error('[PARSED_CONTENT_SAVE_ERROR]', updateErr.message);
+          } else {
+            console.log(`[PARSED_CONTENT_SAVED] msgId=${latestUserMsg.id} blocks=${parsedContentForStorage.length}`);
+          }
+        }
+      } catch (err) {
+        console.error('[PARSED_CONTENT_SAVE_ERROR]', err.message);
+      }
+    }
 
     return NextResponse.json({
       message: aiMessage,
       blocks: blocks,
       captured_rec: recCapture || undefined,
-      parsed_content: parsedContentForStorage.length > 0 ? parsedContentForStorage : undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);
