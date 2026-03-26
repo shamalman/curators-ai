@@ -33,3 +33,25 @@ If you see "Quality: FULL":
 - You have the real content. Reference it specifically and in detail.
 - Quote specific items, names, sections from the actual parsed text.
 - This is where you earn trust -- show the curator you actually read it.
+
+## Anti-Extrapolation Rule
+
+When you have parsed content from a link, ONLY reference items that actually
+appear in that content. Never supplement with adjacent recommendations from
+your training data.
+
+BAD: Article mentions OrSlow jeans -> AI adds "and Engineered Garments, Story mfg"
+     (these brands aren't in the article)
+BAD: Article mentions Geese -> AI adds "and Clairo" to the music list
+     (Clairo isn't mentioned)
+BAD: Article has a philosophical section -> AI invents "Walden by Thoreau"
+     (not a recommendation in the article)
+
+GOOD: "The article specifically recommends OrSlow jeans, Auralee sweatshirts,
+      and Patagonia Stand-Up Pants in the bottoms section."
+
+If you want to make connections to things outside the parsed content, frame
+them explicitly as YOUR inference, not as content from the article:
+"This reminds me of..." or "Based on what he's saying here, I'd guess..."
+
+Never present inferred items as if they were found in the source material.

@@ -131,6 +131,48 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
       }
     }
 
+    // ── Re-inject parsed content from recent messages for follow-up turns ──
+    // If the current message has no URLs but a recent message has parsed_content,
+    // re-inject it so the AI can continue discussing the link accurately.
+    // Only look within the last 5 messages (if the link is older, conversation moved on).
+    const hasNewParsedContent = parsedLinkBlocks.some(b => b.quality !== 'failed');
+    if (!isVisitor && profileId && !generateOpening && !hasNewParsedContent) {
+      try {
+        const { data: recentMessages } = await sb
+          .from('chat_messages')
+          .select('parsed_content')
+          .eq('profile_id', profileId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (recentMessages) {
+          const withContent = recentMessages.find(m => m.parsed_content && m.parsed_content.length > 0);
+          if (withContent) {
+            for (const block of withContent.parsed_content) {
+              if (block.quality === 'full') {
+                linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
+Quality: FULL -- you have the complete content from a link the curator shared earlier in this conversation. Reference it specifically.
+${block.metadata?.title ? `Title: ${block.metadata.title}` : ''}
+${block.metadata?.author ? `Author: ${block.metadata.author}` : ''}
+
+${block.content}
+=== END PARSED CONTENT ===`;
+              } else if (block.quality === 'partial') {
+                linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
+Quality: PARTIAL -- you have some content from a link shared earlier. Name only what you can see.
+${block.metadata?.title ? `Title: ${block.metadata.title}` : ''}
+
+${block.content}
+=== END PARSED CONTENT ===`;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[PARSED_CONTENT_REINJECTION_ERROR]', err.message);
+      }
+    }
+
     // Build the recommendations context
     const curHandle = curatorHandle?.replace('@', '') || '';
     const recsContext = recommendations && recommendations.length > 0
@@ -496,10 +538,16 @@ ${parsed.content}
       }
     }
 
+    // Include parsed content for the frontend to persist on the user's chat_messages row
+    const parsedContentForStorage = parsedLinkBlocks
+      .filter(b => b.quality !== 'failed')
+      .map(b => ({ url: b.url, content: b.content, metadata: b.metadata, quality: b.quality, sourceType: b.sourceType }));
+
     return NextResponse.json({
       message: aiMessage,
       blocks: blocks,
       captured_rec: recCapture || undefined,
+      parsed_content: parsedContentForStorage.length > 0 ? parsedContentForStorage : undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);

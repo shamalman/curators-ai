@@ -257,7 +257,7 @@ export default function ChatView({ variant }) {
     const imageToSend = pendingImage;
     shouldScroll.current = true;
     setMessages(m => [...m, { role: "user", text: msg || (imageToSend ? "[sent an image]" : ""), imagePreview: imageToSend?.previewUrl || null }]);
-    saveMsgToDb("user", msg || "[sent an image]");
+    const userMsgId = await saveMsgToDb("user", msg || "[sent an image]");
     setInput("");
     setPendingImage(null);
     setTyping(true);
@@ -311,6 +311,14 @@ export default function ChatView({ variant }) {
       const data = await response.json();
       setTyping(false);
       isWaitingForResponse.current = false;
+
+      // Persist parsed link content on the user's message row for follow-up turns
+      if (data.parsed_content && userMsgId) {
+        supabase.from("chat_messages")
+          .update({ parsed_content: data.parsed_content })
+          .eq("id", userMsgId)
+          .then(({ error }) => { if (error) console.error("Failed to save parsed_content:", error); });
+      }
 
       let text = data.message || '';
       // Strip [REC]...[/REC] if present
