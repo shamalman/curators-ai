@@ -1,5 +1,5 @@
 # CLAUDE.md -- Curators.AI Engineering Guide
-## Last updated: March 23, 2026
+## Last updated: March 27, 2026
 
 ---
 
@@ -15,7 +15,7 @@
 
 - **Framework:** Next.js 14 (App Router)
 - **Database:** Supabase (PostgreSQL + RLS + PostgREST)
-- **AI:** Anthropic Claude API (Sonnet for generation, system prompts for chat)
+- **AI:** Anthropic Claude API (Sonnet for generation, system prompts for chat). SDK version: 0.80.0
 - **Hosting:** Vercel, auto-deploys from GitHub main (~60s deploys)
 - **Email:** Resend (subscriber alerts + weekly digests)
 - **Styling:** Inline styles only, no Tailwind
@@ -51,14 +51,14 @@
 
 ### AI Skills System
 
-13 modular .md skill files in `lib/prompts/skills/`:
-vocabulary, no-hallucinations, base-personality, link-handling, image-handling, rec-capture, taste-reflection, agent-handling, network-recs, onboarding-approach, standard-approach, subscriber-approach, visitor-approach
+15 modular .md skill files in `lib/prompts/skills/`:
+vocabulary, no-hallucinations, base-personality, link-handling, image-handling, rec-capture, taste-reflection, agent-handling, network-recs, onboarding-approach, standard-approach, subscriber-approach, visitor-approach, feedback-handling, trust-building
 
 `loadSkill(name)` in `lib/prompts/loader.js` reads and caches skill files.
 
 Build functions in `lib/prompts/`:
-- `buildOnboardingPrompt` (onboarding.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + onboarding-approach
-- `buildStandardPrompt` (standard.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + network-recs + standard-approach
+- `buildOnboardingPrompt` (onboarding.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + feedback-handling + trust-building + onboarding-approach
+- `buildStandardPrompt` (standard.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + network-recs + feedback-handling + trust-building + standard-approach
 - `buildSubscriberPrompt`: skill file exists (subscriber-approach.md), but no build function or route wiring yet
 - Visitor prompt: still inline in chat route, not extracted to a build function
 
@@ -69,13 +69,15 @@ Build functions in `lib/prompts/`:
 - Standard: 3+ recs AND bio
 - Visitor: accessing another curator's /ask page
 
-**Link handling:** Links auto-parsed on paste. Up to 3 URLs detected per message. Parser called inline with 10s timeout via Promise.race. Parsed content injected into system prompt. No agent jobs in the link flow (agent pipeline exists but is not called). If parsing fails, AI says so honestly.
+**Link handling:** Link parsing is synchronous -- parse before Claude responds, no background agent path for link content. Up to 3 URLs detected per message (bare domains auto-normalized with https://). All URLs parsed concurrently via Promise.all with 15s timeout. Quality signals (FULL/PARTIAL/FAILED) injected into system prompt as labeled === PARSED LINK CONTENT === blocks. Parsed content persisted on the user's chat_messages row (parsed_content JSONB) and re-injected on follow-up turns within a 5-message window. If parsing fails, AI says so honestly.
 
 **Rec extraction:** [REC] JSON parsed from AI response. `validateRecContext` trusts AI's context field, strips metadata pollution ([Pending link:...], [Link metadata:...], [REC]...[/REC]), falls back to last user message if context is empty.
 
 **Content blocks:** Text and MediaEmbed rendered in feed. ActionButtons function exists but is not called in the response flow.
 
-**Structured logging:** `[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`
+**Feedback capture:** AI detects feedback intent, emits [FEEDBACK] JSON blocks. Chat route extracts, saves to feedback table, emails founder via Resend, strips block from visible response.
+
+**Structured logging:** `[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[LINK_PARSE_LOG_ERROR]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`
 
 ### Taste Profile Pipeline
 
@@ -117,8 +119,8 @@ AI-readable markdown document stored in `taste_profiles` table, injected into ev
 Categories: watch | listen | read | visit | get | wear | play | other
 
 ### Taste Reads
-- Inline in the chat response. No agent pipeline, no banners.
-- Parser called with 10s timeout via Promise.race
+- Inline in the chat response. No agent pipeline, no banners (banner/polling system removed from ChatView.jsx).
+- Parser called with 15s timeout via Promise.race
 - Content injected into system prompt, Claude delivers taste read in same streaming response
 
 ---
@@ -143,7 +145,7 @@ id, profile_id, title, slug, category, context, tags (text[]), links (JSONB), vi
 Categories: watch | listen | read | visit | get | wear | play | other
 
 ### chat_messages
-id, profile_id, role ('user'|'ai'), message (text), blocks (JSONB), interaction_state (JSONB), captured_rec (JSONB), is_opening, created_at
+id, profile_id, role ('user'|'ai'), message (text), blocks (JSONB), interaction_state (JSONB), captured_rec (JSONB), parsed_content (JSONB), is_opening, created_at
 
 ### subscriptions
 id, subscriber_id, curator_id, created_at
@@ -172,6 +174,9 @@ id, type, recipient_email, curator_id, rec_id, sent_at
 ### feedback
 id, profile_id, message, summary, category, created_at
 
+### link_parse_log
+id, profile_id, url, source_type, parse_quality ('full'|'partial'|'failed'), content_length, parse_time_ms, error_message, ai_response_excerpt, ai_acknowledged_failure, metadata (JSONB), created_at
+
 ---
 
 ## Source Parsers (lib/agent/parsers/)
@@ -185,7 +190,7 @@ id, profile_id, message, summary, category, created_at
 - **Goodreads** (goodreads.js): book pages, scrapes metadata
 - **Google Maps** (google-maps.js): single places only, scrapes metadata
 - **Twitter/X** (twitter.js): single tweets via oEmbed
-- **Generic Webpage** (webpage.js): defuddle for clean content extraction and markdown output (linkedom replaced)
+- **Generic Webpage** (webpage.js): defuddle for clean content extraction and markdown output. 100K content limit. Universal fallback -- all http/https URLs route here if no platform parser matches.
 
 Instagram and Bandcamp deferred.
 
@@ -195,7 +200,7 @@ Instagram and Bandcamp deferred.
 
 ```
 app/api/chat/route.js                    -- chat route, mode detection, link handling, rec extraction
-lib/prompts/skills/*.md                  -- 13 AI skill files
+lib/prompts/skills/*.md                  -- 15 AI skill files
 lib/prompts/onboarding.js, standard.js   -- system prompt build functions
 lib/prompts/loader.js                    -- skill file loader with cache
 lib/taste-profile/generate.js            -- taste profile generation
