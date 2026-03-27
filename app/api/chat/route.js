@@ -265,15 +265,22 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         { role: "user", content: "Generate your opening message now. Follow the OPENING MESSAGE instructions exactly — use the inviter name, inviter note, and curator name provided in your system prompt. Output only the opening message, nothing else." },
       ];
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 400,
-        system: systemPrompt,
-        messages: openingMessages,
-      });
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 400,
+          system: systemPrompt,
+          messages: openingMessages,
+        });
 
-      const aiMessage = response.content[0]?.text || "Hey! I'm here to learn what you're into. What's something you wish more people knew about?";
-      return NextResponse.json({ message: aiMessage });
+        const aiMessage = response.content[0]?.text || "Hey! I'm here to learn what you're into. What's something you wish more people knew about?";
+        return NextResponse.json({ message: aiMessage });
+      } catch (openingErr) {
+        console.error(`[OPENING_API_ERROR] status=${openingErr.status || 'unknown'} type=${openingErr.error?.type || 'unknown'} profileId=${profileId} message=${openingErr.message}`);
+        // Return a graceful fallback opening instead of crashing
+        const name = curatorName?.split(' ')[0] || curatorName || 'there';
+        return NextResponse.json({ message: `Hey ${name}! I'm your Record. I'm here to learn what you're into and help you capture it.\n\nWhat's something you've been recommending to everyone lately?` });
+      }
     }
 
     // Current rec titles for filtering
