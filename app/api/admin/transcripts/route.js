@@ -11,7 +11,7 @@ function getSupabaseAdmin() {
 
 export async function POST(request) {
   try {
-    const { authToken, filterDays } = await request.json();
+    const { authToken, filterDays, restrictToProfileId } = await request.json();
 
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,7 +55,11 @@ export async function POST(request) {
       .order('created_at', { ascending: false })
       .limit(10000);
 
-    if (filterDays) {
+    if (restrictToProfileId) {
+        query = query.eq('profile_id', restrictToProfileId);
+      }
+
+      if (filterDays) {
       const d = new Date();
       d.setDate(d.getDate() - filterDays);
       query = query.gte('created_at', d.toISOString());

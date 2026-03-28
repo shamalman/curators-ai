@@ -41,7 +41,7 @@ export default function TranscriptsAdmin() {
       // Client-side auth check for fast redirect
       const { data: prof } = await supabase
         .from('profiles')
-        .select('handle')
+        .select('id, handle')
         .eq('auth_user_id', session.user.id)
         .single();
 
@@ -50,6 +50,9 @@ export default function TranscriptsAdmin() {
         return;
       }
 
+      // If chris, restrict to own transcripts only
+      const isRestrictedAdmin = prof.handle === 'chris';
+
       setAuthorized(true);
       setLoading(true);
 
@@ -57,7 +60,7 @@ export default function TranscriptsAdmin() {
       const res = await fetch('/api/admin/transcripts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authToken: session.access_token, filterDays }),
+        body: JSON.stringify({ authToken: session.access_token, filterDays, restrictToProfileId: isRestrictedAdmin ? prof.id : null }),
       });
 
       const body = await res.json();
