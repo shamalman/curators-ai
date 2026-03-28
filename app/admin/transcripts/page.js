@@ -11,13 +11,6 @@ const DATE_FILTERS = [
   { label: 'All time', days: null },
 ];
 
-function getFilterDate(days) {
-  if (!days) return null;
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-}
-
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
@@ -39,16 +32,17 @@ export default function TranscriptsAdmin() {
   const [selectedCurator, setSelectedCurator] = useState(null);
   const [filterDays, setFilterDays] = useState(30);
 
-  // Auth check
+  // Auth check + fetch data via server API (bypasses RLS)
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
 
+      // Client-side auth check for fast redirect
       const { data: prof } = await supabase
         .from('profiles')
         .select('handle')
-        .eq('auth_user_id', user.id)
+        .eq('auth_user_id', session.user.id)
         .single();
 
       if (!prof || prof.handle !== 'shamal') {
@@ -57,55 +51,32 @@ export default function TranscriptsAdmin() {
       }
 
       setAuthorized(true);
-    })();
-  }, [router]);
-
-  // Fetch messages and profiles
-  useEffect(() => {
-    if (!authorized) return;
-
-    (async () => {
       setLoading(true);
 
-      // Step 1: fetch profiles
-      const { data: profData, error: profErr } = await supabase
-        .from('profiles')
-        .select('id, handle, name');
+      // Fetch all transcripts via server route (service role, no RLS)
+      const res = await fetch('/api/admin/transcripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authToken: session.access_token, filterDays }),
+      });
 
-      if (profErr) {
-        console.error('Failed to load profiles:', profErr);
+      if (!res.ok) {
+        console.error('Failed to load transcripts:', res.status);
         setLoading(false);
         return;
       }
 
+      const { profiles: profList, messages: msgList } = await res.json();
+
       const profMap = {};
-      for (const p of (profData || [])) {
+      for (const p of (profList || [])) {
         profMap[p.id] = p;
       }
       setProfiles(profMap);
-
-      // Step 2: fetch chat messages with date filter
-      let query = supabase
-        .from('chat_messages')
-        .select('id, profile_id, role, message, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10000);
-
-      const filterDate = getFilterDate(filterDays);
-      if (filterDate) {
-        query = query.gte('created_at', filterDate);
-      }
-
-      const { data: msgData, error: msgErr } = await query;
-
-      if (msgErr) {
-        console.error('Failed to load messages:', msgErr);
-      } else {
-        setMessages(msgData || []);
-      }
+      setMessages(msgList || []);
       setLoading(false);
     })();
-  }, [authorized, filterDays]);
+  }, [router, filterDays]);
 
   // Build curator list: { profileId: { handle, name, count, lastDate } }
   const curatorList = useMemo(() => {
