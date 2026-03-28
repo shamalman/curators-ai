@@ -119,7 +119,7 @@ export default function TranscriptsAdmin() {
     const lines = transcript.map(m => {
       const role = m.role === 'user' ? handle : 'AI';
       const ts = formatDate(m.created_at);
-      return `[${ts}] ${role}:\n${m.message || '(no content)'}\n`;
+      return `[${ts}] ${role}:\n${m.text || '(no content)'}\n`;
     });
     const text = `Transcript for @${handle}\nExported ${new Date().toISOString()}\n${'='.repeat(50)}\n\n${lines.join('\n')}`;
     const blob = new Blob([text], { type: 'text/plain' });
@@ -262,7 +262,7 @@ export default function TranscriptsAdmin() {
                         fontFamily: F, fontSize: 14, lineHeight: 1.55,
                         whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                       }}>
-                        {msg.message || '(no content)'}
+                        {msg.text || '(no content)'}
                       </div>
                       <span style={{
                         fontFamily: F, fontSize: 10, color: T.ink3,

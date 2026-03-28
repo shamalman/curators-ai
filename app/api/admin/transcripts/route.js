@@ -51,7 +51,7 @@ export async function POST(request) {
     // Fetch chat messages with optional date filter
     let query = sb
       .from('chat_messages')
-      .select('id, profile_id, role, message, created_at')
+      .select('id, profile_id, role, text, created_at')
       .order('created_at', { ascending: false })
       .limit(10000);
 
