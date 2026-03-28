@@ -17,13 +17,17 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sb = getSupabaseAdmin();
-
-    // Verify the caller is shamal
-    const { data: { user }, error: authErr } = await sb.auth.getUser(authToken);
+    // Use a separate client to verify the user's JWT (service role client can behave differently for auth)
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(authToken);
     if (authErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized", detail: authErr?.message }, { status: 401 });
     }
+
+    const sb = getSupabaseAdmin();
 
     const { data: prof } = await sb
       .from('profiles')
