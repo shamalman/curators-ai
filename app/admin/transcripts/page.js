@@ -45,7 +45,7 @@ export default function TranscriptsAdmin() {
         .eq('auth_user_id', session.user.id)
         .single();
 
-      if (!prof || prof.handle !== 'shamal') {
+      if (!prof || !['shamal', 'chris'].includes(prof.handle)) {
         router.push('/myai');
         return;
       }

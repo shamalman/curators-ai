@@ -35,7 +35,7 @@ export async function POST(request) {
       .eq('auth_user_id', user.id)
       .single();
 
-    if (!prof || prof.handle !== 'shamal') {
+    if (!prof || !['shamal', 'chris'].includes(prof.handle)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
