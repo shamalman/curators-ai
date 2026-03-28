@@ -60,13 +60,16 @@ export default function TranscriptsAdmin() {
         body: JSON.stringify({ authToken: session.access_token, filterDays }),
       });
 
+      const body = await res.json();
+      console.log('[TRANSCRIPTS_DEBUG] status:', res.status, 'body keys:', Object.keys(body), 'messages count:', body.messages?.length, 'profiles count:', body.profiles?.length, 'error:', body.error);
+
       if (!res.ok) {
-        console.error('Failed to load transcripts:', res.status);
+        console.error('Failed to load transcripts:', res.status, body);
         setLoading(false);
         return;
       }
 
-      const { profiles: profList, messages: msgList } = await res.json();
+      const { profiles: profList, messages: msgList } = body;
 
       const profMap = {};
       for (const p of (profList || [])) {

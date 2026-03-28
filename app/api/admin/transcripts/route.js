@@ -59,8 +59,10 @@ export async function POST(request) {
 
     const { data: messages, error: msgErr } = await query;
 
+    console.log('[ADMIN_TRANSCRIPTS_DEBUG] profiles:', profiles?.length, 'messages:', messages?.length, 'profErr:', profErr, 'msgErr:', msgErr);
+
     if (msgErr) {
-      return NextResponse.json({ error: "Failed to load messages" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to load messages", detail: msgErr.message }, { status: 500 });
     }
 
     return NextResponse.json({ profiles, messages });
