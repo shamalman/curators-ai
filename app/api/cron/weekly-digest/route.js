@@ -24,7 +24,7 @@ export async function GET(request) {
     // Get all profiles with weekly digest enabled
     const { data: profiles, error: profErr } = await supabase
       .from('profiles')
-      .select('id, name, handle, auth_user_id')
+      .select('id, name, handle, auth_user_id, created_at')
       .eq('weekly_digest_enabled', true);
 
     if (profErr) {
@@ -34,10 +34,25 @@ export async function GET(request) {
 
     for (const profile of (profiles || [])) {
       try {
+        // Idempotency check: skip if digest already sent in last 6 days
+        const { data: recentDigest } = await supabase
+          .from('notification_log')
+          .select('id')
+          .eq('recipient_id', profile.id)
+          .eq('type', 'new_rec_digest')
+          .gte('sent_at', new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        if (recentDigest && recentDigest.length > 0) {
+          console.log(`[DIGEST_SKIP] Already sent to @${profile.handle} (profile ${profile.id}) within 6 days`);
+          results.skipped++;
+          continue;
+        }
+
         // Get active subscriptions
         const { data: subs } = await supabase
           .from('subscriptions')
-          .select('id, curator_id, last_notified_at')
+          .select('id, curator_id')
           .eq('subscriber_id', profile.id)
           .is('unsubscribed_at', null);
 
@@ -48,13 +63,18 @@ export async function GET(request) {
 
         const curatorIds = subs.map(s => s.curator_id);
 
-        // Determine since when to fetch recs
-        // Use earliest last_notified_at across subscriptions, or 7 days ago
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const sinceDate = subs.reduce((earliest, s) => {
-          if (!s.last_notified_at) return earliest;
-          return s.last_notified_at < earliest ? s.last_notified_at : earliest;
-        }, sevenDaysAgo);
+        // Determine rec window: last successful digest send, or profile created_at, or 30 days ago
+        const { data: lastSent } = await supabase
+          .from('notification_log')
+          .select('sent_at')
+          .eq('recipient_id', profile.id)
+          .eq('type', 'new_rec_digest')
+          .eq('status', 'sent')
+          .order('sent_at', { ascending: false })
+          .limit(1);
+
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const sinceDate = lastSent?.[0]?.sent_at || profile.created_at || thirtyDaysAgo;
 
         // Get new recs from subscribed curators
         const { data: recs } = await supabase
@@ -109,13 +129,33 @@ export async function GET(request) {
           };
         }));
 
-        // Build and send email
+        // Build email
         const html = weeklyDigestEmail({
           recs: recsWithUrls,
           subscribedCount: subs.length,
           unsubscribeUrl,
         });
 
+        // Optimistic insert: log before send with status 'pending'
+        const { data: logRow, error: logErr } = await supabase
+          .from('notification_log')
+          .insert({
+            type: 'new_rec_digest',
+            recipient_id: profile.id,
+            recipient_email: user.email,
+            rec_ids: recs.map(r => r.id),
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+
+        if (logErr) {
+          console.error('Failed to create notification log:', logErr);
+          results.errors++;
+          continue;
+        }
+
+        // Send email
         const { error: sendErr } = await resend.emails.send({
           from: 'Curators.AI <notifications@curators.ai>',
           to: user.email,
@@ -129,17 +169,19 @@ export async function GET(request) {
 
         if (sendErr) {
           console.error('Failed to send digest to:', user.email, sendErr);
+          await supabase
+            .from('notification_log')
+            .update({ status: 'failed' })
+            .eq('id', logRow.id);
           results.errors++;
           continue;
         }
 
-        // Log to notification_log
-        await supabase.from('notification_log').insert({
-          type: 'new_rec_digest',
-          recipient_id: profile.id,
-          recipient_email: user.email,
-          rec_ids: recs.map(r => r.id),
-        });
+        // Mark as sent
+        await supabase
+          .from('notification_log')
+          .update({ status: 'sent' })
+          .eq('id', logRow.id);
 
         // Update last_notified_at on subscriptions
         const now = new Date().toISOString();
