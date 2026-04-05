@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { T, F } from '@/lib/constants'
 import TasteFileView from './TasteFileView'
+import ProfileView from './ProfileView'
 
 export default function MeLayout() {
   const [activeTab, setActiveTab] = useState('taste')
@@ -19,25 +20,6 @@ export default function MeLayout() {
         marginTop: 20,
         marginBottom: 24,
       }}>
-        <button
-          onClick={() => setActiveTab('profile')}
-          style={{
-            flex: 1,
-            textAlign: 'center',
-            background: activeTab === 'profile' ? T.s : 'transparent',
-            color: activeTab === 'profile' ? T.ink : T.ink3,
-            boxShadow: activeTab === 'profile' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-            borderRadius: 8,
-            padding: '8px 0',
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: F,
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          Public Profile
-        </button>
         <button
           onClick={() => setActiveTab('taste')}
           style={{
@@ -57,17 +39,29 @@ export default function MeLayout() {
         >
           Taste File
         </button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            background: activeTab === 'profile' ? T.s : 'transparent',
+            color: activeTab === 'profile' ? T.ink : T.ink3,
+            boxShadow: activeTab === 'profile' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+            borderRadius: 8,
+            padding: '8px 0',
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: F,
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Public Profile
+        </button>
       </div>
 
       {activeTab === 'profile' ? (
-        <div style={{
-          textAlign: 'center',
-          color: T.ink3,
-          fontSize: 14,
-          padding: '60px 20px',
-        }}>
-          Public Profile view coming soon
-        </div>
+        <ProfileView />
       ) : (
         <TasteFileView />
       )}
