@@ -354,42 +354,6 @@ export default function ChatView({ variant }) {
           location: locationMatch ? locationMatch[1].trim() : '',
           bio: bioMatch ? bioMatch[1].trim() : '',
         };
-      } else if (!capturedRec) {
-        // Legacy emoji parsing fallback (backward compat during transition)
-        const isCapturedRec = /\u{1F4CD}\s*Adding:/u.test(text) || /\u{1F3F7}\s*Suggested tags/u.test(text);
-        if (isCapturedRec) {
-          const titleMatch = text.match(/\*\*([^*]+)\*\*/);
-          const contextMatch = text.match(/"([^"]+)"/);
-          const tagsMatch = text.match(/\u{1F3F7}\s*Suggested tags?:?\s*([^\n]+)/iu);
-          const categoryMatch = text.match(/\u{1F4C1}\s*Category:\s*\**(\w+)/iu) || text.match(/Category:\s*\**(\w+)/i);
-          const linkMatch = text.match(/\u{1F517}\s*(?:Link:\s*)?(?:\[.*?\]\()?(https?:\/\/[^\s)]+)/iu);
-          const validCategories = ["watch", "listen", "read", "visit", "get", "wear", "play", "other"];
-          const parseCategory = (match) => {
-            if (!match) return 'other';
-            const raw = match[1].toLowerCase();
-            if (validCategories.includes(raw)) return raw;
-            if (raw === 'tv' || raw === 'film' || raw === 'movies' || raw === 'movie' || raw === 'television' || raw === 'show' || raw === 'shows') return 'watch';
-            if (raw === 'music' || raw === 'song' || raw === 'songs' || raw === 'album' || raw === 'albums' || raw === 'artist' || raw === 'podcast') return 'listen';
-            if (raw === 'book' || raw === 'books') return 'read';
-            if (raw === 'restaurant' || raw === 'restaurants' || raw === 'dining' || raw === 'food' || raw === 'travel') return 'visit';
-            if (raw === 'product' || raw === 'products') return 'get';
-            return 'other';
-          };
-          if (titleMatch) {
-            const parsedUrl = linkMatch ? linkMatch[1] : null;
-            let linkLabel = '';
-            if (parsedUrl) {
-              try { linkLabel = new URL(parsedUrl).hostname.replace('www.', ''); } catch { linkLabel = 'Link'; }
-            }
-            capturedRec = {
-              title: titleMatch[1].replace(' \u2014 ', ' - '),
-              context: contextMatch ? contextMatch[1] : '',
-              tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
-              category: parseCategory(categoryMatch),
-              links: parsedUrl ? [{ url: parsedUrl, label: linkLabel, type: 'website' }] : [],
-            };
-          }
-        }
       }
 
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [] }]);
