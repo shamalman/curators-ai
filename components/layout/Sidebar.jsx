@@ -23,7 +23,7 @@ export default function Sidebar() {
     if (item.id === "recs") return pathname.startsWith("/recommendations");
     if (item.id === "ask") return pathname.startsWith("/myai");
     if (item.id === "subs") return pathname.startsWith("/subs");
-    if (item.id === "me") return pathname.startsWith("/me");
+    if (item.id === "me") return pathname.startsWith("/me") || (handle && pathname === "/" + handle);
     return false;
   };
 

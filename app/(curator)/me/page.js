@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import TasteFileView from '@/components/me/TasteFileView'
 
 export default function MePage() {
-  redirect('/me/taste-file')
+  return <TasteFileView />
 }
