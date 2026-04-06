@@ -1,5 +1,5 @@
-import MeLayout from '@/components/me/MeLayout';
+import { redirect } from 'next/navigation'
 
 export default function MePage() {
-  return <MeLayout />;
+  redirect('/me/taste-file')
 }

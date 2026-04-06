@@ -14,7 +14,7 @@ const inputStyle = {
 const RESERVED = [
   "myai", "ask", "recommendations", "taste", "settings", "fans",
   "api", "onboarding", "admin", "login", "signup", "about",
-  "help", "terms", "privacy",
+  "help", "terms", "privacy", "me",
 ]
 
 export default function OnboardingPage() {

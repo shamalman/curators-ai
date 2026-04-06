@@ -34,7 +34,7 @@ export async function middleware(req) {
 
     // Visitor routes — always public (e.g. /shamal, /shamal/ask, /shamal/some-rec)
     // These are any /[handle] paths that aren't known curator-only routes
-    const curatorOnlyPaths = ['/myai', '/profile', '/recommendations', '/settings', '/subs', '/invite', '/admin'];
+    const curatorOnlyPaths = ['/myai', '/profile', '/recommendations', '/settings', '/subs', '/invite', '/admin', '/me'];
     const isVisitorRoute = !curatorOnlyPaths.some(p => path === p || path.startsWith(p + '/'))
       && !isPublicRoute && !isApiRoute && path !== '/';
 
