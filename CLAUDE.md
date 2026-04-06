@@ -1,5 +1,5 @@
 # CLAUDE.md -- Curators.AI Engineering Guide
-## Last updated: March 27, 2026
+## Last updated: April 6, 2026
 
 ---
 
@@ -125,6 +125,27 @@ Categories: watch | listen | read | visit | get | wear | play | other
 
 ---
 
+## Me Section (/me)
+
+The curator's identity hub. Two views accessed via a shared segmented control (MeSegmentedControl):
+
+**Taste File** (`/me`, default): Read-only styled rendering of the curator's taste profile markdown from `taste_profiles` table. Parses sections (Thesis, Domains, Patterns, Voice & Style, Subscriptions, Confirmed Observations, Anti-Taste, Stats) and renders each with custom styling. CTA links to `/myai`. Empty state for curators without a taste profile.
+
+**Public Profile** (`/@handle`, owner viewing): The real `VisitorProfile` component with MeSegmentedControl rendered above it when `isOwner` is true. This means the curator sees their actual public profile at the shareable URL. Non-owners and logged-out visitors see the profile without the segmented control (unchanged behavior).
+
+**Architecture:**
+- `/me` lives in `app/(curator)/me/` route group (gets CuratorProvider + CuratorShell)
+- `app/(curator)/me/layout.js` renders MeSegmentedControl with `active="taste"` + children
+- `app/(curator)/me/page.js` renders TasteFileView directly
+- `app/[handle]/page.js` conditionally renders MeSegmentedControl with `active="profile"` when isOwner is true
+- `components/me/MeSegmentedControl.jsx` is the shared pill control (navigates to `/me` or `/@handle`)
+- `components/me/TasteFileView.jsx` fetches and renders taste profile markdown
+- Me tab in BottomTabs/Sidebar is active on `/me` OR when pathname matches own handle
+- `/me` is NOT in middleware's `curatorOnlyPaths` -- auth is handled by the (curator) route group
+- `'me'` is a reserved handle word in onboarding
+
+---
+
 ## What's Not Wired Yet
 
 - buildSubscriberPrompt: skill file exists, no build function or route wiring
@@ -207,4 +228,12 @@ lib/taste-profile/generate.js            -- taste profile generation
 lib/agent/parsers/*.js + registry.js     -- 9 source parsers
 components/chat/ChatView.jsx             -- chat UI, rec save, taste profile regen trigger
 app/api/generate-taste-profile/route.js  -- taste profile API endpoint
+app/(curator)/me/layout.js               -- Me section layout with segmented control
+app/(curator)/me/page.js                 -- Me page, renders TasteFileView
+components/me/MeSegmentedControl.jsx     -- shared pill toggle (Taste File / Public Profile)
+components/me/TasteFileView.jsx          -- taste profile markdown renderer
+app/[handle]/page.js                     -- visitor profile page (shows MeSegmentedControl for owner)
+app/[handle]/layout.js                   -- visitor layout (CuratorProvider + VisitorProvider for logged-in)
+components/layout/BottomTabs.jsx         -- bottom tab bar (mobile)
+components/layout/Sidebar.jsx            -- sidebar nav (desktop)
 ```
