@@ -63,6 +63,18 @@ body {
   display: none;
 }
 
+/* Allow chips inside the chip scroller to exceed viewport width for horizontal scrolling.
+   Exempts direct children from the global mobile * { max-width: 100% } rule so that
+   multi-chip rows (Deploy 3 feedback chip, smart chips) can actually overflow and scroll. */
+.chip-scroller > * {
+  max-width: none;
+}
+
+/* Explicit scrollbar hide for the chip scroller (redundant with global rule but explicit for clarity). */
+.chip-scroller::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes fu {
   from {
     opacity: 0;
