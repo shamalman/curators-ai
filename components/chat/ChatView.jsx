@@ -8,6 +8,8 @@ import { useCurator } from "@/context/CuratorContext";
 import { supabase } from "@/lib/supabase";
 import CaptureCard from "./CaptureCard";
 import ProfileCaptureCard from "./ProfileCaptureCard";
+import QuickCaptureChip from "./QuickCaptureChip";
+import QuickCaptureSheet from "./QuickCaptureSheet";
 import ErrorBoundary from "../shared/ErrorBoundary";
 import FeedUserBubble from "../feed/FeedUserBubble";
 import FeedBlockGroup from "../feed/FeedBlockGroup";
@@ -85,12 +87,70 @@ export default function ChatView({ variant }) {
 
   const [isDesktop, setIsDesktop] = useState(false);
 
+  // Quick capture state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [lastRecVisibility, setLastRecVisibility] = useState('public');
+
   const isCurator = variant === "curator";
   const items = tasteItems;
   const n = items.length;
   const cats = [...new Set(items.map(i => i.category))];
 
   useEffect(() => { return () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }; }, []);
+
+  // Fetch curator's last rec visibility to default the quick capture sheet
+  useEffect(() => {
+    if (!profileId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('recommendations')
+          .select('visibility')
+          .eq('profile_id', profileId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (cancelled) return;
+        if (error) {
+          console.error('Failed to fetch last rec visibility:', error);
+          return;
+        }
+        if (data && data[0]?.visibility) setLastRecVisibility(data[0].visibility);
+      } catch (err) {
+        console.error('Failed to fetch last rec visibility:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profileId]);
+
+  // Quick capture save handler — called by QuickCaptureSheet
+  const handleQuickCaptureSaved = async (newItem) => {
+    try {
+      const saved = await addRec(newItem);
+      // Close sheet
+      setSheetOpen(false);
+      // Toast: matches existing in-chat pattern (insert a system AI message)
+      const toastText = `\u2713 Saved "${saved.title}".`;
+      setMessages(prev => [...prev, { role: "ai", text: toastText }]);
+      saveMsgToDb("ai", toastText);
+      // Trigger taste profile regen (mirrors line ~501 from in-chat path)
+      const recCount = items.length + 1;
+      if (recCount >= 3) {
+        fetch('/api/generate-taste-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profileId }),
+        }).catch(err => console.error('Taste profile regen failed:', err));
+      }
+      // Scroll to bottom
+      shouldScroll.current = true;
+      setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      return saved;
+    } catch (err) {
+      console.error('Quick capture save failed in ChatView:', err);
+      throw err;
+    }
+  };
 
   // Image handling
   const handleImageFile = (file) => {
@@ -823,6 +883,10 @@ export default function ChatView({ variant }) {
             </div>
           </div>
           <div style={{ padding: "10px 16px 12px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
+            <QuickCaptureChip
+              visible={input.length === 0 && !sheetOpen && !pendingImage}
+              onTap={() => setSheetOpen(true)}
+            />
             {pendingImage && (
               <div style={{ marginBottom: 8, display: "inline-flex", position: "relative" }}>
                 <img src={pendingImage.previewUrl} alt="" style={{ height: 60, borderRadius: 10, border: `1px solid ${T.bdr}`, display: "block" }} />
@@ -849,6 +913,14 @@ export default function ChatView({ variant }) {
             </div>
           </div>
         </div>
+        <QuickCaptureSheet
+          isOpen={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          onSaved={handleQuickCaptureSaved}
+          defaultVisibility={lastRecVisibility}
+          isDesktop={isDesktop}
+          profileId={profileId}
+        />
       </div>
     );
   }
