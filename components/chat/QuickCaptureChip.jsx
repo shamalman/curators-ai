@@ -10,7 +10,7 @@ export default function QuickCaptureChip({ visible, onTap }) {
         background: 'transparent',
         border: `0.5px solid ${T.acc}`,
         borderRadius: 999,
-        padding: '6px 12px',
+        padding: '6px 10px',
         color: T.acc,
         fontSize: 12,
         fontWeight: 500,
