@@ -291,16 +291,25 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         }}
       />
       <div style={sheetStyle}>
-        {/* Drag handle (mobile) */}
-        {!isDesktop && (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: T.bdr }} />
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.ink, fontFamily: F }}>Recommend something great</div>
+            <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginTop: 2 }}>Share what you love. Add a link if you have one.</div>
           </div>
-        )}
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: T.ink, fontFamily: F }}>Recommend something great</div>
-          <div style={{ fontSize: 12, color: T.ink3, fontFamily: F, marginTop: 2 }}>Share what you love. Add a link if you have one.</div>
+          <button
+            onClick={handleCancel}
+            aria-label="Close"
+            style={{
+              width: 44, height: 44, borderRadius: 22, border: "none", background: "transparent",
+              color: T.ink3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, marginRight: -8, marginTop: -8,
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="6" y1="18" x2="18" y2="6" />
+            </svg>
+          </button>
         </div>
 
         {/* Title */}
@@ -373,8 +382,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
         {/* Category */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Category</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", rowGap: 8 }}>
             {CATEGORIES.map((cat) => {
               const selected = category === cat;
               const catColor = CAT[cat]?.color || T.acc;
@@ -383,12 +392,12 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                   key={cat}
                   onClick={() => setCategory(cat)}
                   style={{
-                    padding: "6px 12px", borderRadius: 999,
+                    padding: "6px 11px", borderRadius: 999,
                     border: selected ? "none" : `1px solid ${T.bdr}`,
                     background: selected ? catColor : T.bg,
                     color: selected ? "#fff" : T.ink2,
                     fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F,
-                    textTransform: "capitalize",
+                    textTransform: "capitalize", whiteSpace: "nowrap",
                   }}
                 >
                   {cat}
@@ -399,36 +408,18 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         </div>
 
         {/* Visibility */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Visibility</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => setVisibility("public")}
-              style={{
-                flex: 1, padding: "10px 12px", borderRadius: 10,
-                border: visibility === "public" ? `1px solid ${T.acc}` : `1px solid ${T.bdr}`,
-                background: visibility === "public" ? `${T.acc}15` : T.bg,
-                color: visibility === "public" ? T.acc : T.ink2,
-                fontSize: 13, fontFamily: F, cursor: "pointer", textAlign: "left",
-              }}
-            >
-              <div style={{ fontWeight: 600 }}>Public</div>
-              <div style={{ fontSize: 11, color: T.ink3, marginTop: 2 }}>Visible on your profile</div>
-            </button>
-            <button
-              onClick={() => setVisibility("private")}
-              style={{
-                flex: 1, padding: "10px 12px", borderRadius: 10,
-                border: visibility === "private" ? `1px solid ${T.acc}` : `1px solid ${T.bdr}`,
-                background: visibility === "private" ? `${T.acc}15` : T.bg,
-                color: visibility === "private" ? T.acc : T.ink2,
-                fontSize: 13, fontFamily: F, cursor: "pointer", textAlign: "left",
-              }}
-            >
-              <div style={{ fontWeight: 600 }}>Private</div>
-              <div style={{ fontSize: 11, color: T.ink3, marginTop: 2 }}>Only you can see it</div>
-            </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
+          <div>
+            <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{visibility === "public" ? "Public" : "Private"}</div>
+            <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{visibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
           </div>
+          <button onClick={() => setVisibility(v => v === "public" ? "private" : "public")} style={{
+            width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+            background: visibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
+            flexShrink: 0,
+          }}>
+            <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: visibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+          </button>
         </div>
 
         {error && (
@@ -437,33 +428,20 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={handleSave}
-            disabled={!title.trim() || saving}
-            style={{
-              flex: 1, padding: "12px 16px", borderRadius: 12, border: "none",
-              background: (!title.trim() || saving) ? T.s2 : T.acc,
-              color: (!title.trim() || saving) ? T.ink3 : T.accText,
-              fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
-              fontFamily: F,
-            }}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button
-            onClick={handleCancel}
-            disabled={saving}
-            style={{
-              padding: "12px 16px", borderRadius: 12,
-              border: `1px solid ${T.bdr}`, background: T.bg,
-              color: T.ink2, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: F,
-            }}
-          >
-            Cancel
-          </button>
-        </div>
+        {/* Action button */}
+        <button
+          onClick={handleSave}
+          disabled={!title.trim() || saving}
+          style={{
+            width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
+            background: (!title.trim() || saving) ? T.s2 : T.acc,
+            color: (!title.trim() || saving) ? T.ink3 : T.accText,
+            fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
+            fontFamily: F,
+          }}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
       </div>
     </>
   );
