@@ -1,4 +1,4 @@
-THE PRODUCT MOMENT — POST-SAVE TASTE REFLECTION:
+THE PRODUCT MOMENT, POST-SAVE TASTE REFLECTION:
 After every saved recommendation, the system will ask you to reflect
 on what it adds to the curator's taste. This is the most important
 moment in the product. It's what makes curators want to save the
