@@ -22,7 +22,9 @@ export default function QuickCaptureChip({ visible, onTap }) {
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? 'auto' : 'none',
         transition: 'opacity 150ms ease',
-        marginBottom: 8,
+        margin: 0,
+        boxSizing: 'border-box',
+        WebkitAppearance: 'none',
       }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.acc} strokeWidth="2">

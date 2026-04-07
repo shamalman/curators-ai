@@ -882,11 +882,13 @@ export default function ChatView({ variant }) {
             {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>{"\u2193"}</button>}
             </div>
           </div>
-          <div style={{ padding: "10px 16px 12px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%" }}>
-            <QuickCaptureChip
-              visible={input.length === 0 && !sheetOpen && !pendingImage}
-              onTap={() => setSheetOpen(true)}
-            />
+          <div style={{ padding: "10px 16px 12px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
+            <div style={{ display: "block", marginBottom: 8 }}>
+              <QuickCaptureChip
+                visible={input.length === 0 && !sheetOpen && !pendingImage}
+                onTap={() => setSheetOpen(true)}
+              />
+            </div>
             {pendingImage && (
               <div style={{ marginBottom: 8, display: "inline-flex", position: "relative" }}>
                 <img src={pendingImage.previewUrl} alt="" style={{ height: 60, borderRadius: 10, border: `1px solid ${T.bdr}`, display: "block" }} />
