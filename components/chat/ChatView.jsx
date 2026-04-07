@@ -891,11 +891,28 @@ export default function ChatView({ variant }) {
             </div>
           </div>
           <div style={{ padding: "10px 16px 12px", flexShrink: 0, minWidth: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-            <div style={{ display: "block", marginBottom: 8, minWidth: 0 }}>
+            <div
+              className="chip-scroller"
+              style={{
+                display: "flex",
+                gap: 8,
+                marginBottom: 8,
+                overflowX: "auto",
+                overflowY: "visible",
+                WebkitOverflowScrolling: "touch",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                minWidth: 0,
+                paddingBottom: 2,
+                marginLeft: -2,
+                paddingLeft: 2,
+              }}
+            >
               <QuickCaptureChip
                 visible={input.length === 0 && !sheetOpen && !pendingImage}
                 onTap={() => setSheetOpen(true)}
               />
+              {/* Future chips (feedback, smart chips) will be added here as siblings */}
             </div>
             {pendingImage && (
               <div style={{ marginBottom: 8, display: "inline-flex", position: "relative" }}>
