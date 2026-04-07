@@ -248,37 +248,34 @@ export function CuratorProvider({ children }) {
       setTasteItems(prev => [item, ...prev]);
       return item;
     }
-    try {
-      const slug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const { data, error } = await supabase.from("recommendations").insert({
-        profile_id: profileId,
-        title: item.title,
-        category: item.category,
-        context: item.context,
-        tags: item.tags || [],
-        links: item.links || [],
-        slug,
-        visibility: item.visibility || "public",
-        status: "approved",
-        revision: 1,
-        earnable_mode: "none",
-      }).select().single();
-      if (error) throw error;
-      console.log('TRACKING: saved a rec, profileId:', profileId);
-      const { error: trackingError } = await supabase.from('profiles').update({
-        last_seen_at: new Date().toISOString(),
-        last_action: 'saved a rec',
-        last_action_at: new Date().toISOString()
-      }).eq('id', profileId);
-      if (trackingError) console.error('TRACKING ERROR:', trackingError);
-      const saved = { ...item, id: data.id };
-      setTasteItems(prev => [saved, ...prev]);
-      return saved;
-    } catch (err) {
-      console.error("Failed to save rec:", err);
-      setTasteItems(prev => [item, ...prev]);
-      return item;
+    const slug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const { data, error } = await supabase.from("recommendations").insert({
+      profile_id: profileId,
+      title: item.title,
+      category: item.category,
+      context: item.context,
+      tags: item.tags || [],
+      links: item.links || [],
+      slug,
+      visibility: item.visibility || "public",
+      status: "approved",
+      revision: 1,
+      earnable_mode: "none",
+    }).select().single();
+    if (error) {
+      console.error("Failed to save rec:", error);
+      throw new Error(error.message || "Failed to save recommendation");
     }
+    console.log('TRACKING: saved a rec, profileId:', profileId);
+    const { error: trackingError } = await supabase.from('profiles').update({
+      last_seen_at: new Date().toISOString(),
+      last_action: 'saved a rec',
+      last_action_at: new Date().toISOString()
+    }).eq('id', profileId);
+    if (trackingError) console.error('TRACKING ERROR:', trackingError);
+    const saved = { ...item, id: data.id };
+    setTasteItems(prev => [saved, ...prev]);
+    return saved;
   };
 
   const deleteRec = async (id) => {

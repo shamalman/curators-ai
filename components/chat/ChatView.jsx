@@ -480,7 +480,7 @@ export default function ChatView({ variant }) {
     saveMsgToDb("ai", "\u2713 Profile saved. Looking good!");
   };
 
-  const handleSaveCapture = (capturedRec, msgIndex) => {
+  const handleSaveCapture = async (capturedRec, msgIndex) => {
     if (!capturedRec?.title) return;
     const newItem = {
       id: Date.now(),
@@ -508,7 +508,15 @@ export default function ChatView({ variant }) {
       })(),
       revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
     };
-    addRec(newItem);
+    try {
+      await addRec(newItem);
+    } catch (err) {
+      console.error('In-chat capture save failed:', err);
+      const errorText = `Couldn't save "${newItem.title}". Try again.`;
+      setMessages(prev => [...prev, { role: "ai", text: errorText }]);
+      saveMsgToDb("ai", errorText);
+      return;
+    }
     // Immediate toast
     setMessages(prev => [...prev.map((m, idx) => idx === msgIndex ? { ...m, saved: true, savedLinks: newItem.links } : m), { role: "ai", text: "\u2713 Saved." }]);
     saveMsgToDb("ai", "\u2713 Saved.");
