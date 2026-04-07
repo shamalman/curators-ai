@@ -219,8 +219,8 @@ export function CuratorRecDetail({ slug }) {
           {isEditing && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 20 }}>
               <div>
-                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>Visibility</div>
-                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{editVisibility === "public" ? "Visible on your profile" : "Only you can see this"}</div>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{editVisibility === "public" ? "Public" : "Private"}</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{editVisibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
               </div>
               <button onClick={() => setEditVisibility(v => v === "public" ? "private" : "public")} style={{
                 width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
