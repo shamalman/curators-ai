@@ -23,11 +23,20 @@ export default function QuickCaptureChip({ visible, onTap }) {
         pointerEvents: visible ? 'auto' : 'none',
         transition: 'opacity 150ms ease',
         margin: 0,
+        maxWidth: '100%',
         boxSizing: 'border-box',
         WebkitAppearance: 'none',
       }}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.acc} strokeWidth="2">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={T.acc}
+        strokeWidth="2"
+        style={{ width: 12, height: 12, flexShrink: 0 }}
+      >
         <line x1="12" y1="5" x2="12" y2="19" />
         <line x1="5" y1="12" x2="19" y2="12" />
       </svg>
