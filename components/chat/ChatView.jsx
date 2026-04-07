@@ -890,8 +890,8 @@ export default function ChatView({ variant }) {
             {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>{"\u2193"}</button>}
             </div>
           </div>
-          <div style={{ padding: "10px 16px 12px", flexShrink: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
-            <div style={{ display: "block", marginBottom: 8 }}>
+          <div style={{ padding: "10px 16px 12px", flexShrink: 0, minWidth: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+            <div style={{ display: "block", marginBottom: 8, minWidth: 0 }}>
               <QuickCaptureChip
                 visible={input.length === 0 && !sheetOpen && !pendingImage}
                 onTap={() => setSheetOpen(true)}
@@ -907,12 +907,12 @@ export default function ChatView({ variant }) {
                 }}>&times;</button>
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
               <textarea value={input} onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; if (e.target.value) { typedSinceSave.current = true; if (nudgeTimer.current) { clearTimeout(nudgeTimer.current); nudgeTimer.current = null; } } }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); e.target.style.height = 'auto'; } }}
                 onPaste={e => { const file = e.clipboardData?.files?.[0]; if (file && file.type.startsWith('image/')) { e.preventDefault(); handleImageFile(file); } }}
                 placeholder="Drop a rec, paste a link, or ask anything..."
                 rows={1}
-                style={{ flex: 1, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink, resize: "none", lineHeight: "1.4" }}
+                style={{ flex: 1, minWidth: 0, padding: "14px 18px", borderRadius: 24, border: `1.5px solid ${W.inputBdr}`, fontSize: 15, fontFamily: F, outline: "none", background: W.inputBg, color: T.ink, resize: "none", lineHeight: "1.4", boxSizing: "border-box" }}
                 onFocus={e => e.target.style.borderColor = W.accent} onBlur={e => e.target.style.borderColor = W.inputBdr}
               />
               <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { handleImageFile(e.target.files?.[0]); e.target.value = ''; }} />
