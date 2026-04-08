@@ -145,6 +145,61 @@ export default function ChatView({ variant }) {
       // Scroll to bottom
       shouldScroll.current = true;
       setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
+      // Post-save taste reflection. Mirrors handleSaveCapture pattern.
+      // 1-second delay (quick capture is an explicit form submit, not mid-conversation).
+      // Cancelled if curator starts typing in the chat input.
+      typedSinceSave.current = false;
+      if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
+      const savedRec = {
+        title: saved.title,
+        category: saved.category || 'other',
+        context: saved.context || ''
+      };
+      // Use [saved, ...items] so the just-saved rec is in the payload the AI sees.
+      const recsForPrompt = [saved, ...items].map(item => ({
+        title: item.title,
+        category: item.category,
+        context: item.context,
+        tags: item.tags,
+        date: item.date,
+        slug: item.slug,
+      }));
+      nudgeTimer.current = setTimeout(async () => {
+        if (typedSinceSave.current) return;
+        setTyping(true);
+        try {
+          const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation via quick capture: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile. Connect it to patterns you see. Be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: reflectionMsg,
+              curatorName: profile.name,
+              curatorHandle: profile.handle?.replace('@', ''),
+              curatorBio: profile.bio || '',
+              profileId,
+              recommendations: recsForPrompt,
+              linkMetadata: null,
+              history: messages.filter(m => !m.type).slice(-10),
+            }),
+          });
+          if (!res.ok) throw new Error(`Chat route returned ${res.status}`);
+          const data = await res.json();
+          setTyping(false);
+          if (typedSinceSave.current) return;
+          let text = data.message || '';
+          text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
+          if (!text) return;
+          setMessages(prev => [...prev, { role: "ai", text, blocks: data.blocks || null, interactions: [] }]);
+          saveMsgToDb("ai", text, null, data.blocks);
+        } catch (err) {
+          console.error('Quick capture taste reflection error:', err);
+          setTyping(false);
+          // Silent failure. The rec is saved, the toast is shown. Reflection is enhancement, not dependency.
+        }
+      }, 1000);
+
       return saved;
     } catch (err) {
       console.error('Quick capture save failed in ChatView:', err);
@@ -508,8 +563,9 @@ export default function ChatView({ variant }) {
       })(),
       revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
     };
+    let savedFromAddRec;
     try {
-      await addRec(newItem);
+      savedFromAddRec = await addRec(newItem);
     } catch (err) {
       console.error('In-chat capture save failed:', err);
       const errorText = `Couldn't save "${newItem.title}". Try again.`;
@@ -526,11 +582,20 @@ export default function ChatView({ variant }) {
     if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
     const recCount = items.length + 1; // includes the one just saved
     const savedRec = { title: capturedRec.title, category: capturedRec.category || 'other', context: capturedRec.context || '' };
+    // Use [savedFromAddRec, ...items] so the just-saved rec is in the payload the AI sees.
+    const recsForPrompt = [savedFromAddRec, ...items].map(item => ({
+      title: item.title,
+      category: item.category,
+      context: item.context,
+      tags: item.tags,
+      date: item.date,
+      slug: item.slug,
+    }));
     nudgeTimer.current = setTimeout(async () => {
       if (typedSinceSave.current) return;
       setTyping(true);
       try {
-        const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile — connect it to patterns you see, be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
+        const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile. Connect it to patterns you see. Be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -540,11 +605,7 @@ export default function ChatView({ variant }) {
             curatorHandle: profile.handle?.replace('@', ''),
             curatorBio: profile.bio || '',
             profileId,
-            recommendations: items.map(item => ({
-              title: item.title, category: item.category,
-              context: item.context, tags: item.tags, date: item.date,
-              slug: item.slug,
-            })),
+            recommendations: recsForPrompt,
             linkMetadata: null,
             history: messages.filter(m => !m.type).slice(-10),
           }),
