@@ -163,6 +163,10 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
                 injectedCount++;
               }
             }
+            if (injectedCount > 0) {
+              const urls = withContent.parsed_content.slice(0, injectedCount).map(b => b.url).join(',');
+              console.log(`[REINJECTION_APPLIED] profile=${profileId} blocks=${injectedCount} urls=${urls}`);
+            }
           }
         }
       } catch (err) {
