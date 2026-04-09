@@ -112,6 +112,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
   // Paste mode state
   const [pasteText, setPasteText] = useState("");
+  const [pasteWhy, setPasteWhy] = useState("");
 
   // Upload mode state
   const [uploadFile, setUploadFile] = useState(null); // File object
@@ -134,6 +135,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       // Deploy 3: reset multi-mode capture state
       setCaptureMode("url");
       setPasteText("");
+      setPasteWhy("");
       setUploadFile(null);
       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
       setUploadPreviewUrl(null);
@@ -310,6 +312,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           // Let AI infer title/category if curator didn't set them on the sheet
           title: title || undefined,
           category: category || undefined,
+          why: pasteWhy.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -318,16 +321,38 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       }
       const data = await res.json();
 
+      // Resolve "why" with this priority:
+      // 1. Curator-typed pasteWhy (explicit intent wins)
+      // 2. AI-inferred why from the endpoint (when inference ran)
+      // 3. Text preview fallback — first ~200 chars of paste (last resort
+      //    so curation.why is never null on pastes; Taste File needs signal)
+      let finalWhy = pasteWhy.trim();
+      if (!finalWhy) finalWhy = data.why || "";
+      if (!finalWhy) {
+        const trimmedPaste = pasteText.trim();
+        const preview = trimmedPaste.slice(0, 200);
+        finalWhy = preview.length === trimmedPaste.length
+          ? preview
+          : preview + "…";
+      }
+
       // Build newItem in the shape addRec expects — same as URL path.
-      // AI-inferred "why" is threaded into context so rec_files.curation.why
-      // has signal for the Taste File even when the curator doesn't type one.
+      // IMPORTANT: date/revision/revisions fields must be set or RecDetail
+      // will show "Added Invalid Date" in-session (the DB load path derives
+      // date from created_at on refresh, but in-memory state needs it
+      // explicit). Match the URL path exactly.
+      const nowIso = new Date().toISOString();
+      const todayYmd = nowIso.split("T")[0];
       const newItem = {
         title: data.title,
         category: data.category,
-        context: data.why || "",
+        context: finalWhy,
         tags: data.tags || [],
         links: [], // paste has no links
         visibility: visibility || defaultVisibility || "public",
+        date: todayYmd,
+        revision: 1,
+        revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
       };
 
@@ -375,6 +400,11 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       }
       const data = await res.json();
 
+      // Match URL path — set date/revision/revisions so RecDetail renders
+      // correctly in-session (DB load path self-heals on refresh, but
+      // in-memory state needs these explicit).
+      const nowIso = new Date().toISOString();
+      const todayYmd = nowIso.split("T")[0];
       const newItem = {
         title: data.title,
         category: data.category,
@@ -382,6 +412,9 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         tags: data.tags || [],
         links: [],
         visibility: visibility || defaultVisibility || "public",
+        date: todayYmd,
+        revision: 1,
+        revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
       };
 
@@ -708,6 +741,24 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                   );
                 })}
               </div>
+            </div>
+
+            {/* Why (optional — falls back to AI inference or text preview) */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional — AI will fill if blank)</span></div>
+              <textarea
+                value={pasteWhy}
+                onChange={(e) => setPasteWhy(e.target.value)}
+                placeholder="A line or two in your words..."
+                rows={3}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.4,
+                }}
+              />
             </div>
 
             {/* Visibility */}

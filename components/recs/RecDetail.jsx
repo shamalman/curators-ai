@@ -19,7 +19,15 @@ function Linkify({ text, style }) {
   );
 }
 
-const fmtDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtDateFull = (d) => {
+  if (!d) return "";
+  // Accept either YYYY-MM-DD (10 chars — append T00:00:00 for local tz)
+  // or a full ISO timestamp already (pass through directly).
+  const dateStr = typeof d === "string" && d.length === 10 ? d + "T00:00:00" : d;
+  const parsed = new Date(dateStr);
+  if (isNaN(parsed)) return "";
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
 
 /* ── Curator Item Detail ── */
 export function CuratorRecDetail({ slug }) {
