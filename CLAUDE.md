@@ -200,6 +200,37 @@ id, profile_id, url, source_type, parse_quality ('full'|'partial'|'failed'), con
 
 ---
 
+## New schema as of Deploy 1 of `.rec` migration (April 2026)
+
+### `rec_files` table
+Canonical storage for recommendations in the new `.rec` format. See `rec-format-v1-spec.md` v1.0.2 for the full format specification.
+
+Key columns:
+- `id` (text, part of primary key) -- ULID format `rec_<26chars>`
+- `version` (integer, part of primary key) -- monotonic version number
+- `curator_id` (uuid) -- FK to profiles
+- `curator_handle` (text) -- denormalized handle for export convenience
+- `body_md` (text) -- the Markdown body of the rec
+- `content_sha256` (text) -- SHA-256 of body_md only
+- `source`, `work`, `curation`, `visibility`, `provenance`, `extraction` (jsonb) -- structured blocks
+- `signature`, `relationships`, `location`, `affiliate`, `claims` (jsonb) -- reserved for v2+
+
+`rec_files.superseded_by` is a soft reference (TEXT, no FK constraint). The self-referencing FK was dropped in Deploy 1 because (a) supersession logic isn't implemented yet and (b) the original constraint design was incorrect -- it joined on version, which prevented the cross-version relationship supersession requires. Revisit if/when supersession is actually built.
+
+### `rec_blocks` table
+Derived table, rebuilt from `rec_files.body_md` whenever a rec is saved. Not populated in Deploy 1 -- just the schema exists.
+
+### `profiles.feature_flags` column
+JSONB object mapping flag names to booleans. Use `lib/features.js` helpers (`isFeatureEnabled`, `getFeatureFlags`) to check flags.
+
+### `recommendations.rec_file_id` column
+Soft reference to the `rec_files.id` that corresponds to this legacy rec row. Populated during the backfill step and by dual-writes in Deploy 2 onward. No FK constraint -- intentionally soft during migration.
+
+### `chat_messages.rec_refs` column
+JSONB array of rec_file IDs that this chat message references. Empty by default. Populated starting in Deploy 4 when the chat route migrates to read from `rec_files`.
+
+---
+
 ## Source Parsers (lib/agent/parsers/)
 
 9 parsers registered in `registry.js`:
