@@ -127,12 +127,14 @@ export default function ChatView({ variant }) {
   const handleQuickCaptureSaved = async (newItem) => {
     try {
       const saved = await addRec(newItem);
+      const recFileId = saved?.rec_file_id || null;
+      const recRefs = recFileId ? [recFileId] : [];
       // Close sheet
       setSheetOpen(false);
       // Toast: matches existing in-chat pattern (insert a system AI message)
       const toastText = `\u2713 Saved "${saved.title}".`;
       setMessages(prev => [...prev, { role: "ai", text: toastText }]);
-      saveMsgToDb("ai", toastText);
+      saveMsgToDb("ai", toastText, null, null, recRefs);
       // Trigger taste profile regen (mirrors line ~501 from in-chat path)
       const recCount = items.length + 1;
       if (recCount >= 3) {
@@ -192,7 +194,7 @@ export default function ChatView({ variant }) {
           text = text.replace(/\[REC\][\s\S]*?\[\/REC\]/, '').trim();
           if (!text) return;
           setMessages(prev => [...prev, { role: "ai", text, blocks: data.blocks || null, interactions: [] }]);
-          saveMsgToDb("ai", text, null, data.blocks);
+          saveMsgToDb("ai", text, null, data.blocks, recRefs);
         } catch (err) {
           console.error('Quick capture taste reflection error:', err);
           setTyping(false);

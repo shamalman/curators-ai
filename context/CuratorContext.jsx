@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { VisitorContext } from "./VisitorContext";
+import { isFeatureEnabled } from "../lib/features.js";
+import { ingestUrlCapture } from "../lib/rec-files/ingest.js";
 
 export const CuratorContext = createContext(null);
 
@@ -273,7 +275,44 @@ export function CuratorProvider({ children }) {
       last_action_at: new Date().toISOString()
     }).eq('id', profileId);
     if (trackingError) console.error('TRACKING ERROR:', trackingError);
-    const saved = { ...item, id: data.id };
+
+    // Dual-write to rec_files (Deploy 2b), gated by feature flag.
+    // Runs AFTER the main insert. Failures are logged, never thrown — the main
+    // save path must succeed regardless.
+    let recFileId = null;
+    try {
+      const flagEnabled = await isFeatureEnabled(supabase, profileId, 'rec_files_writes_enabled');
+      if (flagEnabled && item.parsedPayload) {
+        const handleClean = (profile?.handle || '').replace(/^@/, '');
+        const result = await ingestUrlCapture(supabase, {
+          curatorId: profileId,
+          curatorHandle: handleClean || null,
+          parsedPayload: item.parsedPayload,
+          curation: {
+            title: item.title,
+            category: item.category,
+            context: item.context,
+            tags: item.tags || [],
+            visibility: item.visibility || 'public',
+          },
+        });
+        if (result.success) {
+          recFileId = result.recFileId;
+          // Link the legacy recommendations row to the new rec_files row
+          const { error: linkError } = await supabase
+            .from('recommendations')
+            .update({ rec_file_id: recFileId })
+            .eq('id', data.id);
+          if (linkError) {
+            console.warn('[rec-files] Failed to link recommendations.rec_file_id:', linkError.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[rec-files] Unexpected dual-write error:', e.message || e);
+    }
+
+    const saved = { ...item, id: data.id, rec_file_id: recFileId };
     setTasteItems(prev => [saved, ...prev]);
     return saved;
   };
@@ -309,7 +348,7 @@ export function CuratorProvider({ children }) {
     }
   };
 
-  const saveMsgToDb = async (role, text, capturedRec, blocks) => {
+  const saveMsgToDb = async (role, text, capturedRec, blocks, recRefs = []) => {
     if (!profileId) return null;
     try {
       const { data } = await supabase.from("chat_messages").insert({
@@ -318,6 +357,7 @@ export function CuratorProvider({ children }) {
         text,
         captured_rec: capturedRec || null,
         blocks: blocks || null,
+        rec_refs: recRefs && recRefs.length > 0 ? recRefs : [],
       }).select('id').single();
       return data?.id || null;
     } catch (err) { console.error("Failed to save message:", err); return null; }
