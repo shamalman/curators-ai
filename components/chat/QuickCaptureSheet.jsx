@@ -177,6 +177,24 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         title: data.title,
         thumbnail_url: data.thumbnail_url,
         provider: data.provider,
+        // Deploy 2a: parsed content for future rec_files dual-write
+        parsedPayload: {
+          body_md: data.body_md || "",
+          body_truncated: data.body_truncated || false,
+          body_original_length: data.body_original_length || 0,
+          canonical_url: data.canonical_url || null,
+          site_name: data.site_name || null,
+          author: data.author || null,
+          authors: data.authors || [],
+          published_at: data.published_at || null,
+          lang: data.lang || null,
+          word_count: data.word_count || 0,
+          media_type: data.media_type || null,
+          artifact_sha256: data.artifact_sha256 || null,
+          artifact_ref: data.artifact_ref || null,
+          extraction_mode: data.extraction_mode || "parsed",
+          extractor: data.extractor || null,
+        },
       } : l));
 
       // Auto-fill rule: only first link, only empty fields
@@ -222,6 +240,11 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           label: l.title || hostnameOf(l.url),
         }));
 
+      // Deploy 2a: pass parsed payload for the first parsed link (if any)
+      // through to addRec. addRec ignores it in this deploy; Deploy 2b will
+      // wire it into the rec_files dual-write.
+      const firstParsedLink = links.find(l => l.parsed && l.parsedPayload);
+
       const newItem = {
         title: title.trim(),
         category: category || "other",
@@ -232,6 +255,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         date: new Date().toISOString().split("T")[0],
         revision: 1,
         revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }],
+        parsedPayload: firstParsedLink?.parsedPayload || null,
       };
 
       const saved = await onSaved(newItem);

@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { detectSource, getParser } from "../../../../lib/agent/registry.js";
+import { uploadArtifact } from "../../../../lib/rec-files/artifact.js";
 
 const PARSE_TIMEOUT_MS = 8000;
+const MAX_BODY_MD_LENGTH = 500 * 1024; // 500KB
+const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024; // 10MB
 
 // Map parser source name → app category enum
 const SOURCE_TO_CATEGORY = {
@@ -174,6 +177,88 @@ export async function POST(request) {
 
       logQuality = hasTitle ? (logContentLength > 200 ? "full" : "partial") : "failed";
       logMetadata = { ...metadata, surface: "quick_capture" };
+
+      // ── Deploy 2a: enrich response with body_md + artifact ──
+      // Extract body_md based on parser type
+      let bodyMd = "";
+      if (metadata.source === "webpage" && items[0]?.text) {
+        bodyMd = items[0].text;
+      } else if (items.length > 0) {
+        // For oEmbed/rich sources, synthesize a minimal body from structured data.
+        // The artifact (parser JSON) is the authoritative source.
+        bodyMd = items
+          .map((item) => {
+            const lines = [];
+            if (item.title) lines.push(`# ${item.title}`);
+            if (item.artist) lines.push(`_by ${item.artist}_`);
+            if (item.description) lines.push("", item.description);
+            return lines.join("\n");
+          })
+          .join("\n\n");
+      }
+
+      const bodyOriginalLength = bodyMd.length;
+      let bodyTruncated = false;
+      if (bodyMd.length > MAX_BODY_MD_LENGTH) {
+        bodyMd = bodyMd.slice(0, MAX_BODY_MD_LENGTH);
+        bodyTruncated = true;
+      }
+
+      // Upload artifact (best-effort; failures must not break parse-link)
+      let artifactRef = null;
+      if (profileId) {
+        try {
+          const sb = getSupabaseAdmin();
+          if (metadata.source === "webpage") {
+            // Re-fetch raw HTML for the artifact. The webpage parser already
+            // fetched it once internally, but doesn't expose the bytes — a
+            // second short-timeout fetch is acceptable for Deploy 2a.
+            const htmlResponse = await fetch(url, {
+              headers: { "User-Agent": "Curators.AI/1.0" },
+              signal: AbortSignal.timeout(5000),
+            });
+            if (htmlResponse.ok) {
+              const htmlBytes = Buffer.from(await htmlResponse.arrayBuffer());
+              if (htmlBytes.length <= MAX_ARTIFACT_BYTES) {
+                artifactRef = await uploadArtifact(sb, profileId, htmlBytes, "text/html");
+              } else {
+                console.warn(`[parse-link] HTML too large for artifact (${htmlBytes.length} bytes), skipping upload`);
+              }
+            }
+          } else {
+            // For oEmbed/structured parsers, archive the parser's full output as JSON.
+            const metadataJson = JSON.stringify(result, null, 2);
+            if (Buffer.byteLength(metadataJson, "utf8") <= MAX_ARTIFACT_BYTES) {
+              artifactRef = await uploadArtifact(sb, profileId, metadataJson, "application/json");
+            }
+          }
+        } catch (e) {
+          console.warn(`[parse-link] Artifact upload failed for ${url}:`, e.message || e);
+          // Continue without artifact — archive fidelity is missing for this
+          // capture but the rec can still be saved. Deploy 2b handles missing
+          // artifacts gracefully.
+        }
+      }
+
+      response = {
+        ...response,
+        // NEW FIELDS — Deploy 2a
+        body_md: bodyMd,
+        body_truncated: bodyTruncated,
+        body_original_length: bodyOriginalLength,
+        canonical_url: metadata.url || url,
+        site_name: metadata.providerName || null,
+        author: metadata.author || null,
+        authors: metadata.author ? [metadata.author] : [],
+        published_at: metadata.publishedTime || null,
+        lang: "en",
+        word_count: bodyMd.split(/\s+/).filter(Boolean).length,
+        media_type: metadata.source === "webpage" ? "text/html" : "application/json",
+        artifact_sha256: artifactRef?.sha256 || null,
+        artifact_ref: artifactRef?.ref || null,
+        extraction_mode: "parsed",
+        extractor: `${metadata.source || "unknown"}@registry`,
+      };
     }
   }
 
