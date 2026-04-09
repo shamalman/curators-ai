@@ -1,9 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react";
-import { T, F, CAT } from "@/lib/constants";
-
-const CATEGORIES = ["watch", "listen", "read", "visit", "get", "wear", "play", "other"];
+import { T, F, CAT, CATEGORIES } from "@/lib/constants";
 
 function makeLinkId() {
   return `lnk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -109,6 +107,20 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   const [error, setError] = useState(null);
   const titleInputRef = useRef(null);
 
+  // Deploy 3: multi-mode capture
+  const [captureMode, setCaptureMode] = useState("url"); // 'url' | 'paste' | 'upload'
+
+  // Paste mode state
+  const [pasteText, setPasteText] = useState("");
+
+  // Upload mode state
+  const [uploadFile, setUploadFile] = useState(null); // File object
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("");
+  const [uploadWhy, setUploadWhy] = useState("");
+  const uploadInputRef = useRef(null);
+
   // Reset state when sheet opens
   useEffect(() => {
     if (isOpen) {
@@ -119,6 +131,15 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       setVisibility(defaultVisibility || "public");
       setSaving(false);
       setError(null);
+      // Deploy 3: reset multi-mode capture state
+      setCaptureMode("url");
+      setPasteText("");
+      setUploadFile(null);
+      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+      setUploadPreviewUrl(null);
+      setUploadTitle("");
+      setUploadCategory("");
+      setUploadWhy("");
       // Autofocus title after a tick
       setTimeout(() => titleInputRef.current?.focus(), 50);
     }
@@ -271,6 +292,126 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
     }
   };
 
+  // Deploy 3: paste mode save handler
+  const handlePasteSave = async () => {
+    if (!pasteText || pasteText.trim().length < 20) {
+      setError("Paste too short — at least 20 characters needed.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/recs/paste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          body_text: pasteText,
+          profileId,
+          // Let AI infer title/category if curator didn't set them on the sheet
+          title: title || undefined,
+          category: category || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Paste failed (${res.status})`);
+      }
+      const data = await res.json();
+
+      // Build newItem in the shape addRec expects — same as URL path.
+      // AI-inferred "why" is threaded into context so rec_files.curation.why
+      // has signal for the Taste File even when the curator doesn't type one.
+      const newItem = {
+        title: data.title,
+        category: data.category,
+        context: data.why || "",
+        tags: data.tags || [],
+        links: [], // paste has no links
+        visibility: visibility || defaultVisibility || "public",
+        parsedPayload: data.parsedPayload,
+      };
+
+      const saved = await onSaved(newItem);
+      if (!saved) throw new Error("Save failed");
+      // Reset will happen via onClose → useEffect
+    } catch (err) {
+      console.error("[QUICK_CAPTURE_PASTE_ERROR]", err);
+      setError(err.message || "Paste save failed");
+      setSaving(false);
+    }
+  };
+
+  // Deploy 3: upload mode save handler
+  const handleUploadSave = async () => {
+    if (!uploadFile) {
+      setError("Choose a file to upload.");
+      return;
+    }
+    if (!uploadTitle || uploadTitle.trim().length === 0) {
+      setError("Title is required for uploads.");
+      return;
+    }
+    if (!uploadCategory) {
+      setError("Category is required for uploads.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("profileId", profileId);
+      formData.append("title", uploadTitle.trim());
+      formData.append("category", uploadCategory);
+      if (uploadWhy) formData.append("why", uploadWhy);
+
+      const res = await fetch("/api/recs/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+
+      const newItem = {
+        title: data.title,
+        category: data.category,
+        context: uploadWhy || "",
+        tags: data.tags || [],
+        links: [],
+        visibility: visibility || defaultVisibility || "public",
+        parsedPayload: data.parsedPayload,
+      };
+
+      const saved = await onSaved(newItem);
+      if (!saved) throw new Error("Save failed");
+    } catch (err) {
+      console.error("[QUICK_CAPTURE_UPLOAD_ERROR]", err);
+      setError(err.message || "Upload save failed");
+      setSaving(false);
+    }
+  };
+
+  // Deploy 3: upload file picker change handler
+  const handleUploadFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files are supported.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File too large — max 5MB.");
+      return;
+    }
+    setUploadFile(file);
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadPreviewUrl(URL.createObjectURL(file));
+    setError(null);
+  };
+
   const firstLinkAddedOrParsed = links.some(l => l.parsed);
   const hasAnyEmptyLinkInput = links.some(l => !l.parsed);
 
@@ -336,136 +477,435 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           </button>
         </div>
 
-        {/* Title */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title</div>
-          <input
-            ref={titleInputRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What is it?"
-            style={{
-              width: "100%", padding: "12px 14px", borderRadius: 10,
-              border: `1px solid ${T.bdr}`, fontSize: 15, fontFamily: F,
-              background: T.bg, color: T.ink, outline: "none", boxSizing: "border-box",
-            }}
-          />
+        {/* Deploy 3: capture mode tabs */}
+        <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${T.bdr}`, marginBottom: 16 }}>
+          {[
+            { key: "url", label: "URL" },
+            { key: "paste", label: "Paste text" },
+            { key: "upload", label: "Upload image" },
+          ].map((tab) => {
+            const active = captureMode === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => { setCaptureMode(tab.key); setError(null); }}
+                style={{
+                  flex: 1, padding: "10px 8px", border: "none",
+                  background: "transparent",
+                  color: active ? T.ink : T.ink3,
+                  fontFamily: F, fontSize: 13, fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  borderBottom: active ? `2px solid ${T.acc}` : "2px solid transparent",
+                  marginBottom: -1,
+                  transition: "color .15s, border-color .15s",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Context */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why you're recommending it</div>
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            placeholder="A line or two in your words..."
-            rows={3}
-            style={{
-              width: "100%", padding: "12px 14px", borderRadius: 10,
-              border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
-              background: T.bg, color: T.ink, outline: "none", resize: "vertical",
-              boxSizing: "border-box", lineHeight: 1.4,
-            }}
-          />
-        </div>
+        {/* ── URL MODE ── */}
+        {captureMode === "url" && (
+          <>
+            {/* Title */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title</div>
+              <input
+                ref={titleInputRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What is it?"
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 15, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
 
-        {/* Links */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Links</div>
-          {links.length === 0 ? (
-            <button onClick={ensureFirstLinkRow} style={{
-              width: "100%", padding: "10px 12px", borderRadius: 10,
-              border: `1px dashed ${T.bdr}`, background: "transparent",
-              color: T.ink3, fontSize: 13, fontFamily: F, cursor: "pointer", textAlign: "left",
-            }}>
-              + Add a link
-            </button>
-          ) : (
-            <>
-              {links.map((link) => (
-                <LinkRow
-                  key={link.id}
-                  link={link}
-                  onUrlChange={(url) => updateLinkUrl(link.id, url)}
-                  onParse={(url) => parseLink(link.id, url)}
-                  onRemove={() => removeLink(link.id)}
-                />
-              ))}
-              {firstLinkAddedOrParsed && !hasAnyEmptyLinkInput && (
-                <button onClick={handleAddAnotherLink} style={{
-                  width: "100%", padding: "8px 12px", borderRadius: 10,
+            {/* Context */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why you're recommending it</div>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="A line or two in your words..."
+                rows={3}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.4,
+                }}
+              />
+            </div>
+
+            {/* Links */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Links</div>
+              {links.length === 0 ? (
+                <button onClick={ensureFirstLinkRow} style={{
+                  width: "100%", padding: "10px 12px", borderRadius: 10,
                   border: `1px dashed ${T.bdr}`, background: "transparent",
-                  color: T.ink3, fontSize: 12, fontFamily: F, cursor: "pointer",
+                  color: T.ink3, fontSize: 13, fontFamily: F, cursor: "pointer", textAlign: "left",
                 }}>
-                  + Add another link
+                  + Add a link
                 </button>
+              ) : (
+                <>
+                  {links.map((link) => (
+                    <LinkRow
+                      key={link.id}
+                      link={link}
+                      onUrlChange={(url) => updateLinkUrl(link.id, url)}
+                      onParse={(url) => parseLink(link.id, url)}
+                      onRemove={() => removeLink(link.id)}
+                    />
+                  ))}
+                  {firstLinkAddedOrParsed && !hasAnyEmptyLinkInput && (
+                    <button onClick={handleAddAnotherLink} style={{
+                      width: "100%", padding: "8px 12px", borderRadius: 10,
+                      border: `1px dashed ${T.bdr}`, background: "transparent",
+                      color: T.ink3, fontSize: 12, fontFamily: F, cursor: "pointer",
+                    }}>
+                      + Add another link
+                    </button>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* Category */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", rowGap: 8 }}>
-            {CATEGORIES.map((cat) => {
-              const selected = category === cat;
-              const catColor = CAT[cat]?.color || T.acc;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  style={{
-                    padding: "6px 11px", borderRadius: 999,
-                    border: selected ? "none" : `1px solid ${T.bdr}`,
-                    background: selected ? catColor : T.bg,
-                    color: selected ? "#fff" : T.ink2,
-                    fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F,
-                    textTransform: "capitalize", whiteSpace: "nowrap",
-                  }}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {/* Category */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", rowGap: 8 }}>
+                {CATEGORIES.map((cat) => {
+                  const selected = category === cat;
+                  const catColor = CAT[cat]?.color || T.acc;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategory(cat)}
+                      style={{
+                        padding: "6px 11px", borderRadius: 999,
+                        border: selected ? "none" : `1px solid ${T.bdr}`,
+                        background: selected ? catColor : T.bg,
+                        color: selected ? "#fff" : T.ink2,
+                        fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F,
+                        textTransform: "capitalize", whiteSpace: "nowrap",
+                      }}
+                    >
+                      {CAT[cat]?.label || cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* Visibility */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
-          <div>
-            <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{visibility === "public" ? "Public" : "Private"}</div>
-            <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{visibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
-          </div>
-          <button onClick={() => setVisibility(v => v === "public" ? "private" : "public")} style={{
-            width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
-            background: visibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
-            flexShrink: 0,
-          }}>
-            <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: visibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-          </button>
-        </div>
+            {/* Visibility */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{visibility === "public" ? "Public" : "Private"}</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{visibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
+              </div>
+              <button onClick={() => setVisibility(v => v === "public" ? "private" : "public")} style={{
+                width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+                background: visibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
+                flexShrink: 0,
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: visibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
+            </div>
 
-        {error && (
-          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#CC665820", color: "#CC6658", fontSize: 13, fontFamily: F }}>
-            {error}
-          </div>
+            {error && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#CC665820", color: "#CC6658", fontSize: 13, fontFamily: F }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={!title.trim() || saving}
+              style={{
+                width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
+                background: (!title.trim() || saving) ? T.s2 : T.acc,
+                color: (!title.trim() || saving) ? T.ink3 : T.accText,
+                fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
+                fontFamily: F,
+              }}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </>
         )}
 
-        {/* Action button */}
-        <button
-          onClick={handleSave}
-          disabled={!title.trim() || saving}
-          style={{
-            width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
-            background: (!title.trim() || saving) ? T.s2 : T.acc,
-            color: (!title.trim() || saving) ? T.ink3 : T.accText,
-            fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
-            fontFamily: F,
-          }}
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
+        {/* ── PASTE MODE ── */}
+        {captureMode === "paste" && (
+          <>
+            {/* Paste textarea */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Paste your writeup</div>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                placeholder="Paste a writeup, review, or recommendation from your notes..."
+                rows={8}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.45, minHeight: 160,
+                }}
+              />
+              <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 6 }}>
+                {pasteText.length} characters · AI will infer title, category, and why
+              </div>
+            </div>
+
+            {/* Optional title */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional — AI will suggest)</span></div>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Leave blank for AI to infer"
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 15, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {/* Optional category */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", rowGap: 8 }}>
+                {CATEGORIES.map((cat) => {
+                  const selected = category === cat;
+                  const catColor = CAT[cat]?.color || T.acc;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategory(selected ? null : cat)}
+                      disabled={saving}
+                      style={{
+                        padding: "6px 11px", borderRadius: 999,
+                        border: selected ? "none" : `1px solid ${T.bdr}`,
+                        background: selected ? catColor : T.bg,
+                        color: selected ? "#fff" : T.ink2,
+                        fontSize: 12, fontWeight: 500, cursor: saving ? "default" : "pointer", fontFamily: F,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {CAT[cat]?.label || cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Visibility */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{visibility === "public" ? "Public" : "Private"}</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{visibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
+              </div>
+              <button onClick={() => setVisibility(v => v === "public" ? "private" : "public")} style={{
+                width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+                background: visibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
+                flexShrink: 0,
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: visibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
+            </div>
+
+            {error && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#CC665820", color: "#CC6658", fontSize: 13, fontFamily: F }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handlePasteSave}
+              disabled={pasteText.trim().length < 20 || saving}
+              style={{
+                width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
+                background: (pasteText.trim().length < 20 || saving) ? T.s2 : T.acc,
+                color: (pasteText.trim().length < 20 || saving) ? T.ink3 : T.accText,
+                fontSize: 14, fontWeight: 600,
+                cursor: (pasteText.trim().length < 20 || saving) ? "default" : "pointer",
+                fontFamily: F,
+              }}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </>
+        )}
+
+        {/* ── UPLOAD MODE ── */}
+        {captureMode === "upload" && (
+          <>
+            {/* File picker */}
+            <div style={{ marginBottom: 14 }}>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                onChange={handleUploadFileChange}
+                style={{ display: "none" }}
+                disabled={saving}
+              />
+              {!uploadPreviewUrl ? (
+                <button
+                  type="button"
+                  onClick={() => uploadInputRef.current?.click()}
+                  disabled={saving}
+                  style={{
+                    width: "100%", minHeight: 160, borderRadius: 12,
+                    border: `1px dashed ${T.bdr}`, background: T.bg,
+                    color: T.ink3, fontFamily: F, fontSize: 13,
+                    cursor: saving ? "default" : "pointer",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}
+                >
+                  <div style={{ color: T.ink2, fontSize: 14 }}>Tap to choose an image</div>
+                  <div style={{ color: T.ink3, fontSize: 11 }}>PNG, JPEG, WebP, HEIC · max 5MB</div>
+                </button>
+              ) : (
+                <div style={{ position: "relative" }}>
+                  <img
+                    src={uploadPreviewUrl}
+                    alt="Upload preview"
+                    style={{
+                      width: "100%", maxHeight: 260, objectFit: "contain",
+                      background: T.bg, borderRadius: 12, border: `1px solid ${T.bdr}`, display: "block",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadFile(null);
+                      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                      setUploadPreviewUrl(null);
+                    }}
+                    disabled={saving}
+                    style={{
+                      position: "absolute", top: 8, right: 8,
+                      width: 28, height: 28, borderRadius: 14,
+                      border: "none", background: "rgba(0,0,0,0.65)", color: "#fff",
+                      fontSize: 14, cursor: saving ? "default" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >×</button>
+                </div>
+              )}
+            </div>
+
+            {/* Upload title */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title *</div>
+              <input
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                placeholder="What is this? (e.g. Caribou — Midnight)"
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 15, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {/* Upload category */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category *</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", rowGap: 8 }}>
+                {CATEGORIES.map((cat) => {
+                  const selected = uploadCategory === cat;
+                  const catColor = CAT[cat]?.color || T.acc;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setUploadCategory(cat)}
+                      disabled={saving}
+                      style={{
+                        padding: "6px 11px", borderRadius: 999,
+                        border: selected ? "none" : `1px solid ${T.bdr}`,
+                        background: selected ? catColor : T.bg,
+                        color: selected ? "#fff" : T.ink2,
+                        fontSize: 12, fontWeight: 500, cursor: saving ? "default" : "pointer", fontFamily: F,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {CAT[cat]?.label || cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Upload why */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
+              <textarea
+                value={uploadWhy}
+                onChange={(e) => setUploadWhy(e.target.value)}
+                placeholder="What makes this special?"
+                rows={3}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.4,
+                }}
+              />
+            </div>
+
+            {/* Visibility */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink }}>{visibility === "public" ? "Public" : "Private"}</div>
+                <div style={{ fontFamily: F, fontSize: 12, color: T.ink3, marginTop: 2 }}>{visibility === "public" ? "Shared with your subscribers and visitors" : "Only you and your AI can see this"}</div>
+              </div>
+              <button onClick={() => setVisibility(v => v === "public" ? "private" : "public")} style={{
+                width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative",
+                background: visibility === "public" ? "#6BAA8E" : T.bdr, transition: "background .2s",
+                flexShrink: 0,
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff", position: "absolute", top: 3, left: visibility === "public" ? 23 : 3, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
+            </div>
+
+            {error && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#CC665820", color: "#CC6658", fontSize: 13, fontFamily: F }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleUploadSave}
+              disabled={!uploadFile || !uploadTitle.trim() || !uploadCategory || saving}
+              style={{
+                width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
+                background: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? T.s2 : T.acc,
+                color: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? T.ink3 : T.accText,
+                fontSize: 14, fontWeight: 600,
+                cursor: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? "default" : "pointer",
+                fontFamily: F,
+              }}
+            >
+              {saving ? "Uploading..." : "Save"}
+            </button>
+          </>
+        )}
       </div>
     </>
   );
