@@ -166,7 +166,7 @@ id, profile_id, title, slug, category, context, tags (text[]), links (JSONB), vi
 Categories: watch | listen | read | visit | get | wear | play | other
 
 ### chat_messages
-id, profile_id, role ('user'|'ai'), message (text), blocks (JSONB), interaction_state (JSONB), captured_rec (JSONB), parsed_content (JSONB), is_opening, created_at
+id, profile_id, role ('user'|'ai'), text (TEXT), blocks (JSONB), interaction_state (JSONB), captured_rec (JSONB), parsed_content (JSONB), is_opening, created_at
 
 ### subscriptions
 id, subscriber_id, curator_id, created_at
