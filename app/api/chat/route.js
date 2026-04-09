@@ -8,7 +8,7 @@ import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
-import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes } from "../../../lib/chat/link-parsing.js";
+import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 
 const anthropic = new Anthropic({
@@ -148,22 +148,19 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
         if (recentMessages) {
           const withContent = recentMessages.find(m => m.parsed_content && m.parsed_content.length > 0);
           if (withContent) {
+            // Distill each block down to a bounded reference (~800 chars max).
+            // Cap at 2 blocks total to protect context window -- if an earlier
+            // message had 3+ URLs, we only replay the most relevant 2.
+            // Deploy 4: fixes the context bloat / hallucination bug where
+            // 60KB articles were being re-injected verbatim on every turn.
+            const REINJECT_BLOCK_CAP = 2;
+            let injectedCount = 0;
             for (const block of withContent.parsed_content) {
-              if (block.quality === 'full') {
-                linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
-Quality: FULL -- you have the complete content from a link the curator shared earlier in this conversation. Reference it specifically.
-${block.metadata?.title ? `Title: ${block.metadata.title}` : ''}
-${block.metadata?.author ? `Author: ${block.metadata.author}` : ''}
-
-${block.content}
-=== END PARSED CONTENT ===`;
-              } else if (block.quality === 'partial') {
-                linkContextBlock += `\n\n=== PARSED LINK CONTENT (${block.url}) ===
-Quality: PARTIAL -- you have some content from a link shared earlier. Name only what you can see.
-${block.metadata?.title ? `Title: ${block.metadata.title}` : ''}
-
-${block.content}
-=== END PARSED CONTENT ===`;
+              if (injectedCount >= REINJECT_BLOCK_CAP) break;
+              const distilled = distillForReinjection(block);
+              if (distilled) {
+                linkContextBlock += distilled;
+                injectedCount++;
               }
             }
           }
