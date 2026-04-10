@@ -392,7 +392,6 @@ export function CuratorProvider({ children }) {
       };
       // Bug 3 fix: persist imageRecCandidate in meta jsonb for DB reload hydration
       if (metaPayload) row.meta = metaPayload;
-      console.log(`[FEATURE_B_DEBUG_CLIENT] saveMsgToDb row.meta:`, row.meta);
       const { data } = await supabase.from("chat_messages").insert(row).select('id').single();
       return data?.id || null;
     } catch (err) { console.error("Failed to save message:", err); return null; }
