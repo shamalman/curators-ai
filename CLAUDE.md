@@ -157,6 +157,8 @@ The curator's identity hub. Two views accessed via a shared segmented control (M
 
 ## Database Schema
 
+> To regenerate this section, run `scripts/dump-schema.sql` in Supabase SQL Editor and replace the tables below with fresh output. Multi-table results may truncate — verify each table's column count looks right, and re-query scoped to one table if anything looks short.
+
 Source of truth: `information_schema.columns` snapshot from 2026-04-10. Do not edit these tables by hand unless updating from a fresh live query.
 
 Categories (used on recommendations and rec_files): watch | listen | read | visit | get | wear | play | other
@@ -180,12 +182,23 @@ Categories (used on recommendations and rec_files): watch | listen | read | visi
 | onboarding_complete | boolean | YES |
 | invited_by | uuid | YES |
 | location | text | YES |
+| style_summary | jsonb | YES |
+| last_seen_at | timestamptz | YES |
+| last_action | text | YES |
+| last_action_at | timestamptz | YES |
+| show_subscriptions | boolean | YES |
+| show_subscribers | boolean | YES |
+| social_links | jsonb | YES |
+| weekly_digest_enabled | boolean | YES |
+| new_subscriber_email_enabled | boolean | YES |
+| unlimited_invites | boolean | YES |
+| feature_flags | jsonb | NO |
 
 Notes:
 - Lookups use `handle`.
 - `invited_by` references `profiles.id` of the inviter.
-- No `style_summary` column yet (spec'd but not deployed).
-- No bio-nudge tracking column.
+- `style_summary` is the visitor-AI personality payload, written by `/api/generate-style-summary` and read by the chat route for visitor mode.
+- `feature_flags` is NOT NULL — used by `lib/features.js` for per-curator rollouts (including `.rec` migration gating).
 
 ### chat_messages
 
@@ -225,7 +238,26 @@ Feature-level per-message state lives in the `meta` jsonb column under a feature
 
 ### recommendations
 
-Not present in the schema dump provided — query live if needed. **Audit gap:** the 2026-04-10 snapshot did not include `recommendations`. Next audit should include it.
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| profile_id | uuid | NO |
+| title | text | NO |
+| category | text | NO |
+| context | text | YES |
+| tags | ARRAY | YES |
+| links | jsonb | YES |
+| visibility | text | YES |
+| status | text | YES |
+| revision | integer | YES |
+| slug | text | YES |
+| earnable_mode | text | YES |
+| created_at | timestamptz | YES |
+| updated_at | timestamptz | YES |
+| depth_score | double precision | YES |
+| rec_file_id | text | YES |
+
+Notes: `rec_file_id` is the pointer to `rec_files.id` per the rec-format-v1 migration. Dual-write active until all read paths migrate to `rec_files`.
 
 ### invite_codes
 
@@ -259,16 +291,18 @@ Notes: Before deleting a profile, clear both `created_by` and `used_by` on any r
 | created_at | timestamptz | YES |
 | presented_at | timestamptz | YES |
 
-### curator_taste_profiles
+### taste_profiles
+
+**Active Taste File storage.** Code at `lib/taste-profile/generate.js`, `components/me/TasteFileView.jsx`, `app/api/chat/route.js`.
 
 | Column | Type | Nullable |
 |---|---|---|
 | id | uuid | NO |
-| author_id | uuid | NO |
-| pattern_summary | jsonb | NO |
-| updated_at | timestamptz | NO |
+| profile_id | uuid | YES |
 
-Notes: `author_id` references `profiles.id`. This is the Taste File storage.
+**Incomplete — full column list pending re-query.** Next audit must run a standalone query for this table (see `scripts/dump-schema.sql`) as the 2026-04-10 multi-table result appears to have been truncated.
+
+Notes: `profile_id` should probably be NOT NULL — verify and tighten in a future migration if appropriate.
 
 ### feedback
 
@@ -336,9 +370,102 @@ Notes: `author_id` references `profiles.id`. This is the Taste File storage.
 | price | numeric | YES |
 | created_at | timestamptz | YES |
 
-### Audit gap (2026-04-10)
+### rec_files
 
-The following tables are referenced in code but were NOT included in the schema snapshot used for this audit: `recommendations`, `saved_recs`, `subscribers`, `subscriptions`, `unsupported_source_requests`, `rec_files`, `rec_blocks`. Next audit should include them.
+| Column | Type | Nullable |
+|---|---|---|
+| id | text | NO |
+| version | integer | NO |
+| schema_version | text | NO |
+| curator_id | uuid | NO |
+| curator_handle | text | NO |
+| curator_is_author | boolean | NO |
+| created_at | timestamptz | NO |
+| updated_at | timestamptz | NO |
+| valid_from | date | NO |
+| valid_until | date | YES |
+| superseded_by | text | YES |
+| body_md | text | NO |
+| content_sha256 | text | NO |
+| source | jsonb | YES |
+| work | jsonb | NO |
+| curation | jsonb | NO |
+| visibility | jsonb | NO |
+| provenance | jsonb | NO |
+| extraction | jsonb | NO |
+| signature | jsonb | YES |
+| relationships | jsonb | YES |
+| location | jsonb | YES |
+| affiliate | jsonb | YES |
+| claims | jsonb | YES |
+
+Notes: Primary key is `(id, version)` composite per the rec-format-v1 spec. `body_md` is the canonical markdown body; `rec_blocks` is rebuilt deterministically from this.
+
+### rec_blocks
+
+| Column | Type | Nullable |
+|---|---|---|
+| block_id | text | NO |
+| rec_id | text | NO |
+| rec_version | integer | NO |
+| block_index | integer | NO |
+| block_type | text | NO |
+| block_text | text | NO |
+| char_start | integer | NO |
+| char_end | integer | NO |
+| created_at | timestamptz | NO |
+
+Notes: Derived table. Rebuilt from `rec_files.body_md` — never edited directly. FK to `(rec_files.id, rec_files.version)`.
+
+### saved_recs
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| user_id | uuid | NO |
+| recommendation_id | uuid | NO |
+| saved_at | timestamptz | YES |
+
+Notes: Uses `user_id` (not `profile_id`) — inconsistent with the rest of the schema, flagged for future migration.
+
+### subscribers
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| curator_id | uuid | NO |
+| email | text | NO |
+| tier | text | YES |
+| subscribed_at | timestamptz | YES |
+| digest_frequency | text | YES |
+| last_notified_at | timestamptz | YES |
+| unsubscribed_at | timestamptz | YES |
+
+Notes: Email-only subscribers, no account. Digest sent only for the specific curator they subscribed to.
+
+### subscriptions
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| subscriber_id | uuid | NO |
+| curator_id | uuid | NO |
+| subscribed_at | timestamptz | YES |
+| unsubscribed_at | timestamptz | YES |
+| digest_frequency | text | YES |
+| last_notified_at | timestamptz | YES |
+
+Notes: Account-holder subscriptions. `subscriber_id` and `curator_id` both reference `profiles.id`. Gets unified network digest across all subscriptions.
+
+### Legacy tables (exist in DB, not referenced by code)
+
+- `curator_taste_profiles` — superseded by `taste_profiles`. No active code path reads or writes this table as of 2026-04-10. Safe to drop in a future cleanup migration after confirming no RLS policies or triggers depend on it.
+
+---
+
+**Last full schema audit:** 2026-04-10
+
+**Known incomplete:** `taste_profiles` full column list pending — multi-table query was truncated. Re-run `scripts/dump-schema.sql` scoped to `taste_profiles` alone to complete.
 
 ---
 
