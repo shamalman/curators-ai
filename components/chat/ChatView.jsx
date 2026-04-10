@@ -517,6 +517,11 @@ export default function ChatView({ variant }) {
     return "";
   };
 
+  // TODO: unify handleSaveFromChat + handleSaveImageFromChat into a single
+  // saveCandidate abstraction if a third save-from-chat path is added.
+  // Current parallel handlers are intentional — premature abstraction worse
+  // than a third copy that reveals the real shared shape. (April 10, 2026)
+  //
   // Feature C: handle the "Save as a Recommendation" action button tap from chat.
   // Opens QuickCaptureSheet prefilled with the URL, parsed content, and a
   // draft "why" extracted from the curator's own conversation words.
@@ -573,6 +578,11 @@ export default function ChatView({ variant }) {
     setSheetOpen(true);
   };
 
+  // TODO: unify handleSaveFromChat + handleSaveImageFromChat into a single
+  // saveCandidate abstraction if a third save-from-chat path is added.
+  // Current parallel handlers are intentional — premature abstraction worse
+  // than a third copy that reveals the real shared shape. (April 10, 2026)
+  //
   // Feature B: handle the "Save as a Recommendation" action button tap for images.
   // Opens QuickCaptureSheet in upload mode prefilled with inferred metadata + signed URL.
   // Bug 3 fix: if signedUrl is missing (DB-reload path), regenerate via /api/recs/sign-artifact.

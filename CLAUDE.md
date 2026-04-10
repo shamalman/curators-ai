@@ -157,46 +157,188 @@ The curator's identity hub. Two views accessed via a shared segmented control (M
 
 ## Database Schema
 
+Source of truth: `information_schema.columns` snapshot from 2026-04-10. Do not edit these tables by hand unless updating from a fresh live query.
+
+Categories (used on recommendations and rec_files): watch | listen | read | visit | get | wear | play | other
+
 ### profiles
-id, name, handle, bio, location, auth_user_id, invited_by, style_summary (JSONB), onboarding_complete, social_links, weekly_digest_enabled, new_subscriber_email_enabled, ai_enabled, show_recs, show_subscriptions, show_subscribers, unlimited_invites (BOOLEAN DEFAULT false), last_seen_at, last_action, last_action_at, created_at, updated_at
 
-### recommendations
-id, profile_id, title, slug, category, context, tags (text[]), links (JSONB), visibility, source, created_at, updated_at
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| name | text | NO |
+| handle | text | NO |
+| bio | text | YES |
+| ai_enabled | boolean | YES |
+| accept_requests | boolean | YES |
+| show_recs | boolean | YES |
+| crypto_enabled | boolean | YES |
+| wallet | text | YES |
+| created_at | timestamptz | YES |
+| updated_at | timestamptz | YES |
+| auth_user_id | uuid | YES |
+| onboarding_complete | boolean | YES |
+| invited_by | uuid | YES |
+| location | text | YES |
 
-Categories: watch | listen | read | visit | get | wear | play | other
+Notes:
+- Lookups use `handle`.
+- `invited_by` references `profiles.id` of the inviter.
+- No `style_summary` column yet (spec'd but not deployed).
+- No bio-nudge tracking column.
 
 ### chat_messages
-id, profile_id, role ('user'|'ai'), text (TEXT), blocks (JSONB), interactions (JSONB, array of button-tap events), captured_rec (JSONB), parsed_content (JSONB), rec_refs (JSONB), meta (JSONB, stores imageRecCandidate for Feature B), is_opening, created_at
 
-### subscriptions
-id, subscriber_id, curator_id, created_at
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| profile_id | uuid | NO |
+| role | text | NO |
+| text | text | NO |
+| captured_rec | jsonb | YES |
+| created_at | timestamptz | YES |
+| blocks | jsonb | YES |
+| interactions | jsonb | YES |
+| parsed_content | jsonb | YES |
+| rec_refs | jsonb | NO |
+| meta | jsonb | YES |
 
-### subscribers (email-only, no account)
-id, email, curator_id, digest_frequency, last_notified_at, unsubscribed_at, created_at
+Notes:
+- Uses `profile_id` not `user_id`.
+- Uses `text` not `message` or `content`.
+- `parsed_content` is deprecated per rec-format-v1 migration plan — still written for backward compat, will be dropped after chat route is fully migrated to `rec_refs` → `rec_files`.
+- `rec_refs` is NOT NULL (defaults to empty array).
+- `interactions` is an array of button-tap event objects (`{block_index, action, interacted_at}`). Do NOT overwrite with an object.
+- `meta` convention: see "`chat_messages.meta` convention" section below.
 
-### taste_profiles
-id, profile_id (UNIQUE), content (TEXT, markdown document), version (INTEGER), sources (JSONB), generated_at
+### `chat_messages.meta` convention
 
-### taste_confirmations
-id, profile_id, type ('taste_read_confirmed'|'correction'|'explicit_statement'|'anti_taste'), observation (TEXT), source (TEXT), created_at
+Feature-level per-message state lives in the `meta` jsonb column under a feature-specific key. Do NOT add new columns for per-message feature state — add a key under `meta` instead.
 
-### agent_jobs
-id, profile_id, source_type, source_url, status, raw_data (JSONB), extracted_recs (JSONB), taste_analysis (JSONB), error_message, started_at, completed_at, created_at
+**Reserved keys:**
+- `imageRecCandidate` — image save candidate state (Feature B)
+
+**Rules:**
+- New features needing per-message metadata must add their own key under `meta`.
+- Do not reuse another feature's key.
+- Document new reserved keys here when added.
+
+### recommendations
+
+Not present in the schema dump provided — query live if needed. **Audit gap:** the 2026-04-10 snapshot did not include `recommendations`. Next audit should include it.
 
 ### invite_codes
-id, code, created_by, used_by, inviter_note, created_at, used_at
 
-### saved_recs
-id, user_id, recommendation_id, created_at
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| code | text | NO |
+| created_by | uuid | YES |
+| used_by | uuid | YES |
+| used_at | timestamptz | YES |
+| created_at | timestamptz | YES |
+| inviter_note | text | YES |
 
-### notification_log
-id, type, recipient_email, curator_id, rec_id, sent_at
+Notes: Before deleting a profile, clear both `created_by` and `used_by` on any referencing rows.
+
+### agent_jobs
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| profile_id | uuid | YES |
+| source_type | text | NO |
+| source_url | text | NO |
+| status | text | YES |
+| raw_data | jsonb | YES |
+| extracted_recs | jsonb | YES |
+| taste_analysis | jsonb | YES |
+| error_message | text | YES |
+| started_at | timestamptz | YES |
+| completed_at | timestamptz | YES |
+| created_at | timestamptz | YES |
+| presented_at | timestamptz | YES |
+
+### curator_taste_profiles
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| author_id | uuid | NO |
+| pattern_summary | jsonb | NO |
+| updated_at | timestamptz | NO |
+
+Notes: `author_id` references `profiles.id`. This is the Taste File storage.
 
 ### feedback
-id, profile_id, message, summary, category, created_at
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| profile_id | uuid | YES |
+| handle | text | YES |
+| original_message | text | YES |
+| elaboration | text | YES |
+| summary | text | YES |
+| status | text | YES |
+| created_at | timestamptz | YES |
+
+### notification_log
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| type | text | NO |
+| recipient_id | uuid | YES |
+| recipient_email | text | NO |
+| curator_id | uuid | YES |
+| rec_ids | ARRAY | YES |
+| sent_at | timestamptz | YES |
+| status | text | YES |
+
+### email_tokens
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| token | text | NO |
+| profile_id | uuid | NO |
+| action | text | NO |
+| payload | jsonb | YES |
+| expires_at | timestamptz | NO |
+| used_at | timestamptz | YES |
+| created_at | timestamptz | YES |
 
 ### link_parse_log
-id, profile_id, url, source_type, parse_quality ('full'|'partial'|'failed'), content_length, parse_time_ms, error_message, ai_response_excerpt, ai_acknowledged_failure, metadata (JSONB), created_at
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| profile_id | uuid | YES |
+| url | text | NO |
+| source_type | text | YES |
+| parse_quality | text | NO |
+| content_length | integer | YES |
+| parse_time_ms | integer | YES |
+| error_message | text | YES |
+| ai_response_excerpt | text | YES |
+| ai_acknowledged_failure | boolean | YES |
+| metadata | jsonb | YES |
+| created_at | timestamptz | YES |
+
+### bundles
+
+| Column | Type | Nullable |
+|---|---|---|
+| id | uuid | NO |
+| curator_id | uuid | NO |
+| name | text | NO |
+| price | numeric | YES |
+| created_at | timestamptz | YES |
+
+### Audit gap (2026-04-10)
+
+The following tables are referenced in code but were NOT included in the schema snapshot used for this audit: `recommendations`, `saved_recs`, `subscribers`, `subscriptions`, `unsupported_source_requests`, `rec_files`, `rec_blocks`. Next audit should include them.
 
 ---
 
