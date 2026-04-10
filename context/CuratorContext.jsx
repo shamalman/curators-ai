@@ -71,14 +71,45 @@ export function CuratorProvider({ children }) {
         .eq("profile_id", prof.id)
         .order("created_at", { ascending: false });
       if (recs && recs.length > 0) {
-        setTasteItems(recs.map(r => ({
-          id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          title: r.title, category: r.category, context: r.context,
-          tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
-          visibility: r.visibility || "public", revision: r.revision || 1,
-          earnableMode: r.earnable_mode || "none",
-          revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-        })));
+        // Deploy 3.2: secondary load from rec_files to get body_md and extraction
+        // for paste/upload/URL recs. The rec_file_id on each recommendations row
+        // links to the canonical rec_files row. If this secondary load fails or
+        // returns nothing, items still render fine without body — this is additive.
+        const recFileIds = recs
+          .map(r => r.rec_file_id)
+          .filter(Boolean);
+
+        let recFilesById = {};
+        if (recFileIds.length > 0) {
+          const { data: recFilesData, error: recFilesErr } = await supabase
+            .from("rec_files")
+            .select("id, body_md, extraction, curator_is_author")
+            .in("id", recFileIds);
+
+          if (recFilesErr) {
+            console.warn("[CONTEXT_LOAD] rec_files secondary load failed:", recFilesErr.message);
+          } else if (recFilesData) {
+            recFilesById = Object.fromEntries(recFilesData.map(rf => [rf.id, rf]));
+          }
+        }
+
+        setTasteItems(recs.map(r => {
+          const recFile = r.rec_file_id ? recFilesById[r.rec_file_id] : null;
+          return {
+            id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            title: r.title, category: r.category, context: r.context,
+            tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
+            visibility: r.visibility || "public", revision: r.revision || 1,
+            earnableMode: r.earnable_mode || "none",
+            revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
+            // Deploy 3.2: body_md and extraction from rec_files secondary load.
+            // Null-safe — items without a rec_file_id or failed load render fine
+            // without these fields; the UI just doesn't show the body section.
+            body_md: recFile?.body_md || null,
+            extraction: recFile?.extraction || null,
+            curator_is_author: recFile?.curator_is_author || false,
+          };
+        }));
       }
       const { data: msgs } = await supabase
         .from("chat_messages")

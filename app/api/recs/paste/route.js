@@ -50,16 +50,28 @@ async function inferPasteMetadata(text) {
       messages: [
         {
           role: "user",
-          content: `You are helping a curator save a recommendation. They pasted the following text. Infer:
-- A concise title (max 80 chars) — identifies what is being recommended, not the paste itself
-- A category (one of: ${VALID_CATEGORIES.join(", ")})
-- Up to 5 relevant tags (each max 40 chars)
-- A short "why" (1-2 sentences, max 200 chars) — why a curator would save this, in their voice
+          content: `You are helping a curator save a recommendation to their personal archive. They pasted the following text. Your job is to structure it into fields -- NOT to rewrite or polish the curator's words.
 
-Respond ONLY with JSON matching this exact shape, no prose, no markdown fences:
+Extract these fields:
+
+1. **title** (max 80 chars): Identify what is being recommended -- the name of the work, place, product, or item the curator is pointing at. NOT a description of the paste itself. Example: if the paste is a review of "The Master and Margarita", the title is "The Master and Margarita" -- not "A review of The Master and Margarita".
+
+2. **category** (one of: ${VALID_CATEGORIES.join(", ")}): Which category best fits. If unsure, use "other".
+
+3. **tags** (up to 5, each max 40 chars): Short descriptive tags that describe the work.
+
+4. **why** (max 200 chars): THIS IS CRITICAL. The curator's voice must be preserved.
+   - FIRST, look for a sentence in the pasted text that serves as "why the curator recommends this." This is usually the most emphatic or evaluative sentence.
+   - If such a sentence exists, EXTRACT IT VERBATIM -- copy the curator's exact words, character-for-character, without rewriting, paraphrasing, polishing, or "improving" them.
+   - Do NOT swap "Best" for "Exceptional". Do NOT swap "I've had in ages" for "I've ever had". Do NOT change tense, verb choice, punctuation, or word order.
+   - The curator's voice is part of their taste signal. Paraphrasing destroys it.
+   - If the pasted text has NO sentence that serves as a why (e.g., it's a pure factual description), then and only then synthesize a minimal placeholder -- but prefer to return an empty string "" for why if nothing clearly qualifies.
+   - If you must truncate an extracted sentence to fit under 200 chars, truncate at a word boundary and append an ellipsis character "...".
+
+Respond ONLY with JSON matching this exact shape, no prose, no markdown fences, no code blocks:
 {"title": "...", "category": "...", "tags": ["...", "..."], "why": "..."}
 
-The category MUST be one of the values listed above. If unsure, use "other".
+The category MUST be one of the values listed above.
 
 Pasted text:
 ${preview}`

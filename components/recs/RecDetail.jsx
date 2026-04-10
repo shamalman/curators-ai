@@ -203,6 +203,28 @@ export function CuratorRecDetail({ slug }) {
             )}
           </div>
 
+          {/* Deploy 3.2: pasted/uploaded body content */}
+          {selectedItem.body_md && (selectedItem.extraction?.mode === 'pasted' || selectedItem.extraction?.mode === 'uploaded') && (
+            <div style={{
+              marginTop: 16, marginBottom: 16, padding: "16px 20px",
+              borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
+            }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: T.ink3,
+                textTransform: "uppercase", letterSpacing: ".06em",
+                marginBottom: 10, fontFamily: F,
+              }}>
+                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content' : 'Pasted content'}
+              </div>
+              <div style={{
+                fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55,
+                whiteSpace: "pre-wrap", wordBreak: "break-word",
+              }}>
+                {selectedItem.body_md}
+              </div>
+            </div>
+          )}
+
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
