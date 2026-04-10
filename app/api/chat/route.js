@@ -563,6 +563,7 @@ ${parsed.content}
             console.error(`[CHAT_API_ERROR] feature_b_infer_parse error=${parseErr.message} raw=${cleanedInfer.substring(0, 200)} profileId=${profileId}`);
           }
         }
+        console.log(`[FEATURE_B_DEBUG] inference complete imageRecCandidate=${imageRecCandidate ? 'SET' : 'NULL'} sha256=${imageRecCandidate?.sha256 || 'none'} title=${imageRecCandidate?.inferred?.title || 'none'}`);
       } catch (featureBErr) {
         console.error(`[CHAT_API_ERROR] feature_b_pipeline error=${featureBErr.message} profileId=${profileId}`);
       }
@@ -729,6 +730,7 @@ ${parsed.content}
       }
     }
 
+    console.log(`[FEATURE_B_DEBUG] response payload includes image_rec_candidate=${imageRecCandidate ? 'YES' : 'NO'}`);
     return NextResponse.json({
       message: aiMessage,
       blocks: blocks,
