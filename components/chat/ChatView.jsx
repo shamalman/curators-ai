@@ -90,6 +90,8 @@ export default function ChatView({ variant }) {
   // Quick capture state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [lastRecVisibility, setLastRecVisibility] = useState('public');
+  // Feature C: prefill data for QuickCaptureSheet when opened from a chat action button
+  const [sheetPrefillData, setSheetPrefillData] = useState(null);
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -131,6 +133,7 @@ export default function ChatView({ variant }) {
       const recRefs = recFileId ? [recFileId] : [];
       // Close sheet
       setSheetOpen(false);
+      setSheetPrefillData(null);
       // Toast: matches existing in-chat pattern (insert a system AI message)
       const toastText = `\u2713 Saved "${saved.title}".`;
       setMessages(prev => [...prev, { role: "ai", text: toastText }]);
@@ -473,7 +476,7 @@ export default function ChatView({ variant }) {
         };
       }
 
-      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [] }]);
+      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null }]);
       const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks);
       if (savedId) {
         setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
@@ -484,6 +487,87 @@ export default function ChatView({ variant }) {
       isWaitingForResponse.current = false;
       setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
     }
+  };
+
+  // Feature C: draft a "why" from the curator's own words in the conversation.
+  // Look for the user message that contained the URL (or a recent user message
+  // with evaluative text). Extract verbatim. If no evaluative text found,
+  // return empty string and let the curator type their own.
+  const draftWhyFromConversation = (targetUrl) => {
+    if (!messages || messages.length === 0) return "";
+    for (let i = messages.length - 1; i >= 0 && i >= messages.length - 6; i--) {
+      const m = messages[i];
+      if (m.role !== "user") continue;
+      const text = (m.text || "").trim();
+      if (!text) continue;
+      // Skip if the message is just the URL itself (no commentary)
+      const textWithoutUrl = text.replace(targetUrl, "").trim();
+      if (textWithoutUrl.length < 15) continue;
+      // Skip meta actions / button responses
+      if (textWithoutUrl.startsWith("save_rec_from_chat") || textWithoutUrl === "skip_save") continue;
+      // Got something substantive — return verbatim, truncated to 200 chars
+      if (textWithoutUrl.length <= 200) return textWithoutUrl;
+      const sliced = textWithoutUrl.slice(0, 200);
+      const lastSpace = sliced.lastIndexOf(" ");
+      return (lastSpace > 160 ? sliced.slice(0, lastSpace) : sliced) + "\u2026";
+    }
+    return "";
+  };
+
+  // Feature C: handle the "Save as a Recommendation" action button tap from chat.
+  // Opens QuickCaptureSheet prefilled with the URL, parsed content, and a
+  // draft "why" extracted from the curator's own conversation words.
+  const handleSaveFromChat = (url) => {
+    let parsedPayload = null;
+    let title = "";
+    let thumbnail_url = null;
+    let provider = null;
+
+    // Walk backwards through messages looking for parsed_content that matches this URL.
+    // parsed_content is stashed on the AI message from the chat API response.
+    for (let i = messages.length - 1; i >= 0 && i >= messages.length - 10; i--) {
+      const m = messages[i];
+      if (!m.parsed_content || !Array.isArray(m.parsed_content)) continue;
+      const match = m.parsed_content.find(block => block.url === url);
+      if (match) {
+        parsedPayload = {
+          body_md: match.content || "",
+          body_truncated: false,
+          body_original_length: (match.content || "").length,
+          canonical_url: match.url,
+          site_name: match.metadata?.providerName || null,
+          author: match.metadata?.author || null,
+          authors: match.metadata?.author ? [match.metadata.author] : [],
+          published_at: match.metadata?.publishedTime || null,
+          lang: "en",
+          word_count: (match.content || "").split(/\s+/).filter(Boolean).length,
+          media_type: "text/html",
+          artifact_sha256: null,
+          artifact_ref: null,
+          extraction_mode: "parsed",
+          extractor: "chat-parse@v1",
+          title: match.metadata?.title || "",
+        };
+        title = match.metadata?.title || "";
+        thumbnail_url = match.metadata?.thumbnailUrl || null;
+        provider = match.metadata?.providerName || null;
+        break;
+      }
+    }
+
+    const why = draftWhyFromConversation(url);
+
+    setSheetPrefillData({
+      mode: "url",
+      url: url,
+      title: title,
+      category: "",
+      context: why,
+      parsedPayload: parsedPayload || undefined,
+      thumbnail_url: thumbnail_url,
+      provider: provider,
+    });
+    setSheetOpen(true);
   };
 
   const handleInteraction = async (messageId, blockIndex, action) => {
@@ -770,7 +854,19 @@ export default function ChatView({ variant }) {
                       interactions={msg.interactions || []}
                       messageId={msg.id}
                       tapped={tappedActionMsgIndices.current.has(i)}
-                      onSendMessage={(action) => { send(action); }}
+                      onSendMessage={(action) => {
+                        // Feature C: intercept save-from-chat actions before they hit send()
+                        if (typeof action === "string" && action.startsWith("save_rec_from_chat:")) {
+                          const url = action.slice("save_rec_from_chat:".length);
+                          handleSaveFromChat(url);
+                          return;
+                        }
+                        if (action === "skip_save") {
+                          // No-op — interaction tracking via onInteraction handles button state
+                          return;
+                        }
+                        send(action);
+                      }}
                       onInteraction={(msgId, blockIdx, act) => {
                         tappedActionMsgIndices.current.add(i);
                         handleInteraction(msgId, blockIdx, act);
@@ -988,11 +1084,15 @@ export default function ChatView({ variant }) {
         </div>
         <QuickCaptureSheet
           isOpen={sheetOpen}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => {
+            setSheetOpen(false);
+            setSheetPrefillData(null);
+          }}
           onSaved={handleQuickCaptureSaved}
           defaultVisibility={lastRecVisibility}
           isDesktop={isDesktop}
           profileId={profileId}
+          initialData={sheetPrefillData}
         />
       </div>
     );

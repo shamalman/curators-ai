@@ -97,7 +97,7 @@ function LinkRow({ link, onUrlChange, onParse, onRemove }) {
   );
 }
 
-export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVisibility, isDesktop, profileId }) {
+export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVisibility, isDesktop, profileId, initialData = null }) {
   const [title, setTitle] = useState("");
   const [context, setContext] = useState("");
   const [category, setCategory] = useState(null);
@@ -122,30 +122,53 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   const [uploadWhy, setUploadWhy] = useState("");
   const uploadInputRef = useRef(null);
 
-  // Reset state when sheet opens
+  // Reset state when sheet opens, OR prefill from initialData if provided
   useEffect(() => {
     if (isOpen) {
-      setTitle("");
-      setContext("");
-      setCategory(null);
-      setLinks([]);
+      setTitle(initialData?.title || "");
+      setContext(initialData?.context || "");
+      setCategory(initialData?.category || null);
       setVisibility(defaultVisibility || "public");
       setSaving(false);
       setError(null);
-      // Deploy 3: reset multi-mode capture state
-      setCaptureMode("url");
+
+      // Deploy 3: reset multi-mode capture state — honor initialData.mode
+      setCaptureMode(initialData?.mode || "url");
+
+      // Paste mode state
       setPasteText("");
       setPasteWhy("");
+
+      // Upload mode state
       setUploadFile(null);
       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
       setUploadPreviewUrl(null);
       setUploadTitle("");
       setUploadCategory("");
       setUploadWhy("");
+
+      // Feature C: URL mode prefill — if initialData has a URL, seed the links array
+      // with a pre-parsed entry so the sheet shows the parsed card immediately
+      // and the save path has a ready-to-use parsedPayload.
+      if (initialData?.mode === "url" && initialData?.url && initialData?.parsedPayload) {
+        setLinks([{
+          id: makeLinkId(),
+          url: initialData.url,
+          parsing: false,
+          parsed: true,
+          title: initialData.title || initialData.parsedPayload.title || "",
+          thumbnail_url: initialData.thumbnail_url || null,
+          provider: initialData.provider || initialData.parsedPayload.site_name || null,
+          parsedPayload: initialData.parsedPayload,
+        }]);
+      } else {
+        setLinks([]);
+      }
+
       // Autofocus title after a tick
       setTimeout(() => titleInputRef.current?.focus(), 50);
     }
-  }, [isOpen, defaultVisibility]);
+  }, [isOpen]); // NOTE: intentionally NOT including initialData in deps — we only apply it on open
 
   if (!isOpen) return null;
 

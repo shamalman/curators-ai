@@ -501,6 +501,37 @@ ${parsed.content}
 
     blocks.push({ type: "text", data: { content: cleanedAiMessage } });
 
+    // Feature C: emit save prompt buttons when a fresh URL was parsed successfully.
+    // One button per successfully parsed URL (typically 1, capped at 3 URLs per message
+    // by the existing URL regex slice). Skip on failed parses — nothing to save.
+    // Skip if the AI already captured a rec in this turn (recCapture is set) — no
+    // need to double up the save prompt.
+    if (hasNewParsedContent && !recCapture) {
+      const successfulBlocks = parsedLinkBlocks.filter(
+        b => b.quality === "full" || b.quality === "partial"
+      );
+      if (successfulBlocks.length > 0) {
+        const firstUrl = successfulBlocks[0].url;
+        blocks.push({
+          type: "action_buttons",
+          data: {
+            prompt: "Want to add this to your archive?",
+            options: [
+              {
+                label: "Save as a Recommendation",
+                action: `save_rec_from_chat:${firstUrl}`,
+                style: "primary",
+              },
+              {
+                label: "Not Now",
+                action: "skip_save",
+              },
+            ],
+          },
+        });
+      }
+    }
+
     if (recCapture) {
       // Server-side fallback: if Claude forgot to include the curator's pasted URL, inject it
       if ((!recCapture.links || recCapture.links.length === 0) && detectedUrls.length > 0) {
@@ -583,6 +614,9 @@ ${parsed.content}
       message: aiMessage,
       blocks: blocks,
       captured_rec: recCapture || undefined,
+      // Feature C: return parsed_content so the frontend can look up parsed data
+      // when the curator taps "Save as a Recommendation" from a chat action button.
+      parsed_content: parsedContentForStorage.length > 0 ? parsedContentForStorage : undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);

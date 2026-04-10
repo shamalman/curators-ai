@@ -10,13 +10,18 @@ export default function FeedActionButtons({ data, used, onUse }) {
   if (!data?.options || data.options.length === 0) return null;
   return (
     <div style={{
-      display: "flex",
-      gap: 8,
-      flexWrap: "wrap",
       padding: "4px 0",
       opacity: isUsed ? 0.3 : 1,
       pointerEvents: isUsed ? "none" : "auto",
     }}>
+      {data.prompt && (
+        <div style={{ fontSize: 13, color: T.ink2, fontFamily: F, marginBottom: 8 }}>{data.prompt}</div>
+      )}
+      <div style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+      }}>
       {data.options.map((opt, i) => (
         <button
           key={i}
@@ -46,6 +51,7 @@ export default function FeedActionButtons({ data, used, onUse }) {
           {opt.label}
         </button>
       ))}
+      </div>
     </div>
   );
 }
