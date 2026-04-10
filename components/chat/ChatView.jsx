@@ -476,7 +476,7 @@ export default function ChatView({ variant }) {
         };
       }
 
-      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null }]);
+      setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null, image_rec_candidate: data.image_rec_candidate || null }]);
       const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks);
       if (savedId) {
         setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
@@ -568,6 +568,31 @@ export default function ChatView({ variant }) {
       provider: provider,
     });
     setSheetOpen(true);
+  };
+
+  // Feature B: handle the "Save as a Recommendation" action button tap for images.
+  // Opens QuickCaptureSheet in upload mode prefilled with inferred metadata + signed URL.
+  const handleSaveImageFromChat = (sha256) => {
+    // Walk backwards through messages looking for image_rec_candidate matching this sha256.
+    for (let i = messages.length - 1; i >= 0 && i >= messages.length - 10; i--) {
+      const m = messages[i];
+      if (!m.image_rec_candidate || m.image_rec_candidate.sha256 !== sha256) continue;
+      const candidate = m.image_rec_candidate;
+      setSheetPrefillData({
+        mode: "upload",
+        artifactSha256: candidate.sha256,
+        artifactRef: candidate.artifactRef,
+        signedUrl: candidate.signedUrl,
+        mimeType: candidate.mimeType,
+        sizeBytes: candidate.sizeBytes,
+        title: candidate.inferred.title,
+        category: candidate.inferred.category,
+        context: candidate.inferred.suggested_why,
+      });
+      setSheetOpen(true);
+      return;
+    }
+    console.warn(`[FEATURE_B] imageRecCandidate not found for sha256=${sha256}`);
   };
 
   const handleInteraction = async (messageId, blockIndex, action) => {
@@ -855,6 +880,12 @@ export default function ChatView({ variant }) {
                       messageId={msg.id}
                       tapped={tappedActionMsgIndices.current.has(i)}
                       onSendMessage={(action) => {
+                        // Feature B: intercept save-image-rec actions before they hit send()
+                        if (typeof action === "string" && action.startsWith("save_image_rec:")) {
+                          const sha = action.slice("save_image_rec:".length);
+                          handleSaveImageFromChat(sha);
+                          return;
+                        }
                         // Feature C: intercept save-from-chat actions before they hit send()
                         if (typeof action === "string" && action.startsWith("save_rec_from_chat:")) {
                           const url = action.slice("save_rec_from_chat:".length);

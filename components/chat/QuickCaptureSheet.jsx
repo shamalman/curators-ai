@@ -122,6 +122,9 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   const [uploadWhy, setUploadWhy] = useState("");
   const uploadInputRef = useRef(null);
 
+  // Feature B: pre-uploaded artifact state (from chat image save)
+  const [preUploadedArtifact, setPreUploadedArtifact] = useState(null); // { sha256, ref, mimeType, sizeBytes }
+
   // Reset state when sheet opens, OR prefill from initialData if provided
   useEffect(() => {
     if (isOpen) {
@@ -146,11 +149,27 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       setUploadTitle("");
       setUploadCategory("");
       setUploadWhy("");
+      setPreUploadedArtifact(null);
 
+      // Feature B: Upload mode prefill — from chat image save.
+      // Prefill upload title/category/why from inferred metadata, set preview
+      // from signed URL, stash artifact identifiers for JSON save path.
+      if (initialData?.mode === "upload" && initialData?.artifactSha256) {
+        setUploadTitle(initialData.title || "");
+        setUploadCategory(initialData.category || "");
+        setUploadWhy(initialData.context || "");
+        setUploadPreviewUrl(initialData.signedUrl || null);
+        setPreUploadedArtifact({
+          sha256: initialData.artifactSha256,
+          ref: initialData.artifactRef,
+          mimeType: initialData.mimeType,
+          sizeBytes: initialData.sizeBytes,
+        });
+        setLinks([]);
       // Feature C: URL mode prefill — if initialData has a URL, seed the links array
       // with a pre-parsed entry so the sheet shows the parsed card immediately
       // and the save path has a ready-to-use parsedPayload.
-      if (initialData?.mode === "url" && initialData?.url && initialData?.parsedPayload) {
+      } else if (initialData?.mode === "url" && initialData?.url && initialData?.parsedPayload) {
         setLinks([{
           id: makeLinkId(),
           url: initialData.url,
@@ -391,7 +410,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
   // Deploy 3: upload mode save handler
   const handleUploadSave = async () => {
-    if (!uploadFile) {
+    // Feature B: pre-uploaded artifact path (from chat image save) — no file needed
+    if (!preUploadedArtifact && !uploadFile) {
       setError("Choose a file to upload.");
       return;
     }
@@ -406,17 +426,38 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
     setSaving(true);
     setError(null);
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("profileId", profileId);
-      formData.append("title", uploadTitle.trim());
-      formData.append("category", uploadCategory);
-      if (uploadWhy) formData.append("why", uploadWhy);
+      let res;
+      if (preUploadedArtifact) {
+        // Feature B: JSON path — artifact already uploaded from chat route
+        res = await fetch("/api/recs/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profileId,
+            artifactSha256: preUploadedArtifact.sha256,
+            artifactRef: preUploadedArtifact.ref,
+            mimeType: preUploadedArtifact.mimeType,
+            sizeBytes: preUploadedArtifact.sizeBytes,
+            title: uploadTitle.trim(),
+            category: uploadCategory,
+            why: uploadWhy || "",
+            tags: [],
+          }),
+        });
+      } else {
+        // Existing multipart path — fresh file upload
+        const formData = new FormData();
+        formData.append("file", uploadFile);
+        formData.append("profileId", profileId);
+        formData.append("title", uploadTitle.trim());
+        formData.append("category", uploadCategory);
+        if (uploadWhy) formData.append("why", uploadWhy);
 
-      const res = await fetch("/api/recs/upload", {
-        method: "POST",
-        body: formData,
-      });
+        res = await fetch("/api/recs/upload", {
+          method: "POST",
+          body: formData,
+        });
+      }
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         throw new Error(errBody.error || `Upload failed (${res.status})`);
@@ -533,8 +574,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           </button>
         </div>
 
-        {/* Deploy 3: capture mode tabs */}
-        <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${T.bdr}`, marginBottom: 16 }}>
+        {/* Deploy 3: capture mode tabs — hidden when prefilled from chat image save */}
+        <div style={{ display: preUploadedArtifact ? "none" : "flex", gap: 0, borderBottom: `1px solid ${T.bdr}`, marginBottom: 16 }}>
           {[
             { key: "url", label: "URL" },
             { key: "paste", label: "Paste text" },
@@ -825,16 +866,18 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         {/* ── UPLOAD MODE ── */}
         {captureMode === "upload" && (
           <>
-            {/* File picker */}
+            {/* File picker — hidden when prefilled from chat image save (preUploadedArtifact) */}
             <div style={{ marginBottom: 14 }}>
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
-                onChange={handleUploadFileChange}
-                style={{ display: "none" }}
-                disabled={saving}
-              />
+              {!preUploadedArtifact && (
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                  onChange={handleUploadFileChange}
+                  style={{ display: "none" }}
+                  disabled={saving}
+                />
+              )}
               {!uploadPreviewUrl ? (
                 <button
                   type="button"
@@ -861,22 +904,27 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                       background: T.bg, borderRadius: 12, border: `1px solid ${T.bdr}`, display: "block",
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadFile(null);
-                      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
-                      setUploadPreviewUrl(null);
-                    }}
-                    disabled={saving}
-                    style={{
-                      position: "absolute", top: 8, right: 8,
-                      width: 28, height: 28, borderRadius: 14,
-                      border: "none", background: "rgba(0,0,0,0.65)", color: "#fff",
-                      fontSize: 14, cursor: saving ? "default" : "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}
-                  >×</button>
+                  {preUploadedArtifact && (
+                    <div style={{ textAlign: "center", marginTop: 6, fontSize: 11, fontFamily: F, color: T.ink3 }}>Image ready to save</div>
+                  )}
+                  {!preUploadedArtifact && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadFile(null);
+                        if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                        setUploadPreviewUrl(null);
+                      }}
+                      disabled={saving}
+                      style={{
+                        position: "absolute", top: 8, right: 8,
+                        width: 28, height: 28, borderRadius: 14,
+                        border: "none", background: "rgba(0,0,0,0.65)", color: "#fff",
+                        fontSize: 14, cursor: saving ? "default" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >×</button>
+                  )}
                 </div>
               )}
             </div>

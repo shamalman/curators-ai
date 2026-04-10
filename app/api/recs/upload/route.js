@@ -40,8 +40,131 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
 
+// Shared: synthesize body_md and parsedPayload envelope from artifact metadata.
+// Used by both the multipart (fresh upload) and JSON (pre-uploaded) paths.
+function buildUploadPayload({ sha256, ref, mimeType, title, why }) {
+  const trimmedTitle = title.trim();
+  const trimmedWhy = String(why || "").trim();
+  const bodyMdParts = [`# ${trimmedTitle}`];
+  if (trimmedWhy) {
+    bodyMdParts.push("");
+    bodyMdParts.push(trimmedWhy);
+  }
+  bodyMdParts.push("");
+  bodyMdParts.push(`![Uploaded image](artifact://${sha256})`);
+  const bodyMd = bodyMdParts.join("\n");
+
+  const fakeCanonicalUrl = `artifact://${sha256}`;
+
+  const parsedPayload = {
+    body_md: bodyMd,
+    body_truncated: false,
+    body_original_length: bodyMd.length,
+    canonical_url: fakeCanonicalUrl,
+    site_name: null,
+    author: null,
+    authors: [],
+    published_at: null,
+    lang: "en",
+    word_count: bodyMd.split(/\s+/).filter(Boolean).length,
+    media_type: mimeType,
+    artifact_sha256: sha256,
+    artifact_ref: ref,
+    extraction_mode: "uploaded",
+    extractor: `upload@${mimeType.split("/")[1] || "unknown"}`,
+    title: trimmedTitle,
+    curator_is_author: false,
+    source_type: "firsthand",
+  };
+
+  return { trimmedTitle, parsedPayload };
+}
+
 export async function POST(request) {
   const startedAt = Date.now();
+  const contentType = request.headers.get("content-type") || "";
+
+  // ── Feature B: JSON path for pre-uploaded artifacts (from chat image save) ──
+  if (contentType.startsWith("application/json")) {
+    try {
+      const body = await request.json();
+      const { profileId, artifactSha256, artifactRef, mimeType, sizeBytes, title, category, why, tags: tagsRaw } = body;
+
+      // Validation
+      if (!profileId) return NextResponse.json({ error: "profileId is required" }, { status: 400 });
+      if (!artifactSha256) return NextResponse.json({ error: "artifactSha256 is required" }, { status: 400 });
+      if (!artifactRef) return NextResponse.json({ error: "artifactRef is required" }, { status: 400 });
+      if (!title || typeof title !== "string" || title.trim().length === 0) {
+        return NextResponse.json({ error: "title is required" }, { status: 400 });
+      }
+      if (!category || !VALID_CATEGORIES.includes(category)) {
+        return NextResponse.json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` }, { status: 400 });
+      }
+      if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
+        return NextResponse.json({ error: `mimeType must be one of: PNG, JPEG, WebP, HEIC` }, { status: 400 });
+      }
+
+      const tags = Array.isArray(tagsRaw)
+        ? tagsRaw.map(t => String(t).trim()).filter(Boolean).slice(0, 10)
+        : typeof tagsRaw === "string" && tagsRaw.length > 0
+          ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean).slice(0, 10)
+          : [];
+
+      const { trimmedTitle, parsedPayload } = buildUploadPayload({
+        sha256: artifactSha256,
+        ref: artifactRef,
+        mimeType,
+        title,
+        why: why || "",
+      });
+
+      // Log the upload event
+      const sb = getSupabaseAdmin();
+      try {
+        const { error: logErr } = await sb.from("link_parse_log").insert({
+          profile_id: profileId,
+          url: null,
+          source_type: "upload",
+          parse_quality: "full",
+          content_length: sizeBytes || 0,
+          parse_time_ms: Date.now() - startedAt,
+          error_message: null,
+          ai_response_excerpt: null,
+          ai_acknowledged_failure: null,
+          metadata: {
+            surface: "chat_image_save",
+            title: trimmedTitle,
+            file_size: sizeBytes || 0,
+            mime_type: mimeType,
+            artifact_sha256: artifactSha256,
+          },
+        });
+        if (logErr) console.error("[UPLOAD_LOG_ERROR]", logErr.message);
+      } catch (e) {
+        console.error("[UPLOAD_LOG_ERROR]", e?.message || e);
+      }
+
+      return NextResponse.json({
+        parsed_successfully: true,
+        title: trimmedTitle,
+        category: category,
+        tags: tags,
+        thumbnail_url: null,
+        provider: "upload",
+        parsedPayload,
+        artifact_sha256: artifactSha256,
+        artifact_ref: artifactRef,
+      });
+    } catch (error) {
+      console.error("[UPLOAD_ROUTE_JSON_ERROR]", error?.message || error);
+      return NextResponse.json(
+        { error: "upload capture failed", detail: error?.message },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ── Existing multipart/form-data path (fresh file upload) ──
   try {
     // Parse multipart form data
     let formData;
@@ -118,44 +241,13 @@ export async function POST(request) {
       ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean).slice(0, 10)
       : [];
 
-    // Synthesize body_md: title + why + artifact reference (minimal, lossy).
-    const trimmedTitle = title.trim();
-    const trimmedWhy = String(why || "").trim();
-    const bodyMdParts = [`# ${trimmedTitle}`];
-    if (trimmedWhy) {
-      bodyMdParts.push("");
-      bodyMdParts.push(trimmedWhy);
-    }
-    bodyMdParts.push("");
-    bodyMdParts.push(`![Uploaded image](artifact://${artifactResult.sha256})`);
-    const bodyMd = bodyMdParts.join("\n");
-
-    // Synthetic canonical_url using artifact:// so buildRecFileRow emits a
-    // source block with media_type + artifact_sha256 + artifact_ref. Slightly
-    // hacky but avoids a buildRecFileRow change for this one case.
-    const fakeCanonicalUrl = `artifact://${artifactResult.sha256}`;
-
-    const parsedPayload = {
-      body_md: bodyMd,
-      body_truncated: false,
-      body_original_length: bodyMd.length,
-      canonical_url: fakeCanonicalUrl,
-      site_name: null,
-      author: null,
-      authors: [],
-      published_at: null,
-      lang: "en",
-      word_count: bodyMd.split(/\s+/).filter(Boolean).length,
-      media_type: mimeType,
-      artifact_sha256: artifactResult.sha256,
-      artifact_ref: artifactResult.ref,
-      extraction_mode: "uploaded",
-      extractor: `upload@${mimeType.split("/")[1] || "unknown"}`,
-      title: trimmedTitle,
-      // Overrides for buildRecFileRow (picked up via parsedPayload fallback)
-      curator_is_author: false,
-      source_type: "firsthand",
-    };
+    const { trimmedTitle, parsedPayload } = buildUploadPayload({
+      sha256: artifactResult.sha256,
+      ref: artifactResult.ref,
+      mimeType,
+      title,
+      why: why || "",
+    });
 
     // Log the upload event (reuses link_parse_log schema).
     try {

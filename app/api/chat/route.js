@@ -10,6 +10,7 @@ import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
 import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
+import { uploadArtifact } from "../../../lib/rec-files/artifact.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -494,6 +495,76 @@ ${parsed.content}
       if (trackingError) console.error('TRACKING ERROR:', trackingError);
     }
 
+    // ── Feature B: persist image to artifacts + infer metadata for save prompt ──
+    let imageRecCandidate = null;
+    if (image && image.base64 && image.mimeType && profileId && !isVisitor) {
+      try {
+        // (a) Decode base64 to bytes and upload to artifacts bucket
+        const rawBase64 = image.base64.replace(/^data:image\/[^;]+;base64,/, "");
+        const imageBytes = Buffer.from(rawBase64, "base64");
+        const artifactResult = await uploadArtifact(sb, profileId, imageBytes, image.mimeType);
+
+        // (b) Generate signed URL for preview (1 hour expiry)
+        let signedUrl = null;
+        const { data: signedData, error: signedErr } = await sb
+          .storage
+          .from("artifacts")
+          .createSignedUrl(artifactResult.path, 3600);
+        if (signedErr) {
+          console.error(`[CHAT_API_ERROR] feature_b_signed_url error=${signedErr.message} profileId=${profileId}`);
+        } else {
+          signedUrl = signedData.signedUrl;
+        }
+
+        // (c) Second Claude call to infer rec metadata from the image
+        if (signedUrl) {
+          const inferBase64 = rawBase64;
+          const inferMessages = [
+            {
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: image.mimeType, data: inferBase64 } },
+                ...(message ? [{ type: "text", text: message }] : []),
+              ],
+            },
+          ];
+
+          const inferResponse = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 400,
+            system: `You are extracting recommendation metadata from an image a curator just shared. Respond with ONLY a JSON object, no prose, no markdown fences:\n{"title": "<short title, max 60 chars>", "category": "<one of: watch, listen, read, visit, get, wear, play, other>", "suggested_why": "<one sentence describing what makes this save-worthy, max 140 chars>"}\nIf the image is not save-worthy as a recommendation (e.g. a screenshot of an error, a blank image, a personal photo with no recommendation context), respond with: {"skip": true}`,
+            messages: inferMessages,
+          });
+
+          const inferText = (inferResponse.content[0]?.text || "").trim();
+          // (d) Parse JSON — strip markdown fences if present
+          const cleanedInfer = inferText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+          try {
+            const inferred = JSON.parse(cleanedInfer);
+            if (!inferred.skip && inferred.title && inferred.category) {
+              // (e) Build imageRecCandidate
+              imageRecCandidate = {
+                sha256: artifactResult.sha256,
+                artifactRef: artifactResult.ref,
+                signedUrl,
+                mimeType: image.mimeType,
+                sizeBytes: imageBytes.length,
+                inferred: {
+                  title: inferred.title,
+                  category: inferred.category,
+                  suggested_why: inferred.suggested_why || "",
+                },
+              };
+            }
+          } catch (parseErr) {
+            console.error(`[CHAT_API_ERROR] feature_b_infer_parse error=${parseErr.message} raw=${cleanedInfer.substring(0, 200)} profileId=${profileId}`);
+          }
+        }
+      } catch (featureBErr) {
+        console.error(`[CHAT_API_ERROR] feature_b_pipeline error=${featureBErr.message} profileId=${profileId}`);
+      }
+    }
+
     // ── Build content blocks ──
     const detectedUrls = message ? (normalizeUrls(message).match(URL_REGEX) || []) : [];
 
@@ -547,6 +618,29 @@ ${parsed.content}
           },
         });
       }
+    }
+
+    // Feature B: emit save prompt buttons when an image was persisted and inference succeeded.
+    // Skip if the AI already captured a rec in this turn (recCapture is set).
+    // Skip if Feature C already emitted action_buttons (hasNewParsedContent).
+    if (imageRecCandidate && !recCapture && !hasNewParsedContent) {
+      blocks.push({
+        type: "action_buttons",
+        data: {
+          prompt: "Want to add this to your archive?",
+          options: [
+            {
+              label: "Save as a Recommendation",
+              action: `save_image_rec:${imageRecCandidate.sha256}`,
+              style: "primary",
+            },
+            {
+              label: "Not Now",
+              action: "skip_save",
+            },
+          ],
+        },
+      });
     }
 
     if (recCapture) {
@@ -634,6 +728,9 @@ ${parsed.content}
       // Feature C: return parsed_content so the frontend can look up parsed data
       // when the curator taps "Save as a Recommendation" from a chat action button.
       parsed_content: parsedContentForStorage.length > 0 ? parsedContentForStorage : undefined,
+      // Feature B: return imageRecCandidate so the frontend can look up inferred metadata
+      // when the curator taps "Save as a Recommendation" from an image action button.
+      image_rec_candidate: imageRecCandidate || undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);
