@@ -118,7 +118,7 @@ export function CuratorProvider({ children }) {
         .order("created_at", { ascending: false })
         .limit(50);
       if (msgs && msgs.length > 0) {
-        setMessages(msgs.reverse().map(m => ({ id: m.id, role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec, blocks: m.blocks || null, interactions: m.interactions || [], image_rec_candidate: m.interaction_state?.imageRecCandidate || null })));
+        setMessages(msgs.reverse().map(m => ({ id: m.id, role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec, blocks: m.blocks || null, interactions: m.interactions || [], image_rec_candidate: m.meta?.imageRecCandidate || null })));
         prevMsgCount.current = msgs.length;
       }
 
@@ -379,7 +379,7 @@ export function CuratorProvider({ children }) {
     }
   };
 
-  const saveMsgToDb = async (role, text, capturedRec, blocks, recRefs = [], interactions = null) => {
+  const saveMsgToDb = async (role, text, capturedRec, blocks, recRefs = [], metaPayload = null) => {
     if (!profileId) return null;
     try {
       const row = {
@@ -390,8 +390,8 @@ export function CuratorProvider({ children }) {
         blocks: blocks || null,
         rec_refs: recRefs && recRefs.length > 0 ? recRefs : [],
       };
-      // Bug 3 fix: persist imageRecCandidate in interactions jsonb for DB reload hydration
-      if (interactions) row.interaction_state = interactions;
+      // Bug 3 fix: persist imageRecCandidate in meta jsonb for DB reload hydration
+      if (metaPayload) row.meta = metaPayload;
       const { data } = await supabase.from("chat_messages").insert(row).select('id').single();
       return data?.id || null;
     } catch (err) { console.error("Failed to save message:", err); return null; }

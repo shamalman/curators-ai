@@ -478,9 +478,9 @@ export default function ChatView({ variant }) {
 
       const imageCandidate = data.image_rec_candidate || null;
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null, image_rec_candidate: imageCandidate }]);
-      // Bug 3 fix: persist imageRecCandidate in interaction_state for DB reload hydration
-      const interactionsForDb = imageCandidate ? { imageRecCandidate: imageCandidate } : null;
-      const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks, [], interactionsForDb);
+      // Bug 3 fix: persist imageRecCandidate in meta jsonb for DB reload hydration
+      const metaForDb = imageCandidate ? { imageRecCandidate: imageCandidate } : null;
+      const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks, [], metaForDb);
       if (savedId) {
         setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
       }
