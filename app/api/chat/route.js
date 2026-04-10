@@ -50,6 +50,8 @@ export async function POST(request) {
     let linkContextBlock = "";
     let agentNotes = [];
     let parsedLinkBlocks = [];
+    let originalParsedContentLength = 0;
+    let linkContextCapped = false;
 
     if (!isVisitor && profileId && !generateOpening) {
       // Detect URLs in message and parse ALL synchronously before calling Claude (cap at 3 links)
@@ -94,6 +96,21 @@ export async function POST(request) {
       // Add URL-specific notes for this message
       const urlNotes = buildAgentUrlNotes(agentNotes);
       if (urlNotes) linkContextBlock += urlNotes;
+
+      // ── Hard cap on total parsed content injected into system prompt ──
+      const LINK_CONTEXT_CAP = 40000;
+      originalParsedContentLength = parsedLinkBlocks.reduce((sum, b) => sum + (b.content?.length || 0), 0);
+      linkContextCapped = originalParsedContentLength > LINK_CONTEXT_CAP;
+      if (linkContextCapped) {
+        console.warn(`[LINK_CONTEXT_CAPPED] original_length=${originalParsedContentLength} capped_to=${LINK_CONTEXT_CAP} blocks=${parsedLinkBlocks.length}`);
+        const ratio = LINK_CONTEXT_CAP / originalParsedContentLength;
+        for (const block of parsedLinkBlocks) {
+          if (block.content) {
+            const allowance = Math.floor(block.content.length * ratio);
+            block.content = block.content.slice(0, allowance) + '\n\n[content truncated due to length]';
+          }
+        }
+      }
 
       // Inject parsed link content into prompt with quality signals
       for (const block of parsedLinkBlocks) {
@@ -417,7 +434,7 @@ ${parsed.content}
       if (isTimeout) {
         console.error(`[CHAT_API_TIMEOUT] duration_ms=${durationMs} profileId=${profileId} mode=${isVisitor ? 'visitor' : isOnboarding ? 'onboarding' : 'standard'}`);
       }
-      console.error(`[CHAT_API_ERROR] status=${apiError.status || 'unknown'} type=${apiError.error?.type || 'unknown'} duration_ms=${durationMs} profileId=${profileId} message=${apiError.message}`);
+      console.error(`[CHAT_API_ERROR] status=${apiError.status || 'unknown'} type=${apiError.error?.type || 'unknown'} message=${apiError.message} duration_ms=${durationMs} profileId=${profileId} systemPromptLength=${systemPrompt.length} messagesCount=${cleanedMessages.length} parsedContentOriginalLength=${originalParsedContentLength} capFired=${linkContextCapped}`);
 
       const friendlyMessage = "I'm having trouble thinking right now. Give me a moment and try again.";
       return NextResponse.json({
