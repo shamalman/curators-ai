@@ -1014,13 +1014,13 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
             <button
               onClick={handleUploadSave}
-              disabled={!uploadFile || !uploadTitle.trim() || !uploadCategory || saving}
+              disabled={(!uploadFile && !preUploadedArtifact) || !uploadTitle.trim() || !uploadCategory || saving}
               style={{
                 width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
-                background: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? T.s2 : T.acc,
-                color: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? T.ink3 : T.accText,
+                background: ((!uploadFile && !preUploadedArtifact) || !uploadTitle.trim() || !uploadCategory || saving) ? T.s2 : T.acc,
+                color: ((!uploadFile && !preUploadedArtifact) || !uploadTitle.trim() || !uploadCategory || saving) ? T.ink3 : T.accText,
                 fontSize: 14, fontWeight: 600,
-                cursor: (!uploadFile || !uploadTitle.trim() || !uploadCategory || saving) ? "default" : "pointer",
+                cursor: ((!uploadFile && !preUploadedArtifact) || !uploadTitle.trim() || !uploadCategory || saving) ? "default" : "pointer",
                 fontFamily: F,
               }}
             >
