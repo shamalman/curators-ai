@@ -580,7 +580,7 @@ ${parsed.content}
     blocks.push(...mediaEmbeds);
 
     // Extract rec capture from AI text
-    const recCapture = extractRecCapture(aiMessage);
+    let recCapture = extractRecCapture(aiMessage);
 
     // Validate context against actual curator messages — prevents hallucinated context
     if (recCapture) {
