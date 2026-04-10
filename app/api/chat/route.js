@@ -321,6 +321,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         if (msg.imagePreview) {
           text = text ? `${text} [sent an image]` : "[sent an image]";
         }
+        // Bug 1 fix: skip empty-text history messages that would crash Claude API
+        if (!text.trim()) continue;
         if (msg.role === "user") {
           messages.push({ role: "user", content: text });
         } else if (msg.role === "ai" || msg.role === "assistant") {
@@ -546,6 +548,7 @@ ${parsed.content}
               imageRecCandidate = {
                 sha256: artifactResult.sha256,
                 artifactRef: artifactResult.ref,
+                artifactPath: artifactResult.path,  // for signed URL regeneration on DB reload
                 signedUrl,
                 mimeType: image.mimeType,
                 sizeBytes: imageBytes.length,
@@ -621,9 +624,14 @@ ${parsed.content}
     }
 
     // Feature B: emit save prompt buttons when an image was persisted and inference succeeded.
-    // Skip if the AI already captured a rec in this turn (recCapture is set).
+    // Image candidate wins over recCapture -- if Claude emitted a rogue [REC] from the image,
+    // suppress it so we don't double-save. The action button is the canonical save path for images.
+    if (imageRecCandidate) {
+      recCapture = null;
+    }
+
     // Skip if Feature C already emitted action_buttons (hasNewParsedContent).
-    if (imageRecCandidate && !recCapture && !hasNewParsedContent) {
+    if (imageRecCandidate && !hasNewParsedContent) {
       blocks.push({
         type: "action_buttons",
         data: {
