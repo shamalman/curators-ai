@@ -196,8 +196,8 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
     const curHandle = curatorHandle?.replace('@', '') || '';
     const recsContext = recommendations && recommendations.length > 0
       ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r => {
-          const slug = r.slug ? ` [link: /${curHandle}/${r.slug}]` : "";
-          return `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})${slug}`;
+          const recLink = r.slug ? ` [REC_LINK: /${curHandle}/${r.slug}]` : "";
+          return `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})${recLink}`;
         }).join("\n")}`
       : "\n\nNo recommendations captured yet.";
 
