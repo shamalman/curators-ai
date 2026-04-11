@@ -56,7 +56,7 @@ Not AI behavior bugs strictly — these are code references to DB tables or colu
 
 ## Resolved
 
-### [Resolved: 2026-04-10, commit `6f0de6c`] In-chat rec capture uses affirmation as context
+### [Resolved: 2026-04-10, commit `0a83a91`] In-chat rec capture uses affirmation as context
 
 **Fix summary:** Added `findSubstantiveMessage()` helper in `lib/chat/rec-extraction.js` that walks history backwards, skips pure affirmations, and returns the first substantive user message. Both `validateRecContext` fallback paths (empty context, verbatim-violation) now use this helper instead of `currentMessage`. Empty string returned when nothing substantive found (better than meaningless "Yes").
 
