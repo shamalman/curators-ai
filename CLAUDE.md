@@ -1,5 +1,5 @@
 # CLAUDE.md -- Curators.AI Engineering Guide
-## Last updated: April 6, 2026
+## Last updated: April 11, 2026
 
 ---
 
@@ -15,7 +15,7 @@
 
 - **Framework:** Next.js 14 (App Router)
 - **Database:** Supabase (PostgreSQL + RLS + PostgREST)
-- **AI:** Anthropic Claude API (Sonnet for generation, system prompts for chat). SDK version: 0.80.0
+- **AI:** Anthropic Claude API (Sonnet for generation, system prompts for chat). SDK version: 0.80.0. Model ID pinned in `app/api/chat/route.js`: `claude-sonnet-4-20250514`.
 - **Hosting:** Vercel, auto-deploys from GitHub main (~60s deploys)
 - **Email:** Resend (subscriber alerts + weekly digests)
 - **Styling:** Inline styles only, no Tailwind
@@ -57,8 +57,9 @@ vocabulary, no-hallucinations, base-personality, link-handling, image-handling, 
 `loadSkill(name)` in `lib/prompts/loader.js` reads and caches skill files.
 
 Build functions in `lib/prompts/`:
-- `buildOnboardingPrompt` (onboarding.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + feedback-handling + trust-building + onboarding-approach
-- `buildStandardPrompt` (standard.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + network-recs + feedback-handling + trust-building + standard-approach
+- `buildOnboardingPrompt` (onboarding.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + feedback-handling + trust-building + onboarding-approach. Accepts `networkContext` param (wired into the chat route's onboarding branch as of 2026-04-11) and appends `SUBSCRIPTION_GROUNDING_RULE` at the end of the prompt.
+- `buildStandardPrompt` (standard.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + network-recs + feedback-handling + trust-building + standard-approach. Also appends `SUBSCRIPTION_GROUNDING_RULE` at the end.
+- `SUBSCRIPTION_GROUNDING_RULE` (duplicated in both build files, must stay in sync): tells the AI the SUBSCRIBED RECOMMENDATIONS block is ground truth, never invent/deny subscription state, and to render `[REC_LINK: <path>]` sentinels as markdown links using the rec title.
 - `buildSubscriberPrompt`: skill file exists (subscriber-approach.md), but no build function or route wiring yet
 - Visitor prompt: still inline in chat route, not extracted to a build function
 
@@ -69,15 +70,47 @@ Build functions in `lib/prompts/`:
 - Standard: 3+ recs AND bio
 - Visitor: accessing another curator's /ask page
 
+Both onboarding and standard modes call `getSubscribedRecs(profileId)` from `lib/chat/network-context.js` and inject the result into the system prompt. As of 2026-04-11, onboarding mode is no longer skipped — a curator auto-subscribed to their inviter at signup will see the inviter's recs from the very first chat turn.
+
 **Link handling:** Link parsing is synchronous -- parse before Claude responds, no background agent path for link content. Up to 3 URLs detected per message (bare domains auto-normalized with https://). All URLs parsed concurrently via Promise.all with 15s timeout. Quality signals (FULL/PARTIAL/FAILED) injected into system prompt as labeled === PARSED LINK CONTENT === blocks. Parsed content persisted on the user's chat_messages row (parsed_content JSONB) and re-injected on follow-up turns within a 5-message window. If parsing fails, AI says so honestly.
 
 **Rec extraction:** [REC] JSON parsed from AI response. `validateRecContext` trusts AI's context field, strips metadata pollution ([Pending link:...], [Link metadata:...], [REC]...[/REC]), falls back to last user message if context is empty.
 
-**Content blocks:** Text and MediaEmbed rendered in feed. ActionButtons function exists but is not called in the response flow.
+**Content blocks:** Text, MediaEmbed, and ActionButtons rendered in feed. ActionButtons are emitted by Feature B (image rec save prompt, action `save_image_rec:<sha256>`) and Feature C (link rec save prompt, action `save_rec_from_chat:<url>`). Suppressed if the AI also emitted a `[REC]` capture in the same turn (no double-save).
+
+**Re-injection of parsed link content:** `distillForReinjection` (in `lib/chat/link-parsing.js`) bounds older parsed content to ~800 chars per block, capped at 2 blocks per turn, when re-replaying parsed links from prior `chat_messages.parsed_content`. Prevents the context-bloat / hallucination bug where 60KB articles were re-injected verbatim every turn.
 
 **Feedback capture:** AI detects feedback intent, emits [FEEDBACK] JSON blocks. Chat route extracts, saves to feedback table, emails founder via Resend, strips block from visible response.
 
-**Structured logging:** `[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[LINK_PARSE_LOG_ERROR]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`
+**Structured logging:** `[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[LINK_PARSE_LOG_ERROR]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[ONBOARDING_USED_BY_FAIL]`, `[ONBOARDING_CTX_PARSE_FAIL]`
+
+### Inviter Pipe & Auto-subscribe (2026-04-11)
+
+End-to-end onboarding link from invite code → opening message → first-turn network context.
+
+**`lib/chat/inviter-context.js` — `getInviterContext(profileId)`**
+Three independent lookups (each `.maybeSingle()`, never `.single()`), so a failure in one does not wipe the others:
+1. `profiles.invited_by` — bails out if missing.
+2. Inviter's `name`/`handle` from `profiles`.
+3. `inviter_note` — primary path: `invite_codes WHERE used_by = profileId`. Fallback path: most recent `invite_codes WHERE created_by = profile.invited_by` (recovers the note even when onboarding never wrote `used_by`). Logs `[INVITER_CONTEXT]` with `path=primary|fallback|none` and per-field resolved booleans.
+
+**`lib/prompts/onboarding.js`**
+- Writes `INVITER NOTE: (none)` (parenthesized sentinel) when missing — the bare word `none` is no longer used.
+- `lib/prompts/skills/onboarding-approach.md` matches the `(none)` sentinel for variant selection.
+
+**`generateOpening` fallback (`app/api/chat/route.js`)**
+On Anthropic API error during the opening generation, the route returns an inviter-aware fallback when `inviterCtx.inviterName` is present (`"Hi — {inviterName} brought you into Curators..."`), otherwise the generic Record greeting. Logs `[OPENING_FALLBACK]`.
+
+**Auto-subscribe — `app/api/onboarding/auto-subscribe/route.js`**
+Service-role POST route called non-blocking from `app/onboarding/page.js` after the `used_by` write. Validates UUID shape, blocks self-subscribe, then defends against client forgery by confirming `profiles.invited_by === inviterId`. Idempotent: checks for an existing `subscriptions` row first, clears `unsubscribed_at` on resubscribe, otherwise inserts. Race-safe: `23505` unique violation is treated as success. All paths emit `[AUTO_SUBSCRIBE] result=created|exists|reactivated|exists_race|...`. Onboarding never blocks on this — failures log `[AUTO_SUBSCRIBE_CLIENT_FAIL]` and the curator still lands on `/myai`.
+
+### Network Context & REC_LINK Rendering
+
+`lib/chat/network-context.js → getSubscribedRecs(profileId)` returns the `SUBSCRIBED RECOMMENDATIONS` + `BROADER NETWORK` blocks injected into the system prompt for both standard and onboarding modes.
+
+**REC_LINK sentinel.** Each rec line in the network context (and the curator's own recs context in the chat route) is suffixed with `[REC_LINK: /<handle>/<slug>]` when a slug exists. The `SUBSCRIPTION_GROUNDING_RULE` in the prompt instructs the AI to render any rec it references as a markdown link `[<rec title>](<path>)` using the exact path from the sentinel. Never invent paths. This is the canonical mechanism for clickable rec titles in AI output. Canonical rec detail URL: `/{handle}/{slug}` (no `/c/` or `/r/` prefix). Note: `recommendations` has no `curator_handle` column — handle is resolved via the existing two-step profile lookup.
+
+Logs: `[NETWORK_CONTEXT] profileId=… subscription_count=… subscribed_rec_count=… broader_rec_count=…` on success; `[NETWORK_CONTEXT_ERROR]` on failure (returns a user-facing fallback string).
 
 ### Taste Profile Pipeline
 
@@ -97,6 +130,8 @@ AI-readable markdown document stored in `taste_profiles` table, injected into ev
 - Three variants based on inviter context: inviter+note, inviter only, no inviter
 - Uses curator's name, "I'm your Record" intro
 - Ends with kickoff questions
+- Variant selector triggers on `(none)` sentinel (parenthesized) when `inviter_note` is missing — see Inviter Pipe section
+- API error fallback is inviter-aware: uses inviter name when present, generic greeting otherwise
 
 ### Link Handling
 - Links auto-read on paste. Content parsed inline and injected into prompt.
@@ -545,8 +580,11 @@ Instagram and Bandcamp deferred.
 ```
 app/api/chat/route.js                    -- chat route, mode detection, link handling, rec extraction
 lib/prompts/skills/*.md                  -- 15 AI skill files
-lib/prompts/onboarding.js, standard.js   -- system prompt build functions
+lib/prompts/onboarding.js, standard.js   -- system prompt build functions (both carry SUBSCRIPTION_GROUNDING_RULE)
 lib/prompts/loader.js                    -- skill file loader with cache
+lib/chat/inviter-context.js              -- getInviterContext (independent lookups, fallback path)
+lib/chat/network-context.js              -- getSubscribedRecs (REC_LINK sentinel emission)
+app/api/onboarding/auto-subscribe/route.js -- service-role auto-subscribe new curator to inviter
 lib/taste-profile/generate.js            -- taste profile generation
 lib/agent/parsers/*.js + registry.js     -- 9 source parsers
 components/chat/ChatView.jsx             -- chat UI, rec save, taste profile regen trigger
