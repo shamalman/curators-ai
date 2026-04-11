@@ -51,6 +51,21 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    // TODO (product decision, April 10, 2026): The reset route currently leaves
+    // these tables untouched for the resetting curator:
+    //   - taste_profiles (their Taste File persists across reset)
+    //   - taste_confirmations (confirmed taste observations persist)
+    //   - rec_files, rec_blocks (.rec migration artifacts persist)
+    //   - subscriptions, subscribers (network connections persist)
+    //   - link_parse_log (parse history persists)
+    //
+    // Is this intentional preservation ("re-onboard with context intact") or
+    // stale code from before these tables existed? Decide and either:
+    //   (a) document the preservation rationale here, or
+    //   (b) add the missing deletes to the cascade.
+    //
+    // Flagged during schema audit round 2 recon. See ai-behavior-issues.md.
+
     // Delete in order to respect foreign key constraints
 
     // 1. Agent jobs
@@ -93,14 +108,7 @@ export async function POST(request) {
       .eq("profile_id", profileId);
     if (feedbackErr) console.error("Reset: failed to delete feedback:", feedbackErr);
 
-    // 6. Unsupported source requests
-    const { error: unsupportedErr } = await admin
-      .from("unsupported_source_requests")
-      .delete()
-      .eq("profile_id", profileId);
-    if (unsupportedErr) console.error("Reset: failed to delete unsupported_source_requests:", unsupportedErr);
-
-    // 7. Revisions + saved recs for this profile's recommendations
+    // 6. Revisions + saved recs for this profile's recommendations
     const { data: recs } = await admin
       .from("recommendations")
       .select("id")
@@ -120,21 +128,21 @@ export async function POST(request) {
       if (savedErr) console.error("Reset: failed to delete saved_recs for recs:", savedErr);
     }
 
-    // 8. Recommendations
+    // 7. Recommendations
     const { error: recErr } = await admin
       .from("recommendations")
       .delete()
       .eq("profile_id", profileId);
     if (recErr) console.error("Reset: failed to delete recommendations:", recErr);
 
-    // 9. User's own saved recs
+    // 8. User's own saved recs
     const { error: userSavedErr } = await admin
       .from("saved_recs")
       .delete()
       .eq("user_id", profileId);
     if (userSavedErr) console.error("Reset: failed to delete user saved_recs:", userSavedErr);
 
-    // 10. Reset profile fields to blank state + re-enter onboarding
+    // 9. Reset profile fields to blank state + re-enter onboarding
     const { error: profileResetErr } = await admin
       .from("profiles")
       .update({
