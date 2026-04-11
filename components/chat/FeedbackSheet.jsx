@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T, F } from "@/lib/constants";
 
 export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDesktop }) {
@@ -8,6 +8,13 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
 
   function handleClose() {
     if (saving) return;
@@ -70,6 +77,8 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
     fontFamily: F,
     boxSizing: 'border-box',
     width: '100%',
+    maxHeight: '92dvh',
+    overflowY: 'auto',
   };
 
   return (
@@ -98,7 +107,7 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
         ) : (
           <>
             <textarea
-              autoFocus
+              ref={textareaRef}
               value={text}
               onChange={e => setText(e.target.value)}
               placeholder="What's on your mind? Bug, idea, reaction — anything."
@@ -108,7 +117,7 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
                 borderRadius: 10,
                 padding: '12px 14px',
                 color: T.ink,
-                fontSize: 14,
+                fontSize: 16,
                 fontFamily: F,
                 resize: 'none',
                 minHeight: 120,
