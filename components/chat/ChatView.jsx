@@ -10,6 +10,8 @@ import CaptureCard from "./CaptureCard";
 import ProfileCaptureCard from "./ProfileCaptureCard";
 import QuickCaptureChip from "./QuickCaptureChip";
 import QuickCaptureSheet from "./QuickCaptureSheet";
+import FeedbackChip from "./FeedbackChip";
+import FeedbackSheet from "./FeedbackSheet";
 import ErrorBoundary from "../shared/ErrorBoundary";
 import FeedUserBubble from "../feed/FeedUserBubble";
 import FeedBlockGroup from "../feed/FeedBlockGroup";
@@ -90,6 +92,7 @@ export default function ChatView({ variant }) {
 
   // Quick capture state
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
   const [lastRecVisibility, setLastRecVisibility] = useState('public');
   // Feature C: prefill data for QuickCaptureSheet when opened from a chat action button
   const [sheetPrefillData, setSheetPrefillData] = useState(null);
@@ -1106,10 +1109,14 @@ export default function ChatView({ variant }) {
             </div>
           </div>
           <div style={{ padding: "10px 16px 12px", flexShrink: 0, minWidth: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-            <div style={{ display: "block", marginBottom: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: 8, marginBottom: 8, minWidth: 0, flexWrap: "nowrap", overflow: "hidden" }}>
               <QuickCaptureChip
-                visible={input.length === 0 && !sheetOpen && !pendingImage}
+                visible={input.length === 0 && !sheetOpen && !feedbackSheetOpen && !pendingImage}
                 onTap={() => setSheetOpen(true)}
+              />
+              <FeedbackChip
+                visible={input.length === 0 && !sheetOpen && !feedbackSheetOpen && !pendingImage}
+                onTap={() => setFeedbackSheetOpen(true)}
               />
             </div>
             {pendingImage && (
@@ -1149,6 +1156,13 @@ export default function ChatView({ variant }) {
           isDesktop={isDesktop}
           profileId={profileId}
           initialData={sheetPrefillData}
+        />
+        <FeedbackSheet
+          isOpen={feedbackSheetOpen}
+          onClose={() => setFeedbackSheetOpen(false)}
+          profileId={profileId}
+          handle={profile?.handle?.replace('@', '')}
+          isDesktop={isDesktop}
         />
       </div>
     );
