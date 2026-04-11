@@ -87,15 +87,22 @@ export default function OnboardingPage() {
       }).select("id").single()
       if (insertErr) throw insertErr
 
-      // Mark invite code as used_by this new profile
+      // Mark invite code as used_by this new profile.
+      // If this fails, the chat route's getInviterContext fallback will still
+      // recover the note via created_by — but we need visibility when it happens.
       try {
         const ctx = JSON.parse(localStorage.getItem("invite_context"))
         if (ctx?.invite_id) {
-          await supabase.from("invite_codes").update({
+          const { error: usedByErr } = await supabase.from("invite_codes").update({
             used_by: newProfile.id,
           }).eq("id", ctx.invite_id)
+          if (usedByErr) {
+            console.error(`[ONBOARDING_USED_BY_FAIL] profileId=${newProfile.id} inviteId=${ctx.invite_id} error=${usedByErr.message}`)
+          }
         }
-      } catch (err) { console.error("invite update failed:", err) }
+      } catch (err) {
+        console.error(`[ONBOARDING_USED_BY_FAIL] profileId=${newProfile.id} error=${err.message}`)
+      }
 
       localStorage.removeItem("invite_context")
       router.push("/myai")

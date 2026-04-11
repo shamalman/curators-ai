@@ -25,7 +25,7 @@ Over time I'll catalog your taste, organizing your ever-growing collection as it
 
 So let's get going. If you have any questions, ask away. If not, I have a few to kick us off: where are you from, what do you like to share, and why do you think you were invited to be a part of Curators?"
 
-If INVITER NAME is available but INVITER NOTE is "none" or missing:
+If INVITER NAME is available but INVITER NOTE is "(none)" or missing:
 "Hi {curator_name}. {inviter_name} brought you into Curators. Welcome :)
 
 Curators exists to give your perspective value and a place to live.

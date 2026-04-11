@@ -203,6 +203,7 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
 
     // Build the system prompt based on mode
     let systemPrompt;
+    let inviterCtx = { inviterName: null, inviterHandle: null, inviterNote: null };
     if (isVisitor) {
       // Fetch curator's style summary for visitor AI personality
       let styleBlock = "";
@@ -244,7 +245,7 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         console.error('Failed to fetch taste profile:', err);
       }
 
-      const inviterCtx = await getInviterContext(profileId);
+      inviterCtx = await getInviterContext(profileId);
       systemPrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
@@ -296,9 +297,12 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         return NextResponse.json({ message: aiMessage });
       } catch (openingErr) {
         console.error(`[OPENING_API_ERROR] status=${openingErr.status || 'unknown'} type=${openingErr.error?.type || 'unknown'} profileId=${profileId} message=${openingErr.message}`);
-        // Return a graceful fallback opening instead of crashing
+        console.error(`[OPENING_FALLBACK] profileId=${profileId} inviterName=${!!inviterCtx.inviterName} error=${openingErr.message}`);
         const name = curatorName?.split(' ')[0] || curatorName || 'there';
-        return NextResponse.json({ message: `Hey ${name}! I'm your Record. I'm here to learn what you're into and help you capture it.\n\nWhat's something you've been recommending to everyone lately?` });
+        const fallbackMessage = inviterCtx.inviterName
+          ? `Hi — ${inviterCtx.inviterName} brought you into Curators. What kinds of things do you love recommending?`
+          : `Hey ${name}! I'm your Record. I'm here to learn what you're into and help you capture it.\n\nWhat's something you've been recommending to everyone lately?`;
+        return NextResponse.json({ message: fallbackMessage });
       }
     }
 
