@@ -1109,7 +1109,7 @@ export default function ChatView({ variant }) {
             </div>
           </div>
           <div style={{ padding: "10px 16px 12px", flexShrink: 0, minWidth: 0, maxWidth: 700, margin: "0 auto", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-            <div style={{ display: "flex", flexDirection: "row", gap: 8, marginBottom: 8, minWidth: 0, flexWrap: "nowrap", overflow: "hidden" }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: 8, marginBottom: 8, minWidth: 0, flexWrap: "nowrap" }}>
               <QuickCaptureChip
                 visible={input.length === 0 && !sheetOpen && !feedbackSheetOpen && !pendingImage}
                 onTap={() => setSheetOpen(true)}

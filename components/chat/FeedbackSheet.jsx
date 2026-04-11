@@ -68,6 +68,8 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
     zIndex: 1000,
     display: 'flex', flexDirection: 'column', gap: 16,
     fontFamily: F,
+    boxSizing: 'border-box',
+    width: '100%',
   };
 
   return (
