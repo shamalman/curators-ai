@@ -368,14 +368,18 @@ export function CuratorProvider({ children }) {
   const updateRec = async (updated) => {
     setTasteItems(items => items.map(i => i.id === updated.id ? updated : i));
     if (profileId) {
-      try {
-        await supabase.from("recommendations").update({
+      const { data: updatedRows, error: updateError } = await supabase
+        .from("recommendations")
+        .update({
           title: updated.title, context: updated.context,
           tags: updated.tags, category: updated.category,
           links: updated.links, revision: updated.revision,
           visibility: updated.visibility,
-        }).eq("id", updated.id);
-      } catch (err) { console.error("Failed to update rec:", err); }
+        })
+        .eq("id", updated.id)
+        .select();
+      if (updateError) console.error("[UPDATE_REC_ERROR]", updateError.message, updateError);
+      else if (!updatedRows || updatedRows.length === 0) console.error("[UPDATE_REC_NO_ROWS]", "update matched 0 rows", updated.id);
     }
   };
 
