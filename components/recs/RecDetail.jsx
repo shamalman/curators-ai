@@ -737,20 +737,42 @@ export function VisitorRecDetail({ slug }) {
             </p>
           </div>
 
+          {/* Links */}
+          {selectedItem.links?.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
+              <LinkDisplay links={selectedItem.links} />
+            </div>
+          )}
+
+          {/* Body content from rec_files. Hidden for synthetic backfill rows
+              and authored-only recs (no archived body to show). */}
+          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && (
+            <div style={{
+              marginBottom: 24, padding: "16px 20px",
+              borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
+            }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: T.ink3,
+                textTransform: "uppercase", letterSpacing: ".06em",
+                marginBottom: 10, fontFamily: F,
+              }}>
+                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content'
+                  : selectedItem.extraction?.mode === 'pasted' ? 'Pasted content'
+                  : 'Saved content'}
+              </div>
+              <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
+                <ReactMarkdown>{selectedItem.body_md}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
               {selectedItem.tags.map(tag => (
                 <span key={tag} style={{ padding: "6px 14px", borderRadius: 10, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>{tag}</span>
               ))}
-            </div>
-          )}
-
-          {/* Links */}
-          {selectedItem.links?.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
-              <LinkDisplay links={selectedItem.links} />
             </div>
           )}
 

@@ -50,14 +50,37 @@ export function VisitorProvider({ handle, children }) {
           .eq("visibility", "public")
           .order("created_at", { ascending: false });
         if (recs && recs.length > 0) {
-          setTasteItems(recs.map(r => ({
-            id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-            title: r.title, category: r.category, context: r.context,
-            tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
-            visibility: r.visibility || "public", revision: r.revision || 1,
-            earnableMode: r.earnable_mode || "none",
-            revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-          })));
+          const recFileIds = recs.map(r => r.rec_file_id).filter(Boolean);
+          let recFilesById = {};
+          if (recFileIds.length > 0) {
+            const { data: recFilesData, error: recFilesErr } = await supabase
+              .from("rec_files")
+              .select("id, body_md, extraction, work, curation, curator_is_author")
+              .in("id", recFileIds);
+            if (recFilesErr) {
+              console.warn("[VISITOR_CONTEXT_LOAD] rec_files secondary load failed:", recFilesErr.message);
+            } else if (recFilesData) {
+              recFilesById = Object.fromEntries(recFilesData.map(rf => [rf.id, rf]));
+            }
+          }
+
+          setTasteItems(recs.map(r => {
+            const recFile = r.rec_file_id ? recFilesById[r.rec_file_id] : null;
+            return {
+              id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+              title: r.title, category: r.category, context: r.context,
+              tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
+              visibility: r.visibility || "public", revision: r.revision || 1,
+              earnableMode: r.earnable_mode || "none",
+              revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
+              rec_file_id: r.rec_file_id || null,
+              body_md: recFile?.body_md || null,
+              extraction: recFile?.extraction || null,
+              work: recFile?.work || null,
+              curation_block: recFile?.curation || null,
+              curator_is_author: recFile?.curator_is_author || false,
+            };
+          }));
         }
       }
       setDbLoaded(true);
