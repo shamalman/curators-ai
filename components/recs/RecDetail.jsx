@@ -57,7 +57,7 @@ export function CuratorRecDetail({ slug }) {
   };
 
   const handleTagKeyDown = (e) => {
-    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+    if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       commitTag(tagInput);
     } else if (e.key === "Backspace" && tagInput === "") {
@@ -312,7 +312,7 @@ export function CuratorRecDetail({ slug }) {
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
                 onBlur={() => commitTag(tagInput)}
-                placeholder="Type a tag, press space or enter"
+                placeholder="Type a tag, press enter or comma"
                 style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, fontSize: 13, fontFamily: F, outline: "none", background: T.s, color: T.ink }}
               />
             </div>
