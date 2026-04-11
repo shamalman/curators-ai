@@ -15,9 +15,15 @@ Standard
   meet the standard-mode threshold
 - Open /myai as the curator
 
+**Seeding a test account from scratch:** If no standard-mode account is
+available, seed one by: (1) creating a new account via invite, (2) completing
+onboarding to set a bio, (3) capturing 3+ recs via chat. This puts the account
+in standard mode (recCount >= 3 AND hasBio). Alternatively, use an existing
+long-lived curator account.
+
 ## Turn-by-turn expected behavior
 
-**Turn 1 — Curator:**
+**Turn 1, Curator:**
 > I've been loving the new Pacquito album. It has hard hitting rhythms.
 
 **Expected AI behavior on Turn 1:**
@@ -41,7 +47,7 @@ Standard
 - "What drew you to this album?"
 - "That sounds interesting. Tell me more."
 
-**Turn 2 — Curator:**
+**Turn 2, Curator:**
 > Yes
 
 **Expected AI behavior on Turn 2:**

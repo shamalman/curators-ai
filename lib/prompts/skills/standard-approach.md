@@ -27,7 +27,7 @@ go deeper or wider.
 ## CAPTURING RECS
 
 In standard mode, the curator knows the flow. Follow the SAVE THRESHOLD
-rule in rec-capture — that is the single source of truth for when to
+rule in rec-capture: that is the single source of truth for when to
 offer a save. Do not override it with "earn the right" or "let it
 emerge" framing from onboarding. That framing does not apply here.
 

@@ -18,7 +18,10 @@ are how we prevent regression on fixes we've already paid for.
 1. Create a new scenario file: `docs/ai-tone-evals/[short-name].md`
 2. Use the scenario template below.
 3. Before deploying the fix, run the scenario manually in the app
-   against the new prompts. Confirm pass.
+   against the new prompts. Confirm pass. **A prompt-level fix is
+   not considered shipped until its scenario passes in production.**
+   If the scenario fails post-deploy, the fix is incomplete and must
+   be iterated.
 4. Reference the scenario file in the commit message.
 
 **When an existing scenario fails:**
@@ -39,14 +42,14 @@ are how we prevent regression on fixes we've already paid for.
 Every scenario file has these sections:
 
 - **Scenario name** (H1)
-- **Purpose** — one sentence, what this scenario protects against
-- **Mode** — onboarding | standard | visitor
-- **Setup** — curator state (rec count, bio present, inviter, etc.)
-- **Turn-by-turn expected behavior** — numbered list of curator
+- **Purpose**: one sentence, what this scenario protects against
+- **Mode**: onboarding | standard | visitor
+- **Setup**: curator state (rec count, bio present, inviter, etc.)
+- **Turn-by-turn expected behavior**: numbered list of curator
   messages and the expected AI behavior for each
-- **Pass criteria** — specific, testable statements
-- **Fail criteria** — specific, testable statements
-- **History** — changelog of edits to this scenario
+- **Pass criteria**: specific, testable statements
+- **Fail criteria**: specific, testable statements
+- **History**: changelog of edits to this scenario
 
 ## How to run a scenario manually
 
@@ -64,5 +67,5 @@ against the chat API and diffs against expected patterns.
 
 ## Current scenarios
 
-- `pacquito-rec-capture.md` — standard mode, WHAT + framing +
+- `pacquito-rec-capture.md`: standard mode, WHAT + framing +
   descriptor on turn 1, must offer save on turn 2
