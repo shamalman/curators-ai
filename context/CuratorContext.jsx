@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { VisitorContext } from "./VisitorContext";
-import { isFeatureEnabled } from "../lib/features.js";
 import { ingestUrlCapture } from "../lib/rec-files/ingest.js";
 
 export const CuratorContext = createContext(null);
@@ -307,13 +306,11 @@ export function CuratorProvider({ children }) {
     }).eq('id', profileId);
     if (trackingError) console.error('TRACKING ERROR:', trackingError);
 
-    // Dual-write to rec_files (Deploy 2b), gated by feature flag.
-    // Runs AFTER the main insert. Failures are logged, never thrown — the main
-    // save path must succeed regardless.
+    // Dual-write to rec_files. Runs AFTER the main insert. Failures are
+    // logged, never thrown — the main save path must succeed regardless.
     let recFileId = null;
     try {
-      const flagEnabled = await isFeatureEnabled(supabase, profileId, 'rec_files_writes_enabled');
-      if (flagEnabled && item.parsedPayload) {
+      if (item.parsedPayload) {
         const handleClean = (profile?.handle || '').replace(/^@/, '');
         const result = await ingestUrlCapture(supabase, {
           curatorId: profileId,
