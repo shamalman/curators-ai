@@ -19,6 +19,7 @@
 - **Hosting:** Vercel, auto-deploys from GitHub main (~60s deploys)
 - **Email:** Resend (subscriber alerts + weekly digests)
 - **Styling:** Inline styles only, no Tailwind
+- **Markdown rendering:** `react-markdown` v10 (added 2026-04-11 for `body_md` rendering in RecDetail). No GFM plugin — plain CommonMark only (no tables, no strikethrough, no autolinks).
 - **No local dev environment.** All changes deploy directly to production. Claude Code for all code execution.
 
 ---
@@ -112,6 +113,34 @@ Service-role POST route called non-blocking from `app/onboarding/page.js` after 
 
 Logs: `[NETWORK_CONTEXT] profileId=… subscription_count=… subscribed_rec_count=… broader_rec_count=…` on success; `[NETWORK_CONTEXT_ERROR]` on failure (returns a user-facing fallback string).
 
+### Rec Files Pipeline (2026-04-11)
+
+`rec_files` is the canonical .rec storage table. As of 2026-04-11 it is **fully populated** for all 30 production recommendations across every curator (bradbarrish, chris, roneil, shamal, warmerdam) — every `recommendations.rec_file_id` is non-null.
+
+**Dual-write — unconditional.** `addRec` in `context/CuratorContext.jsx` (line ~310) inserts into `recommendations` first, then dual-writes to `rec_files` via `lib/rec-files/ingest.js → ingestUrlCapture`. The legacy `rec_files_writes_enabled` feature flag was **removed** on 2026-04-11. The sole gate is now `if (item.parsedPayload)` — every URL/paste/upload save dual-writes for every curator. Failures are logged (`[rec-files] Insert failed:` / `[rec-files] Unexpected dual-write error:`) and never thrown — the main `recommendations` save path always succeeds. After the rec_files insert, `recommendations.rec_file_id` is updated to point at the new row.
+
+**Capture entry points** (each builds a `parsedPayload` envelope shaped like `parse-link`'s response, then hands it back to the client to flow through `addRec`):
+- `app/api/recs/parse-link/route.js` — URL captures. `extraction_mode: 'parsed'`, real `source` block, `body_md` extracted via the parser registry, optional artifact uploaded to the artifacts bucket.
+- `app/api/recs/paste/route.js` — pasted text. `extraction_mode: 'pasted'`, no `source` block, `curator_is_author: true`. AI-infers title/category/tags/why if not provided.
+- `app/api/recs/upload/route.js` — image uploads. `extraction_mode: 'uploaded'`, synthetic `artifact://<sha256>` canonical URL, `curator_is_author: false`.
+
+**buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for assembling the `rec_files` row from a `parsedPayload + curation` pair. Used by all three capture routes (via `addRec → ingestUrlCapture`) and by the backfill script. Honors `parsedPayload.curator_is_author` and `parsedPayload.source_type` overrides so paste/upload routes can stuff flags through the unchanged `addRec` chain without API surface changes.
+
+**Backfill — `scripts/backfill-rec-files.mjs`.** Standalone Node script (`.mjs` because it imports the ESM lib files). Runs against the service role key from `.env.local`.
+- `--curator <handle>` — single curator, defaults LIVE (opt-in `--dry-run`).
+- `--all` — every curator with unlinked recs, defaults DRY (opt-in `--live` to execute). Asymmetric safety by design: global blast radius requires explicit confirmation. 50 ms throttle between row writes in `--all` mode only.
+- Per-row: synthesizes `body_md` from title + category + context + links so `rec_files` has something searchable, marks `extraction.lossy = true` with backfill notes, preserves original `created_at`/`updated_at`/`valid_from` from the legacy row.
+
+**RecDetail rendering** (`components/recs/RecDetail.jsx`).
+- Both `CuratorRecDetail` and `NetworkRecDetail` render `body_md` from `rec_files` via `react-markdown`. Render gate: `body_md && extraction?.mode !== 'backfill' && extraction?.mode !== 'authored'`. Heading is `'Uploaded content'` / `'Pasted content'` / `'Saved content'` based on extraction mode.
+- Section order in both components: **Your Take / Why → Links → Saved Content (body_md) → Tags**.
+- `NetworkRecDetail` does its own two-step Supabase load: `recommendations` → `profiles` → (optional) `rec_files`. Curator side is fed by `CuratorContext` (see below).
+- **Known gap:** `VisitorRecDetail` (lines 653–944) does **not** render `body_md`. If `/{handle}/{slug}` ever routes through it, the body section will be missing. Worth a future audit; out of scope for the current workstream.
+
+**CuratorContext secondary load** (`context/CuratorContext.jsx → loadData`). After fetching `recommendations` for the curator, the context does a second `rec_files` query for all non-null `rec_file_id`s and merges these fields onto each item: `body_md`, `extraction`, `work`, `curation_block` (named `curation_block` to avoid colliding with `rec.context`), `curator_is_author`. Null-safe — items without a rec_file_id (none today) or a failed load still render fine without these fields.
+
+**Logs:** `[rec-files] Inserted <id>`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[NetworkRecDetail] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`.
+
 ### Taste Profile Pipeline
 
 AI-readable markdown document stored in `taste_profiles` table, injected into every system prompt.
@@ -119,6 +148,7 @@ AI-readable markdown document stored in `taste_profiles` table, injected into ev
 - Generated by `lib/taste-profile/generate.js` via `POST /api/generate-taste-profile`
 - Auto-regenerates after every rec save (fire-and-forget from ChatView.jsx, 3+ rec threshold)
 - Reads: recs, subscriptions, taste_confirmations, existing style_summary (as input context)
+- **Enriched from `rec_files` (2026-04-11):** for each rec with a `rec_file_id`, the generator secondary-fetches `rec_files` and prefers structured fields (`work.title`, `work.authors`, `work.site_name`, `curation.why`, `curation.tags`, `curation.conviction`) over the legacy `recommendations` columns. Authored-mode rows with no archived `body_md` fall back to legacy columns. The per-rec line in the prompt now carries authors, site_name, and conviction when present. `sources.rec_files_enriched` tracks the count of enriched recs per generation; `sources.generated_from` is now `'rec_files+recommendations+subscriptions+confirmations'`.
 - `style_summary` is read by the chat route for visitor mode personality (`app/api/chat/route.js`). Regeneration happens via `/api/generate-style-summary`.
 - Document sections: Thesis, Domains, Patterns, Confirmed Observations, Voice & Style, Curators They Subscribe To, Anti-Taste, Stats
 
@@ -187,6 +217,7 @@ The curator's identity hub. Two views accessed via a shared segmented control (M
 - Taste profile confirmation flow (Phase 2)
 - Visitor prompt not extracted to skill system
 - AI web search for link lookup
+- `VisitorRecDetail` (`components/recs/RecDetail.jsx` lines 653–944) does not render `body_md` from `rec_files`. `CuratorRecDetail` and `NetworkRecDetail` both do. If `/{handle}/{slug}` ever routes through `VisitorRecDetail` for individual recs, the body section will be missing.
 
 ---
 
@@ -233,7 +264,7 @@ Notes:
 - Lookups use `handle`.
 - `invited_by` references `profiles.id` of the inviter.
 - `style_summary` is the visitor-AI personality payload, written by `/api/generate-style-summary` and read by the chat route for visitor mode.
-- `feature_flags` is NOT NULL — used by `lib/features.js` for per-curator rollouts (including `.rec` migration gating).
+- `feature_flags` is NOT NULL — `lib/features.js` exports `isFeatureEnabled` / `getFeatureFlags`. As of 2026-04-11 there are **zero callers** of `isFeatureEnabled` in the codebase: the only consumer (`rec_files_writes_enabled`, gating the dual-write to `rec_files`) was removed when the dual-write became unconditional. The helper file is retained for future flag use.
 
 ### chat_messages
 
@@ -292,7 +323,7 @@ Feature-level per-message state lives in the `meta` jsonb column under a feature
 | depth_score | double precision | YES |
 | rec_file_id | text | YES |
 
-Notes: `rec_file_id` is the pointer to `rec_files.id` per the rec-format-v1 migration. Dual-write active until all read paths migrate to `rec_files`.
+Notes: `rec_file_id` is the pointer to `rec_files.id` per the rec-format-v1 migration. **As of 2026-04-11 every production row has a non-null `rec_file_id`** (30/30 across all curators). Dual-write is unconditional on every new save (see "Rec Files Pipeline" above) and will remain active until all read paths migrate to `rec_files`.
 
 ### invite_codes
 
@@ -548,7 +579,7 @@ Key columns:
 Derived table, rebuilt from `rec_files.body_md` whenever a rec is saved. Not populated in Deploy 1 -- just the schema exists.
 
 ### `profiles.feature_flags` column
-JSONB object mapping flag names to booleans. Use `lib/features.js` helpers (`isFeatureEnabled`, `getFeatureFlags`) to check flags.
+JSONB object mapping flag names to booleans. `lib/features.js` exports `isFeatureEnabled` / `getFeatureFlags`. **No active callers as of 2026-04-11** — `rec_files_writes_enabled` was the only consumer and was removed when the dual-write became unconditional. Helper file retained for future flag use.
 
 ### `recommendations.rec_file_id` column
 Soft reference to the `rec_files.id` that corresponds to this legacy rec row. Populated during the backfill step and by dual-writes in Deploy 2 onward. No FK constraint -- intentionally soft during migration.
@@ -585,7 +616,7 @@ lib/prompts/loader.js                    -- skill file loader with cache
 lib/chat/inviter-context.js              -- getInviterContext (independent lookups, fallback path)
 lib/chat/network-context.js              -- getSubscribedRecs (REC_LINK sentinel emission)
 app/api/onboarding/auto-subscribe/route.js -- service-role auto-subscribe new curator to inviter
-lib/taste-profile/generate.js            -- taste profile generation
+lib/taste-profile/generate.js            -- taste profile generation (rec_files-enriched)
 lib/agent/parsers/*.js + registry.js     -- 9 source parsers
 components/chat/ChatView.jsx             -- chat UI, rec save, taste profile regen trigger
 app/api/generate-taste-profile/route.js  -- taste profile API endpoint
@@ -597,4 +628,15 @@ app/[handle]/page.js                     -- visitor profile page (shows MeSegmen
 app/[handle]/layout.js                   -- visitor layout (CuratorProvider + VisitorProvider for logged-in)
 components/layout/BottomTabs.jsx         -- bottom tab bar (mobile)
 components/layout/Sidebar.jsx            -- sidebar nav (desktop)
+context/CuratorContext.jsx               -- curator state, addRec dual-write to rec_files, secondary rec_files load
+components/recs/RecDetail.jsx            -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail; body_md render
+lib/rec-files/build.js                   -- buildRecFileRow: single source of truth for rec_files row shape
+lib/rec-files/ingest.js                  -- ingestUrlCapture: dual-write entry point, never throws
+lib/rec-files/artifact.js                -- artifact upload helper (Supabase storage bucket)
+lib/rec-files/id.js, hash.js             -- ULID + content_sha256 helpers
+lib/features.js                          -- feature flag helpers (no active callers as of 2026-04-11)
+app/api/recs/parse-link/route.js         -- URL capture: parser registry → enriched parsedPayload + artifact
+app/api/recs/paste/route.js              -- paste capture: AI-inferred metadata, extraction_mode 'pasted'
+app/api/recs/upload/route.js             -- image upload: artifact bucket, extraction_mode 'uploaded'
+scripts/backfill-rec-files.mjs           -- standalone backfill: --curator <handle> | --all (--all defaults DRY)
 ```
