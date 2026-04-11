@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
+import { fetchLinkMetadata } from "@/lib/links/fetchLinkMetadata";
 import LinkDisplay from "@/components/shared/LinkDisplay";
 
 // Helper to auto-linkify URLs in text
@@ -295,14 +296,10 @@ export function CuratorRecDetail({ slug }) {
                 const url = prompt("Paste a link:");
                 if (!url) return;
                 try {
-                  const res = await fetch("/api/link-metadata", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url })
-                  });
-                  const meta = await res.json();
-                  const newLink = { type: meta.source?.toLowerCase() || "website", url, label: meta.title || url };
-                  setEditingItem(p => ({ ...p, links: [...(p.links || []), newLink] }));
+                  const meta = await fetchLinkMetadata(url, profile?.id);
+                  const type = meta?.type || "website";
+                  const label = meta?.title || url;
+                  setEditingItem(p => ({ ...p, links: [...(p.links || []), { type, url, label }] }));
                 } catch (e) {
                   const newLink = { type: "website", url, label: url };
                   setEditingItem(p => ({ ...p, links: [...(p.links || []), newLink] }));

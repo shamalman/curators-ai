@@ -14,6 +14,7 @@ import ErrorBoundary from "../shared/ErrorBoundary";
 import FeedUserBubble from "../feed/FeedUserBubble";
 import FeedBlockGroup from "../feed/FeedBlockGroup";
 import FeedLegacyBubble from "../feed/FeedLegacyBubble";
+import { fetchLinkMetadata } from "@/lib/links/fetchLinkMetadata";
 
 const linkStyle = {
   color: T.acc, textDecoration: "underline",
@@ -389,18 +390,10 @@ export default function ChatView({ variant }) {
     let linkMetadata = null;
 
     if (urlMatch && !isVis) {
-      // Track pending link for rec capture flow — no metadata injection into message
       try {
-        const metaRes = await fetch('/api/link-metadata', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urlMatch[0] })
-        });
-        const meta = await metaRes.json();
-        if (meta.title) {
-          linkMetadata = { url: urlMatch[0], title: meta.title, source: meta.source };
-          setPendingLink(linkMetadata);
-        }
+        const meta = await fetchLinkMetadata(urlMatch[0], profileId);
+        linkMetadata = meta ? { url: meta.url, title: meta.title, source: meta.type } : null;
+        if (linkMetadata) setPendingLink(linkMetadata);
       } catch (e) {
         console.log('Could not fetch link metadata');
       }
@@ -790,14 +783,10 @@ export default function ChatView({ variant }) {
     const url = prompt("Paste a link:");
     if (!url) return;
     try {
-      const res = await fetch("/api/link-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      });
-      const meta = await res.json();
-      const newLink = { type: meta.source?.toLowerCase() || "website", url, label: meta.title || url };
-      setEditingCapture(p => ({ ...p, links: [...(p.links || []), newLink] }));
+      const meta = await fetchLinkMetadata(url, profileId);
+      const type = meta?.type || "website";
+      const label = meta?.title || url;
+      setEditingCapture(p => ({ ...p, links: [...(p.links || []), { type, url, label }] }));
     } catch (e) {
       setEditingCapture(p => ({ ...p, links: [...(p.links || []), { type: "website", url, label: url }] }));
     }
