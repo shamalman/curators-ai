@@ -87,21 +87,41 @@ export default function OnboardingPage() {
       }).select("id").single()
       if (insertErr) throw insertErr
 
+      // Parse invite context once and reuse for used_by + auto-subscribe.
+      let ctx = null
+      try {
+        ctx = JSON.parse(localStorage.getItem("invite_context"))
+      } catch (err) {
+        console.error(`[ONBOARDING_CTX_PARSE_FAIL] profileId=${newProfile.id} error=${err.message}`)
+      }
+
       // Mark invite code as used_by this new profile.
       // If this fails, the chat route's getInviterContext fallback will still
       // recover the note via created_by — but we need visibility when it happens.
-      try {
-        const ctx = JSON.parse(localStorage.getItem("invite_context"))
-        if (ctx?.invite_id) {
-          const { error: usedByErr } = await supabase.from("invite_codes").update({
-            used_by: newProfile.id,
-          }).eq("id", ctx.invite_id)
-          if (usedByErr) {
-            console.error(`[ONBOARDING_USED_BY_FAIL] profileId=${newProfile.id} inviteId=${ctx.invite_id} error=${usedByErr.message}`)
-          }
+      if (ctx?.invite_id) {
+        const { error: usedByErr } = await supabase.from("invite_codes").update({
+          used_by: newProfile.id,
+        }).eq("id", ctx.invite_id)
+        if (usedByErr) {
+          console.error(`[ONBOARDING_USED_BY_FAIL] profileId=${newProfile.id} inviteId=${ctx.invite_id} error=${usedByErr.message}`)
         }
-      } catch (err) {
-        console.error(`[ONBOARDING_USED_BY_FAIL] profileId=${newProfile.id} error=${err.message}`)
+      }
+
+      // Auto-subscribe new curator to their inviter — non-blocking.
+      if (ctx?.invited_by) {
+        try {
+          const res = await fetch("/api/onboarding/auto-subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ profileId: newProfile.id, inviterId: ctx.invited_by }),
+          })
+          if (!res.ok) {
+            const body = await res.text()
+            console.error(`[AUTO_SUBSCRIBE_CLIENT_FAIL] profileId=${newProfile.id} inviterId=${ctx.invited_by} status=${res.status} body=${body}`)
+          }
+        } catch (err) {
+          console.error(`[AUTO_SUBSCRIBE_CLIENT_FAIL] profileId=${newProfile.id} inviterId=${ctx.invited_by} error=${err.message}`)
+        }
       }
 
       localStorage.removeItem("invite_context")
