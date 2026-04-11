@@ -205,6 +205,14 @@ export function CuratorRecDetail({ slug }) {
             )}
           </div>
 
+          {/* Links */}
+          {!isEditing && selectedItem.links?.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
+              <LinkDisplay links={selectedItem.links} />
+            </div>
+          )}
+
           {/* Body content from rec_files. Hidden for synthetic backfill rows
               and authored-only recs (no archived body to show). */}
           {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && (
@@ -319,14 +327,6 @@ export function CuratorRecDetail({ slug }) {
               ) : (
                 <button onClick={() => removeItem(selectedItem.id)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "1px solid #EF444430", background: "none", color: "#EF4444", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Delete Recommendation</button>
               )}
-            </div>
-          )}
-
-          {/* Links */}
-          {!isEditing && selectedItem.links?.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
-              <LinkDisplay links={selectedItem.links} />
             </div>
           )}
 
@@ -1123,6 +1123,14 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
+            {/* Links */}
+            {rec.links?.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
+                <LinkDisplay links={rec.links} />
+              </div>
+            )}
+
             {/* Body content from rec_files. Hidden for synthetic backfill rows
                 and authored-only recs (no archived body to show). */}
             {rec.body_md && rec.extraction?.mode !== 'backfill' && rec.extraction?.mode !== 'authored' && (
@@ -1154,13 +1162,6 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
-            {/* Links */}
-            {rec.links?.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, fontFamily: F }}>Links</div>
-                <LinkDisplay links={rec.links} />
-              </div>
-            )}
           </div>
         </div>
       </div>
