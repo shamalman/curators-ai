@@ -43,6 +43,31 @@ export function CuratorRecDetail({ slug }) {
   const [editVisibility, setEditVisibility] = useState("public");
   const [itemCopied, setItemCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+
+  const commitTag = (raw) => {
+    const cleaned = (raw || "").replace(/,/g, "").trim();
+    if (!cleaned) return;
+    setEditingItem(p => {
+      if (!p) return p;
+      if ((p.tags || []).includes(cleaned)) return p;
+      return { ...p, tags: [...(p.tags || []), cleaned] };
+    });
+    setTagInput("");
+  };
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      e.preventDefault();
+      commitTag(tagInput);
+    } else if (e.key === "Backspace" && tagInput === "") {
+      setEditingItem(p => p ? { ...p, tags: (p.tags || []).slice(0, -1) } : p);
+    }
+  };
+
+  const removeTag = (idx) => {
+    setEditingItem(p => p ? { ...p, tags: (p.tags || []).filter((_, i) => i !== idx) } : p);
+  };
 
   // Local earnings config (defaults)
   const [itemSubOnly, setItemSubOnly] = useState({ 10: true, 5: true });
@@ -273,8 +298,21 @@ export function CuratorRecDetail({ slug }) {
           {isEditing && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Tags</div>
-              <input value={editingItem.tags.join(", ")} onChange={e => setEditingItem(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
-                placeholder="Comma separated tags"
+              {editingItem.tags?.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {editingItem.tags.map((tag, i) => (
+                    <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 12px", borderRadius: 8, fontSize: 12, background: T.s, color: T.ink2, border: "1px solid " + T.bdr, fontFamily: F }}>
+                      {tag}
+                      <button type="button" onClick={() => removeTag(i)} style={{ background: "none", border: "none", color: T.ink3, cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={() => commitTag(tagInput)}
+                placeholder="Type a tag, press space or enter"
                 style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, fontSize: 13, fontFamily: F, outline: "none", background: T.s, color: T.ink }}
               />
             </div>
