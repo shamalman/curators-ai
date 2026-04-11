@@ -59,31 +59,48 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 const { values: args } = parseArgs({
   options: {
     curator: { type: 'string' },
+    all: { type: 'boolean', default: false },
+    live: { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
     verbose: { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
 });
 
-if (args.help || !args.curator) {
+if (args.help || (!args.curator && !args.all)) {
   console.log(`
 Backfill rec_files from legacy recommendations.
 
-Required: --curator <handle>
+Required (one of):
+  --curator <handle>   Single curator. LIVE by default; pass --dry-run to preview.
+  --all                Every curator with unlinked recs. DRY by default; pass --live to execute.
+
 Optional:
-  --dry-run    Show what would happen, write nothing
+  --dry-run    --curator only: preview without writing
+  --live       --all only: actually execute (otherwise dry-run)
   --verbose    Per-row detail
   --help       This message
 
 Examples:
   node scripts/backfill-rec-files.mjs --curator shamal --dry-run
   node scripts/backfill-rec-files.mjs --curator shamal
+  node scripts/backfill-rec-files.mjs --all              # dry-run
+  node scripts/backfill-rec-files.mjs --all --live       # execute
 `);
   process.exit(args.help ? 0 : 1);
 }
 
-const DRY = args['dry-run'];
+if (args.curator && args.all) {
+  console.error('Cannot pass both --curator and --all. Pick one.');
+  process.exit(1);
+}
+
+// Safety asymmetry by design:
+//   --curator defaults LIVE  (dry-run is opt-in)   ← preserves prior behavior
+//   --all     defaults DRY   (live is opt-in)      ← global blast radius
+const DRY = args.all ? !args.live : args['dry-run'];
 const VERBOSE = args.verbose;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -151,39 +168,12 @@ function mapVisibility(v) {
   return 'taste-file-only';
 }
 
-// --- Main ---
+// --- Per-curator processing ---
 
-async function main() {
-  console.log(`\n=== Backfill @${args.curator} ===`);
-  console.log(`Mode: ${DRY ? 'DRY RUN (no writes)' : 'LIVE'}`);
-  console.log();
-
-  // Resolve curator profile
-  let { data: profile, error: profileErr } = await supabase
-    .from('profiles')
-    .select('id, handle')
-    .eq('handle', args.curator)
-    .single();
-
-  if (profileErr || !profile) {
-    // Try with leading @
-    const { data: profile2, error: profile2Err } = await supabase
-      .from('profiles')
-      .select('id, handle')
-      .eq('handle', `@${args.curator}`)
-      .single();
-    if (profile2Err || !profile2) {
-      console.error(`Curator "${args.curator}" not found (tried both with and without @).`);
-      process.exit(1);
-    }
-    profile = profile2;
-  }
-
+async function processCurator(profile) {
   const curatorHandle = cleanHandle(profile.handle);
-  console.log(`Curator ID:     ${profile.id}`);
-  console.log(`Curator handle: ${curatorHandle}`);
+  console.log(`\n--- @${curatorHandle} (${profile.id}) ---`);
 
-  // Fetch legacy recs for this curator
   const { data: recs, error: recsErr } = await supabase
     .from('recommendations')
     .select('id, title, category, context, tags, links, visibility, created_at, updated_at, rec_file_id')
@@ -191,15 +181,13 @@ async function main() {
     .order('created_at', { ascending: true });
 
   if (recsErr) {
-    console.error('Failed to fetch recommendations:', recsErr.message);
-    process.exit(1);
+    console.error(`  Failed to fetch recommendations: ${recsErr.message}`);
+    return { migrated: 0, skipped: 0, errored: 0, createdRecFileIds: [] };
   }
 
-  console.log(`\nFound ${recs.length} total recommendations for this curator.`);
   const alreadyBackfilled = recs.filter(r => r.rec_file_id).length;
-  console.log(`  ${alreadyBackfilled} already have rec_file_id (will skip)`);
-  console.log(`  ${recs.length - alreadyBackfilled} to migrate`);
-  console.log();
+  const toMigrate = recs.length - alreadyBackfilled;
+  console.log(`  ${recs.length} total, ${alreadyBackfilled} linked, ${toMigrate} to migrate`);
 
   let migrated = 0;
   let skipped = 0;
@@ -343,22 +331,111 @@ async function main() {
       migrated++;
       createdRecFileIds.push(row.id);
       console.log(`  ${rec.id.slice(0, 8)}… → ${row.id} (${row.extraction.mode})`);
+
+      // Throttle in --all mode to avoid hammering Supabase across many curators.
+      if (args.all) await sleep(50);
     } catch (e) {
       console.error(`  EXCEPTION on ${rec.id}: ${e.message || e}`);
       errored++;
     }
   }
 
+  return { migrated, skipped, errored, createdRecFileIds };
+}
+
+// --- Main ---
+
+async function resolveSingleCurator(handleArg) {
+  let { data: profile } = await supabase
+    .from('profiles')
+    .select('id, handle')
+    .eq('handle', handleArg)
+    .single();
+  if (!profile) {
+    const { data: profile2 } = await supabase
+      .from('profiles')
+      .select('id, handle')
+      .eq('handle', `@${handleArg}`)
+      .single();
+    profile = profile2 || null;
+  }
+  return profile;
+}
+
+async function resolveAllCuratorsWithUnlinkedRecs() {
+  // Two-step: distinct profile_ids with rec_file_id IS NULL, then their profiles.
+  const { data: rows, error: scanErr } = await supabase
+    .from('recommendations')
+    .select('profile_id')
+    .is('rec_file_id', null);
+
+  if (scanErr) {
+    console.error('Failed to scan recommendations:', scanErr.message);
+    process.exit(1);
+  }
+
+  const distinctIds = [...new Set((rows || []).map(r => r.profile_id).filter(Boolean))];
+  if (distinctIds.length === 0) return [];
+
+  const { data: profs, error: profsErr } = await supabase
+    .from('profiles')
+    .select('id, handle')
+    .in('id', distinctIds);
+
+  if (profsErr) {
+    console.error('Failed to fetch profiles:', profsErr.message);
+    process.exit(1);
+  }
+
+  return profs || [];
+}
+
+async function main() {
+  console.log(`\n=== Backfill ${args.all ? '(ALL curators)' : `@${args.curator}`} ===`);
+  console.log(`Mode: ${DRY ? 'DRY RUN (no writes)' : 'LIVE'}`);
+
+  let profiles = [];
+
+  if (args.all) {
+    profiles = await resolveAllCuratorsWithUnlinkedRecs();
+    console.log(`Curators with unlinked recs: ${profiles.length}`);
+    if (profiles.length === 0) {
+      console.log('Nothing to do.');
+      return;
+    }
+  } else {
+    const profile = await resolveSingleCurator(args.curator);
+    if (!profile) {
+      console.error(`Curator "${args.curator}" not found (tried both with and without @).`);
+      process.exit(1);
+    }
+    profiles = [profile];
+  }
+
+  const totals = { migrated: 0, skipped: 0, errored: 0 };
+  const allCreatedIds = [];
+
+  for (const profile of profiles) {
+    const r = await processCurator(profile);
+    totals.migrated += r.migrated;
+    totals.skipped += r.skipped;
+    totals.errored += r.errored;
+    allCreatedIds.push(...r.createdRecFileIds);
+  }
+
   console.log();
   console.log('=== Summary ===');
   console.log(`Mode:     ${DRY ? 'DRY RUN' : 'LIVE'}`);
-  console.log(`Migrated: ${migrated}`);
-  console.log(`Skipped:  ${skipped}`);
-  console.log(`Errored:  ${errored}`);
-  if (!DRY && createdRecFileIds.length > 0) {
+  console.log(`Curators: ${profiles.length}`);
+  console.log(`Migrated: ${totals.migrated}`);
+  console.log(`Skipped:  ${totals.skipped}`);
+  console.log(`Errored:  ${totals.errored}`);
+  // Per-curator mode prints the full ID list (small, useful for spot-checking).
+  // --all mode skips it — could be hundreds of IDs and they're already logged inline.
+  if (!DRY && !args.all && allCreatedIds.length > 0) {
     console.log();
     console.log('Created rec_file IDs:');
-    for (const id of createdRecFileIds) console.log(`  ${id}`);
+    for (const id of allCreatedIds) console.log(`  ${id}`);
   }
 }
 
