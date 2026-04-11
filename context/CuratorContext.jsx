@@ -97,7 +97,8 @@ export function CuratorProvider({ children }) {
           return {
             id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
             title: r.title, category: r.category, context: r.context,
-            tags: r.tags || [], links: r.links || [], date: r.created_at?.split("T")[0],
+            tags: (r.tags && r.tags.length > 0) ? r.tags : (recFile?.curation?.tags || []),
+            links: r.links || [], date: r.created_at?.split("T")[0],
             visibility: r.visibility || "public", revision: r.revision || 1,
             earnableMode: r.earnable_mode || "none",
             revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
