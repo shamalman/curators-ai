@@ -246,12 +246,14 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       }
 
       inviterCtx = await getInviterContext(profileId);
+      const onboardingNetworkContext = profileId ? await getSubscribedRecs(profileId) : '';
       systemPrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
         inviterHandle: inviterCtx.inviterHandle,
         inviterNote: inviterCtx.inviterNote,
         tasteProfileBlock,
+        networkContext: onboardingNetworkContext,
       }) + recsContext + linkContextBlock;
     } else {
       // Fetch taste profile for injection
