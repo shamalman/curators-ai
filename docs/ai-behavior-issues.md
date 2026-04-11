@@ -22,19 +22,7 @@ This file is the persistent layer for AI behavior work. Individual fixes happen 
 
 ## Open
 
-### In-chat rec capture uses affirmation as context
-
-**Observed:** April 8, 2026 (Deploy 2 testing). Also confirmed pre-existing on production from April 7. Root cause confirmed April 10, 2026 during recon.
-
-**What happens:** When the AI asks "Want me to save it?" after a curator shares a rec in conversation, and the curator replies "Yes" (or similar short affirmation), the capture card's `context` field gets populated with "Yes" instead of the curator's actual description.
-
-**Example:** Curator said "I've been loving the new Neurosis album, heavy dark ambient sounds, good for when I'm angry." AI asked "Want me to save it?" Curator said "Yes." Capture card saved with title "Help Me by Neurosis" and context `"Yes"` instead of the heavy dark ambient description.
-
-**Root cause (April 10 recon):** NOT in the `rec-capture.md` skill — the skill correctly instructs the AI to synthesize context from all curator messages. The bug lives in server-side fallback logic at `lib/chat/rec-extraction.js:45-51` and `:71-77`. When `validateRecContext` finds the AI's context is empty OR fails verbatim-substring validation against the curator corpus, the fallback takes `currentMessage` wholesale — which is "Yes" in this scenario.
-
-**Fix direction:** When falling back, walk backwards through conversation history, skip pure affirmations (yes, yeah, save it, do it, sure, ok, etc. — define a blocklist), and pick the first substantive curator message (minimum length threshold). If no substantive message exists in recent history, fall back to an empty string rather than a meaningless affirmation.
-
-**Priority:** P1. Degrades core capture quality. Visible to every curator who captures via chat. Highest-visibility AI quality issue for new testers.
+*(none)*
 
 ---
 
@@ -68,4 +56,20 @@ Not AI behavior bugs strictly — these are code references to DB tables or colu
 
 ## Resolved
 
-*(none yet)*
+### [Resolved: 2026-04-10, commit `6f0de6c`] In-chat rec capture uses affirmation as context
+
+**Fix summary:** Added `findSubstantiveMessage()` helper in `lib/chat/rec-extraction.js` that walks history backwards, skips pure affirmations, and returns the first substantive user message. Both `validateRecContext` fallback paths (empty context, verbatim-violation) now use this helper instead of `currentMessage`. Empty string returned when nothing substantive found (better than meaningless "Yes").
+
+---
+
+**Observed:** April 8, 2026 (Deploy 2 testing). Also confirmed pre-existing on production from April 7. Root cause confirmed April 10, 2026 during recon.
+
+**What happens:** When the AI asks "Want me to save it?" after a curator shares a rec in conversation, and the curator replies "Yes" (or similar short affirmation), the capture card's `context` field gets populated with "Yes" instead of the curator's actual description.
+
+**Example:** Curator said "I've been loving the new Neurosis album, heavy dark ambient sounds, good for when I'm angry." AI asked "Want me to save it?" Curator said "Yes." Capture card saved with title "Help Me by Neurosis" and context `"Yes"` instead of the heavy dark ambient description.
+
+**Root cause (April 10 recon):** NOT in the `rec-capture.md` skill — the skill correctly instructs the AI to synthesize context from all curator messages. The bug lived in server-side fallback logic at `lib/chat/rec-extraction.js:45-51` and `:71-77`. When `validateRecContext` found the AI's context was empty OR failed verbatim-substring validation against the curator corpus, the fallback took `currentMessage` wholesale — which was "Yes" in this scenario.
+
+**Fix direction:** When falling back, walk backwards through conversation history, skip pure affirmations (yes, yeah, save it, do it, sure, ok, etc. — define a blocklist), and pick the first substantive curator message (minimum length threshold). If no substantive message exists in recent history, fall back to an empty string rather than a meaningless affirmation.
+
+**Priority:** P1. Degrades core capture quality. Visible to every curator who captures via chat. Highest-visibility AI quality issue for new testers.
