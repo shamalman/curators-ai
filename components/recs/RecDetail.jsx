@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
@@ -204,8 +205,9 @@ export function CuratorRecDetail({ slug }) {
             )}
           </div>
 
-          {/* Deploy 3.2: pasted/uploaded body content */}
-          {selectedItem.body_md && (selectedItem.extraction?.mode === 'pasted' || selectedItem.extraction?.mode === 'uploaded') && (
+          {/* Body content from rec_files. Hidden for synthetic backfill rows
+              and authored-only recs (no archived body to show). */}
+          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && (
             <div style={{
               marginTop: 16, marginBottom: 16, padding: "16px 20px",
               borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
@@ -215,13 +217,12 @@ export function CuratorRecDetail({ slug }) {
                 textTransform: "uppercase", letterSpacing: ".06em",
                 marginBottom: 10, fontFamily: F,
               }}>
-                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content' : 'Pasted content'}
+                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content'
+                  : selectedItem.extraction?.mode === 'pasted' ? 'Pasted content'
+                  : 'Saved content'}
               </div>
-              <div style={{
-                fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55,
-                whiteSpace: "pre-wrap", wordBreak: "break-word",
-              }}>
-                {selectedItem.body_md}
+              <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
+                <ReactMarkdown>{selectedItem.body_md}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -950,25 +951,64 @@ export function NetworkRecDetail({ slug }) {
 
   useEffect(() => {
     async function load() {
-      // Try by slug first, then by ID
-      let { data } = await supabase
+      // Two-step queries (no join aliases). Try slug first, then id.
+      const bySlug = await supabase
         .from("recommendations")
-        .select("*, profiles(id, name, handle)")
+        .select("*")
         .eq("slug", slug)
         .eq("status", "approved")
         .eq("visibility", "public")
         .limit(1)
         .maybeSingle();
+      if (bySlug.error) console.warn("[NetworkRecDetail] slug lookup failed:", bySlug.error.message);
+
+      let data = bySlug.data;
       if (!data) {
-        const res = await supabase
+        const byId = await supabase
           .from("recommendations")
-          .select("*, profiles(id, name, handle)")
+          .select("*")
           .eq("id", slug)
           .eq("visibility", "public")
           .limit(1)
           .maybeSingle();
-        data = res.data;
+        if (byId.error) console.warn("[NetworkRecDetail] id lookup failed:", byId.error.message);
+        data = byId.data;
       }
+
+      if (!data) {
+        setRec(null);
+        setLoading(false);
+        return;
+      }
+
+      // Two-step profile lookup (no join alias)
+      const profileRes = await supabase
+        .from("profiles")
+        .select("id, name, handle")
+        .eq("id", data.profile_id)
+        .maybeSingle();
+      if (profileRes.error) console.warn("[NetworkRecDetail] profile lookup failed:", profileRes.error.message);
+      data.curator = profileRes.data || null;
+
+      // Secondary rec_files load — null-safe. If it fails or returns nothing,
+      // the rec still renders normally without body_md.
+      if (data.rec_file_id) {
+        const recFileRes = await supabase
+          .from("rec_files")
+          .select("id, body_md, extraction, work, curation, curator_is_author")
+          .eq("id", data.rec_file_id)
+          .maybeSingle();
+        if (recFileRes.error) {
+          console.warn("[NetworkRecDetail] rec_files secondary load failed:", recFileRes.error.message);
+        } else if (recFileRes.data) {
+          data.body_md = recFileRes.data.body_md || null;
+          data.extraction = recFileRes.data.extraction || null;
+          data.work = recFileRes.data.work || null;
+          data.curation_block = recFileRes.data.curation || null;
+          data.curator_is_author = recFileRes.data.curator_is_author || false;
+        }
+      }
+
       setRec(data);
       setLoading(false);
     }
@@ -994,7 +1034,7 @@ export function NetworkRecDetail({ slug }) {
   }
 
   const c = CAT[rec.category] || CAT.other;
-  const curator = rec.profiles || {};
+  const curator = rec.curator || {};
   const isBookmarked = savedRecIds.has(rec.id);
   const isSubscribed = curator.id ? mySubscriptionIds.has(curator.id) : false;
   const item = { ...rec, date: rec.created_at?.split("T")[0] };
@@ -1080,6 +1120,28 @@ export function NetworkRecDetail({ slug }) {
                 <p style={{ fontSize: 15, lineHeight: 1.6, color: T.ink, fontFamily: F, whiteSpace: "pre-line" }}>
                   <Linkify text={rec.context} style={{ fontSize: 15, fontFamily: F }} />
                 </p>
+              </div>
+            )}
+
+            {/* Body content from rec_files. Hidden for synthetic backfill rows
+                and authored-only recs (no archived body to show). */}
+            {rec.body_md && rec.extraction?.mode !== 'backfill' && rec.extraction?.mode !== 'authored' && (
+              <div style={{
+                marginBottom: 20, padding: "16px 20px",
+                borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
+              }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: T.ink3,
+                  textTransform: "uppercase", letterSpacing: ".06em",
+                  marginBottom: 10, fontFamily: F,
+                }}>
+                  {rec.extraction?.mode === 'uploaded' ? 'Uploaded content'
+                    : rec.extraction?.mode === 'pasted' ? 'Pasted content'
+                    : 'Saved content'}
+                </div>
+                <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
+                  <ReactMarkdown>{rec.body_md}</ReactMarkdown>
+                </div>
               </div>
             )}
 

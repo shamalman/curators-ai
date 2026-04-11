@@ -82,7 +82,7 @@ export function CuratorProvider({ children }) {
         if (recFileIds.length > 0) {
           const { data: recFilesData, error: recFilesErr } = await supabase
             .from("rec_files")
-            .select("id, body_md, extraction, curator_is_author")
+            .select("id, body_md, extraction, work, curation, curator_is_author")
             .in("id", recFileIds);
 
           if (recFilesErr) {
@@ -101,11 +101,13 @@ export function CuratorProvider({ children }) {
             visibility: r.visibility || "public", revision: r.revision || 1,
             earnableMode: r.earnable_mode || "none",
             revisions: [{ rev: r.revision || 1, date: r.created_at?.split("T")[0], change: "Created" }],
-            // Deploy 3.2: body_md and extraction from rec_files secondary load.
+            // body_md / extraction / work / curation from rec_files secondary load.
             // Null-safe — items without a rec_file_id or failed load render fine
             // without these fields; the UI just doesn't show the body section.
             body_md: recFile?.body_md || null,
             extraction: recFile?.extraction || null,
+            work: recFile?.work || null,
+            curation_block: recFile?.curation || null,
             curator_is_author: recFile?.curator_is_author || false,
           };
         }));
