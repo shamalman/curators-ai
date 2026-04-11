@@ -1,13 +1,11 @@
-# CLAUDE.md -- Curators.AI Engineering Guide
+# CLAUDE.md — Curators.AI Engineering Guide
 ## Last updated: April 11, 2026
 
 ---
 
-## Mission & Vision
+## Mission
 
-**Mission:** Preserve, access, and amplify human curation.
-**Vision:** Build equally for curators (capture, share, earn from taste) and subscribers (find trusted curators, discover great recommendations).
-**Core paradigm:** A newsletter you can talk to.
+Preserve, access, and amplify human curation. Build equally for curators (capture, share, earn from taste) and subscribers (find trusted curators, discover great recs).
 
 ---
 
@@ -15,16 +13,16 @@
 
 - **Framework:** Next.js 14 (App Router)
 - **Database:** Supabase (PostgreSQL + RLS + PostgREST)
-- **AI:** Anthropic Claude API (Sonnet for generation, system prompts for chat). SDK version: 0.80.0. Model ID pinned in `app/api/chat/route.js`: `claude-sonnet-4-20250514`.
-- **Hosting:** Vercel, auto-deploys from GitHub main (~60s deploys)
-- **Email:** Resend (subscriber alerts + weekly digests)
+- **AI:** Anthropic Claude API. SDK 0.80.0. Model ID pinned in `app/api/chat/route.js`: `claude-sonnet-4-20250514`
+- **Hosting:** Vercel, auto-deploys from GitHub main (~60s)
+- **Email:** Resend
 - **Styling:** Inline styles only, no Tailwind
-- **Markdown rendering:** `react-markdown` v10 (added 2026-04-11 for `body_md` rendering in RecDetail). No GFM plugin — plain CommonMark only (no tables, no strikethrough, no autolinks).
-- **No local dev environment.** All changes deploy directly to production. Claude Code for all code execution.
+- **Markdown rendering:** `react-markdown` v10, no GFM plugin (plain CommonMark only)
+- **No local dev environment.** All changes deploy directly to production via GitHub → Vercel.
 
 ---
 
-## Vocabulary Rules (enforce everywhere: code, prompts, UI, comments)
+## Vocabulary (enforce everywhere: code, prompts, UI, comments)
 
 - "subscribe" not "follow"
 - "curator" not "user" or "creator"
@@ -35,608 +33,117 @@
 
 ## Key Development Rules
 
-1. **Read files before editing.** Always read current state before making changes.
+1. **Read files before editing.** Always `cat` current state first.
 2. **No silent catch {}.** Always surface errors explicitly.
 3. **No Supabase join aliases.** Use two-step queries instead.
-4. **After new DB columns/tables:** run `NOTIFY pgrst, 'reload schema'` in SQL Editor. PostgREST silently drops unknown columns without this.
+4. **After new DB columns/tables:** run `NOTIFY pgrst, 'reload schema'` in Supabase SQL Editor. PostgREST silently drops unknown columns without this.
 5. **No em dashes** in AI skill files, prompt text, or AI output.
-6. **Verify column existence** before writing queries.
+6. **Verify column existence** before writing queries against unfamiliar tables.
 7. **Add RLS policies** for new write operations.
-8. **Deploy one change at a time.** Each deploy independently testable.
-9. **Descriptive commit messages.** Explain what changed and why.
-10. **Hard refresh Safari** after deploys to see changes.
+8. **Deploy one change at a time.** Each deploy independently testable on iPhone Safari.
+9. **Descriptive commit messages.**
+10. **Hard refresh Safari** after deploys.
 
 ---
 
-## Architecture Overview
+## Architecture
+
+### Rec Storage
+
+Two tables — parent/child, both active:
+- `recommendations` — flat queryable metadata (title, slug, category, tags, context, links, visibility, profile_id, rec_file_id)
+- `rec_files` — canonical structured content blocks (body_md, work, curation, source, provenance, extraction, visibility). See `docs/rec-files-migration.md`.
+
+**Dual-write is unconditional.** Every URL/paste/upload save writes to both tables. Gate: `if (item.parsedPayload)` in `addRec` (CuratorContext.jsx ~line 310). Failures logged, never thrown. All 30 production rows have `rec_file_id` populated as of 2026-04-11.
+
+**Capture flow:** `parse-link / paste / upload` route → `parsedPayload` envelope → client → `addRec` → `recommendations` insert → `ingestUrlCapture` → `rec_files` insert → `recommendations.rec_file_id` update.
+
+**buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for the `rec_files` row shape.
+
+**RecDetail section order:** Your Take / Why → Links → Saved Content (body_md) → Tags. Body renders via `react-markdown`. Gate: `body_md && mode !== 'backfill' && mode !== 'authored'`. **Known gap:** `VisitorRecDetail` (RecDetail.jsx lines 653–944) does not render body_md.
+
+**CuratorContext secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe.
+
+### Chat Route (app/api/chat/route.js)
+
+**Modes:** Onboarding (< 3 recs OR no bio) | Standard (3+ recs AND bio) | Visitor (another curator's /ask page).
+
+Both onboarding and standard inject `getSubscribedRecs(profileId)` network context into the system prompt.
+
+**Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks).
+
+**Rec capture:** AI emits `[REC]{...}[/REC]` JSON. `validateRecContext` strips metadata pollution, falls back to last substantive user message (skips pure affirmations).
+
+**Action buttons:** Feature B (`save_image_rec:<sha256>`) and Feature C (`save_rec_from_chat:<url>`). Suppressed if `[REC]` block also emitted in same turn.
+
+**REC_LINK sentinel:** Rec lines in network context carry `[REC_LINK: /<handle>/<slug>]`. Prompt instructs AI to render as markdown links. Canonical rec URL: `/{handle}/{slug}`.
 
 ### AI Skills System
 
-15 modular .md skill files in `lib/prompts/skills/`:
-vocabulary, no-hallucinations, base-personality, link-handling, image-handling, rec-capture, taste-reflection, agent-handling, network-recs, onboarding-approach, standard-approach, subscriber-approach, visitor-approach, feedback-handling, trust-building
-
-`loadSkill(name)` in `lib/prompts/loader.js` reads and caches skill files.
-
-Build functions in `lib/prompts/`:
-- `buildOnboardingPrompt` (onboarding.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + feedback-handling + trust-building + onboarding-approach. Accepts `networkContext` param (wired into the chat route's onboarding branch as of 2026-04-11) and appends `SUBSCRIPTION_GROUNDING_RULE` at the end of the prompt.
-- `buildStandardPrompt` (standard.js): vocabulary + no-hallucinations + base-personality + link-handling + image-handling + rec-capture + taste-reflection + agent-handling + network-recs + feedback-handling + trust-building + standard-approach. Also appends `SUBSCRIPTION_GROUNDING_RULE` at the end.
-- `SUBSCRIPTION_GROUNDING_RULE` (duplicated in both build files, must stay in sync): tells the AI the SUBSCRIBED RECOMMENDATIONS block is ground truth, never invent/deny subscription state, and to render `[REC_LINK: <path>]` sentinels as markdown links using the rec title.
-- `buildSubscriberPrompt`: skill file exists (subscriber-approach.md), but no build function or route wiring yet
-- Visitor prompt: still inline in chat route, not extracted to a build function
-
-### Chat Route Flow (app/api/chat/route.js)
-
-**Mode detection:**
-- Onboarding: < 3 recs OR no bio
-- Standard: 3+ recs AND bio
-- Visitor: accessing another curator's /ask page
-
-Both onboarding and standard modes call `getSubscribedRecs(profileId)` from `lib/chat/network-context.js` and inject the result into the system prompt. As of 2026-04-11, onboarding mode is no longer skipped — a curator auto-subscribed to their inviter at signup will see the inviter's recs from the very first chat turn.
-
-**Link handling:** Link parsing is synchronous -- parse before Claude responds, no background agent path for link content. Up to 3 URLs detected per message (bare domains auto-normalized with https://). All URLs parsed concurrently via Promise.all with 15s timeout. Quality signals (FULL/PARTIAL/FAILED) injected into system prompt as labeled === PARSED LINK CONTENT === blocks. Parsed content persisted on the user's chat_messages row (parsed_content JSONB) and re-injected on follow-up turns within a 5-message window. If parsing fails, AI says so honestly.
-
-**Rec extraction:** [REC] JSON parsed from AI response. `validateRecContext` trusts AI's context field, strips metadata pollution ([Pending link:...], [Link metadata:...], [REC]...[/REC]), falls back to last user message if context is empty.
-
-**Content blocks:** Text, MediaEmbed, and ActionButtons rendered in feed. ActionButtons are emitted by Feature B (image rec save prompt, action `save_image_rec:<sha256>`) and Feature C (link rec save prompt, action `save_rec_from_chat:<url>`). Suppressed if the AI also emitted a `[REC]` capture in the same turn (no double-save).
-
-**Re-injection of parsed link content:** `distillForReinjection` (in `lib/chat/link-parsing.js`) bounds older parsed content to ~800 chars per block, capped at 2 blocks per turn, when re-replaying parsed links from prior `chat_messages.parsed_content`. Prevents the context-bloat / hallucination bug where 60KB articles were re-injected verbatim every turn.
-
-**Feedback capture:** AI detects feedback intent, emits [FEEDBACK] JSON blocks. Chat route extracts, saves to feedback table, emails founder via Resend, strips block from visible response.
-
-**Structured logging:** `[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[LINK_PARSE_LOG_ERROR]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[ONBOARDING_USED_BY_FAIL]`, `[ONBOARDING_CTX_PARSE_FAIL]`
-
-### Inviter Pipe & Auto-subscribe (2026-04-11)
-
-End-to-end onboarding link from invite code → opening message → first-turn network context.
-
-**`lib/chat/inviter-context.js` — `getInviterContext(profileId)`**
-Three independent lookups (each `.maybeSingle()`, never `.single()`), so a failure in one does not wipe the others:
-1. `profiles.invited_by` — bails out if missing.
-2. Inviter's `name`/`handle` from `profiles`.
-3. `inviter_note` — primary path: `invite_codes WHERE used_by = profileId`. Fallback path: most recent `invite_codes WHERE created_by = profile.invited_by` (recovers the note even when onboarding never wrote `used_by`). Logs `[INVITER_CONTEXT]` with `path=primary|fallback|none` and per-field resolved booleans.
-
-**`lib/prompts/onboarding.js`**
-- Writes `INVITER NOTE: (none)` (parenthesized sentinel) when missing — the bare word `none` is no longer used.
-- `lib/prompts/skills/onboarding-approach.md` matches the `(none)` sentinel for variant selection.
-
-**`generateOpening` fallback (`app/api/chat/route.js`)**
-On Anthropic API error during the opening generation, the route returns an inviter-aware fallback when `inviterCtx.inviterName` is present (`"Hi — {inviterName} brought you into Curators..."`), otherwise the generic Record greeting. Logs `[OPENING_FALLBACK]`.
-
-**Auto-subscribe — `app/api/onboarding/auto-subscribe/route.js`**
-Service-role POST route called non-blocking from `app/onboarding/page.js` after the `used_by` write. Validates UUID shape, blocks self-subscribe, then defends against client forgery by confirming `profiles.invited_by === inviterId`. Idempotent: checks for an existing `subscriptions` row first, clears `unsubscribed_at` on resubscribe, otherwise inserts. Race-safe: `23505` unique violation is treated as success. All paths emit `[AUTO_SUBSCRIBE] result=created|exists|reactivated|exists_race|...`. Onboarding never blocks on this — failures log `[AUTO_SUBSCRIBE_CLIENT_FAIL]` and the curator still lands on `/myai`.
-
-### Network Context & REC_LINK Rendering
-
-`lib/chat/network-context.js → getSubscribedRecs(profileId)` returns the `SUBSCRIBED RECOMMENDATIONS` + `BROADER NETWORK` blocks injected into the system prompt for both standard and onboarding modes.
-
-**REC_LINK sentinel.** Each rec line in the network context (and the curator's own recs context in the chat route) is suffixed with `[REC_LINK: /<handle>/<slug>]` when a slug exists. The `SUBSCRIPTION_GROUNDING_RULE` in the prompt instructs the AI to render any rec it references as a markdown link `[<rec title>](<path>)` using the exact path from the sentinel. Never invent paths. This is the canonical mechanism for clickable rec titles in AI output. Canonical rec detail URL: `/{handle}/{slug}` (no `/c/` or `/r/` prefix). Note: `recommendations` has no `curator_handle` column — handle is resolved via the existing two-step profile lookup.
-
-Logs: `[NETWORK_CONTEXT] profileId=… subscription_count=… subscribed_rec_count=… broader_rec_count=…` on success; `[NETWORK_CONTEXT_ERROR]` on failure (returns a user-facing fallback string).
-
-### Rec Files Pipeline (2026-04-11)
-
-`rec_files` is the canonical .rec storage table. As of 2026-04-11 it is **fully populated** for all 30 production recommendations across every curator (bradbarrish, chris, roneil, shamal, warmerdam) — every `recommendations.rec_file_id` is non-null.
-
-**Dual-write — unconditional.** `addRec` in `context/CuratorContext.jsx` (line ~310) inserts into `recommendations` first, then dual-writes to `rec_files` via `lib/rec-files/ingest.js → ingestUrlCapture`. The legacy `rec_files_writes_enabled` feature flag was **removed** on 2026-04-11. The sole gate is now `if (item.parsedPayload)` — every URL/paste/upload save dual-writes for every curator. Failures are logged (`[rec-files] Insert failed:` / `[rec-files] Unexpected dual-write error:`) and never thrown — the main `recommendations` save path always succeeds. After the rec_files insert, `recommendations.rec_file_id` is updated to point at the new row.
-
-**Capture entry points** (each builds a `parsedPayload` envelope shaped like `parse-link`'s response, then hands it back to the client to flow through `addRec`):
-- `app/api/recs/parse-link/route.js` — URL captures. `extraction_mode: 'parsed'`, real `source` block, `body_md` extracted via the parser registry, optional artifact uploaded to the artifacts bucket.
-- `app/api/recs/paste/route.js` — pasted text. `extraction_mode: 'pasted'`, no `source` block, `curator_is_author: true`. AI-infers title/category/tags/why if not provided.
-- `app/api/recs/upload/route.js` — image uploads. `extraction_mode: 'uploaded'`, synthetic `artifact://<sha256>` canonical URL, `curator_is_author: false`.
-
-**buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for assembling the `rec_files` row from a `parsedPayload + curation` pair. Used by all three capture routes (via `addRec → ingestUrlCapture`) and by the backfill script. Honors `parsedPayload.curator_is_author` and `parsedPayload.source_type` overrides so paste/upload routes can stuff flags through the unchanged `addRec` chain without API surface changes.
-
-**Backfill — `scripts/backfill-rec-files.mjs`.** Standalone Node script (`.mjs` because it imports the ESM lib files). Runs against the service role key from `.env.local`.
-- `--curator <handle>` — single curator, defaults LIVE (opt-in `--dry-run`).
-- `--all` — every curator with unlinked recs, defaults DRY (opt-in `--live` to execute). Asymmetric safety by design: global blast radius requires explicit confirmation. 50 ms throttle between row writes in `--all` mode only.
-- Per-row: synthesizes `body_md` from title + category + context + links so `rec_files` has something searchable, marks `extraction.lossy = true` with backfill notes, preserves original `created_at`/`updated_at`/`valid_from` from the legacy row.
-
-**RecDetail rendering** (`components/recs/RecDetail.jsx`).
-- Both `CuratorRecDetail` and `NetworkRecDetail` render `body_md` from `rec_files` via `react-markdown`. Render gate: `body_md && extraction?.mode !== 'backfill' && extraction?.mode !== 'authored'`. Heading is `'Uploaded content'` / `'Pasted content'` / `'Saved content'` based on extraction mode.
-- Section order in both components: **Your Take / Why → Links → Saved Content (body_md) → Tags**.
-- `NetworkRecDetail` does its own two-step Supabase load: `recommendations` → `profiles` → (optional) `rec_files`. Curator side is fed by `CuratorContext` (see below).
-- **Known gap:** `VisitorRecDetail` (lines 653–944) does **not** render `body_md`. If `/{handle}/{slug}` ever routes through it, the body section will be missing. Worth a future audit; out of scope for the current workstream.
-
-**CuratorContext secondary load** (`context/CuratorContext.jsx → loadData`). After fetching `recommendations` for the curator, the context does a second `rec_files` query for all non-null `rec_file_id`s and merges these fields onto each item: `body_md`, `extraction`, `work`, `curation_block` (named `curation_block` to avoid colliding with `rec.context`), `curator_is_author`. Null-safe — items without a rec_file_id (none today) or a failed load still render fine without these fields.
-
-**Logs:** `[rec-files] Inserted <id>`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[NetworkRecDetail] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`.
+15 skill files in `lib/prompts/skills/`. Build functions: `buildOnboardingPrompt` and `buildStandardPrompt` in `lib/prompts/`. Both append `SUBSCRIPTION_GROUNDING_RULE` (must stay in sync between the two files).
 
 ### Taste Profile Pipeline
 
-AI-readable markdown document stored in `taste_profiles` table, injected into every system prompt.
+Generated by `lib/taste-profile/generate.js` via `POST /api/generate-taste-profile`. Auto-regenerates after every rec save (3+ rec threshold, fire-and-forget from ChatView.jsx). As of 2026-04-11, enriched from `rec_files` — prefers `work.title`, `work.authors`, `work.site_name`, `curation.why`, `curation.tags`, `curation.conviction` over legacy `recommendations` columns. `sources.generated_from` = `'rec_files+recommendations+subscriptions+confirmations'`.
 
-- Generated by `lib/taste-profile/generate.js` via `POST /api/generate-taste-profile`
-- Auto-regenerates after every rec save (fire-and-forget from ChatView.jsx, 3+ rec threshold)
-- Reads: recs, subscriptions, taste_confirmations, existing style_summary (as input context)
-- **Enriched from `rec_files` (2026-04-11):** for each rec with a `rec_file_id`, the generator secondary-fetches `rec_files` and prefers structured fields (`work.title`, `work.authors`, `work.site_name`, `curation.why`, `curation.tags`, `curation.conviction`) over the legacy `recommendations` columns. Authored-mode rows with no archived `body_md` fall back to legacy columns. The per-rec line in the prompt now carries authors, site_name, and conviction when present. `sources.rec_files_enriched` tracks the count of enriched recs per generation; `sources.generated_from` is now `'rec_files+recommendations+subscriptions+confirmations'`.
-- `style_summary` is read by the chat route for visitor mode personality (`app/api/chat/route.js`). Regeneration happens via `/api/generate-style-summary`.
-- Document sections: Thesis, Domains, Patterns, Confirmed Observations, Voice & Style, Curators They Subscribe To, Anti-Taste, Stats
+### Inviter Pipe & Auto-subscribe
 
----
-
-## Current AI Behavior
-
-### Opening Message
-- Three variants based on inviter context: inviter+note, inviter only, no inviter
-- Uses curator's name, "I'm your Record" intro
-- Ends with kickoff questions
-- Variant selector triggers on `(none)` sentinel (parenthesized) when `inviter_note` is missing — see Inviter Pipe section
-- API error fallback is inviter-aware: uses inviter name when present, generic greeting otherwise
-
-### Link Handling
-- Links auto-read on paste. Content parsed inline and injected into prompt.
-- AI engages with content naturally. No "taste read or recommendation?" buttons.
-- AI never says "I can't read this link." If parsing fails, it says so honestly.
-- Expanded intent regex catches natural language ("read this", "analyze that")
-
-### Rec Capture
-- Organic flow: listen for WHAT + WHY, reflect back, confirm, then [REC]
-- "I want to recommend X" is intent, not confirmation. AI asks for the WHY first.
-- First rec gets intro: "I'm going to save that as your first recommendation below..."
-- After first rec: brief "Got it." or "On it."
-- Context scoped to messages after last [REC] block. Intent/confirmation messages filtered out.
-- Post-capture: if curator wants to edit, AI directs to Edit button.
-
-### Rec Capture Format
-```
-[REC]{"title":"...","context":"...","tags":[...],"category":"listen","content_type":"album","links":[{"url":"...","label":"..."}]}[/REC]
-```
-Categories: watch | listen | read | visit | get | wear | play | other
-
-### Taste Reads
-- Inline in the chat response. No agent pipeline, no banners (banner/polling system removed from ChatView.jsx).
-- Parser called with 15s timeout via Promise.race
-- Content injected into system prompt, Claude delivers taste read in same streaming response
-
----
-
-## Me Section (/me)
-
-The curator's identity hub. Two views accessed via a shared segmented control (MeSegmentedControl):
-
-**Taste File** (`/me`, default): Read-only styled rendering of the curator's taste profile markdown from `taste_profiles` table. Parses sections (Thesis, Domains, Patterns, Voice & Style, Subscriptions, Confirmed Observations, Anti-Taste, Stats) and renders each with custom styling. CTA links to `/myai`. Empty state for curators without a taste profile.
-
-**Public Profile** (`/@handle`, owner viewing): The real `VisitorProfile` component with MeSegmentedControl rendered above it when `isOwner` is true. This means the curator sees their actual public profile at the shareable URL. Non-owners and logged-out visitors see the profile without the segmented control (unchanged behavior).
-
-**Architecture:**
-- `/me` lives in `app/(curator)/me/` route group (gets CuratorProvider + CuratorShell)
-- `app/(curator)/me/layout.js` renders MeSegmentedControl with `active="taste"` + children
-- `app/(curator)/me/page.js` renders TasteFileView directly
-- `app/[handle]/page.js` conditionally renders MeSegmentedControl with `active="profile"` when isOwner is true
-- `components/me/MeSegmentedControl.jsx` is the shared pill control (navigates to `/me` or `/@handle`)
-- `components/me/TasteFileView.jsx` fetches and renders taste profile markdown
-- Me tab in BottomTabs/Sidebar is active on `/me` OR when pathname matches own handle
-- `/me` is NOT in middleware's `curatorOnlyPaths` -- auth is handled by the (curator) route group
-- `'me'` is a reserved handle word in onboarding
+`getInviterContext` in `lib/chat/inviter-context.js` — three independent `.maybeSingle()` lookups so one failure doesn't wipe the rest. Auto-subscribe route: `app/api/onboarding/auto-subscribe/route.js` — service-role, idempotent, race-safe (treats `23505` as success), non-blocking.
 
 ---
 
 ## What's Not Wired Yet
 
-- buildSubscriberPrompt: skill file exists, no build function or route wiring
-- Taste profile confirmation flow (Phase 2)
+- `buildSubscriberPrompt`: skill file exists, no build function or route wiring
 - Visitor prompt not extracted to skill system
 - AI web search for link lookup
-- `VisitorRecDetail` (`components/recs/RecDetail.jsx` lines 653–944) does not render `body_md` from `rec_files`. `CuratorRecDetail` and `NetworkRecDetail` both do. If `/{handle}/{slug}` ever routes through `VisitorRecDetail` for individual recs, the body section will be missing.
+- `VisitorRecDetail` does not render `body_md` — known gap, needs future audit
 
 ---
 
-## Database Schema
+## Key Log Markers
 
-> To regenerate this section, run `scripts/dump-schema.sql` in Supabase SQL Editor and replace the tables below with fresh output. Multi-table results may truncate — verify each table's column count looks right, and re-query scoped to one table if anything looks short.
-
-Source of truth: `information_schema.columns` snapshot from 2026-04-10. Do not edit these tables by hand unless updating from a fresh live query.
-
-Categories (used on recommendations and rec_files): watch | listen | read | visit | get | wear | play | other
-
-### profiles
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| name | text | NO |
-| handle | text | NO |
-| bio | text | YES |
-| ai_enabled | boolean | YES |
-| accept_requests | boolean | YES |
-| show_recs | boolean | YES |
-| crypto_enabled | boolean | YES |
-| wallet | text | YES |
-| created_at | timestamptz | YES |
-| updated_at | timestamptz | YES |
-| auth_user_id | uuid | YES |
-| onboarding_complete | boolean | YES |
-| invited_by | uuid | YES |
-| location | text | YES |
-| style_summary | jsonb | YES |
-| last_seen_at | timestamptz | YES |
-| last_action | text | YES |
-| last_action_at | timestamptz | YES |
-| show_subscriptions | boolean | YES |
-| show_subscribers | boolean | YES |
-| social_links | jsonb | YES |
-| weekly_digest_enabled | boolean | YES |
-| new_subscriber_email_enabled | boolean | YES |
-| unlimited_invites | boolean | YES |
-| feature_flags | jsonb | NO |
-
-Notes:
-- Lookups use `handle`.
-- `invited_by` references `profiles.id` of the inviter.
-- `style_summary` is the visitor-AI personality payload, written by `/api/generate-style-summary` and read by the chat route for visitor mode.
-- `feature_flags` is NOT NULL — `lib/features.js` exports `isFeatureEnabled` / `getFeatureFlags`. As of 2026-04-11 there are **zero callers** of `isFeatureEnabled` in the codebase: the only consumer (`rec_files_writes_enabled`, gating the dual-write to `rec_files`) was removed when the dual-write became unconditional. The helper file is retained for future flag use.
-
-### chat_messages
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | NO |
-| role | text | NO |
-| text | text | NO |
-| captured_rec | jsonb | YES |
-| created_at | timestamptz | YES |
-| blocks | jsonb | YES |
-| interactions | jsonb | YES |
-| parsed_content | jsonb | YES |
-| rec_refs | jsonb | NO |
-| meta | jsonb | YES |
-
-Notes:
-- Uses `profile_id` not `user_id`.
-- Uses `text` not `message` or `content`.
-- `parsed_content` is deprecated per rec-format-v1 migration plan — still written for backward compat, will be dropped after chat route is fully migrated to `rec_refs` → `rec_files`.
-- `rec_refs` is NOT NULL (defaults to empty array).
-- `interactions` is an array of button-tap event objects (`{block_index, action, interacted_at}`). Do NOT overwrite with an object.
-- `meta` convention: see "`chat_messages.meta` convention" section below.
-
-### `chat_messages.meta` convention
-
-Feature-level per-message state lives in the `meta` jsonb column under a feature-specific key. Do NOT add new columns for per-message feature state — add a key under `meta` instead.
-
-**Reserved keys:**
-- `imageRecCandidate` — image save candidate state (Feature B)
-
-**Rules:**
-- New features needing per-message metadata must add their own key under `meta`.
-- Do not reuse another feature's key.
-- Document new reserved keys here when added.
-
-### recommendations
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | NO |
-| title | text | NO |
-| category | text | NO |
-| context | text | YES |
-| tags | ARRAY | YES |
-| links | jsonb | YES |
-| visibility | text | YES |
-| status | text | YES |
-| revision | integer | YES |
-| slug | text | YES |
-| earnable_mode | text | YES |
-| created_at | timestamptz | YES |
-| updated_at | timestamptz | YES |
-| depth_score | double precision | YES |
-| rec_file_id | text | YES |
-
-Notes: `rec_file_id` is the pointer to `rec_files.id` per the rec-format-v1 migration. **As of 2026-04-11 every production row has a non-null `rec_file_id`** (30/30 across all curators). Dual-write is unconditional on every new save (see "Rec Files Pipeline" above) and will remain active until all read paths migrate to `rec_files`.
-
-### invite_codes
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| code | text | NO |
-| created_by | uuid | YES |
-| used_by | uuid | YES |
-| used_at | timestamptz | YES |
-| created_at | timestamptz | YES |
-| inviter_note | text | YES |
-
-Notes: Before deleting a profile, clear both `created_by` and `used_by` on any referencing rows.
-
-### agent_jobs
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | YES |
-| source_type | text | NO |
-| source_url | text | NO |
-| status | text | YES |
-| raw_data | jsonb | YES |
-| extracted_recs | jsonb | YES |
-| taste_analysis | jsonb | YES |
-| error_message | text | YES |
-| started_at | timestamptz | YES |
-| completed_at | timestamptz | YES |
-| created_at | timestamptz | YES |
-| presented_at | timestamptz | YES |
-
-### taste_profiles
-
-**Active Taste File storage.** Code at `lib/taste-profile/generate.js`, `components/me/TasteFileView.jsx`, `app/api/chat/route.js`.
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | YES |
-| content | text | NO |
-| version | integer | YES |
-| sources | jsonb | YES |
-| generated_at | timestamptz | YES |
-
-Notes:
-- `content` is the markdown Taste File body, rendered in the Me tab.
-- `version` increments on regeneration.
-- `sources` is a JSONB array of rec IDs and chat message IDs that informed the generation.
-- `profile_id` should probably be NOT NULL + UNIQUE — verify and tighten in a future migration.
-
-### taste_confirmations
-
-Per-curator confirmed taste observations — the append-only record of things the curator has explicitly confirmed about their taste. Feeds into `taste_profiles.content` regeneration.
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | YES |
-| type | text | NO |
-| observation | text | NO |
-| source | text | YES |
-| created_at | timestamptz | YES |
-
-Notes:
-- `type` values: `taste_read_confirmed`, `correction`, `explicit_statement`, `anti_taste` (per rec-format-v1 spec).
-- `observation` is the canonical statement of the confirmed taste fact.
-- `source` is a freeform pointer to where the observation came from (rec ID, chat message ID, etc.).
-- Append-only: confirmed entries are sacred and never dropped during taste profile regeneration.
-
-### feedback
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | YES |
-| handle | text | YES |
-| original_message | text | YES |
-| elaboration | text | YES |
-| summary | text | YES |
-| status | text | YES |
-| created_at | timestamptz | YES |
-
-### notification_log
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| type | text | NO |
-| recipient_id | uuid | YES |
-| recipient_email | text | NO |
-| curator_id | uuid | YES |
-| rec_ids | ARRAY | YES |
-| sent_at | timestamptz | YES |
-| status | text | YES |
-
-### email_tokens
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| token | text | NO |
-| profile_id | uuid | NO |
-| action | text | NO |
-| payload | jsonb | YES |
-| expires_at | timestamptz | NO |
-| used_at | timestamptz | YES |
-| created_at | timestamptz | YES |
-
-### link_parse_log
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| profile_id | uuid | YES |
-| url | text | NO |
-| source_type | text | YES |
-| parse_quality | text | NO |
-| content_length | integer | YES |
-| parse_time_ms | integer | YES |
-| error_message | text | YES |
-| ai_response_excerpt | text | YES |
-| ai_acknowledged_failure | boolean | YES |
-| metadata | jsonb | YES |
-| created_at | timestamptz | YES |
-
-### bundles
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| curator_id | uuid | NO |
-| name | text | NO |
-| price | numeric | YES |
-| created_at | timestamptz | YES |
-
-### rec_files
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | text | NO |
-| version | integer | NO |
-| schema_version | text | NO |
-| curator_id | uuid | NO |
-| curator_handle | text | NO |
-| curator_is_author | boolean | NO |
-| created_at | timestamptz | NO |
-| updated_at | timestamptz | NO |
-| valid_from | date | NO |
-| valid_until | date | YES |
-| superseded_by | text | YES |
-| body_md | text | NO |
-| content_sha256 | text | NO |
-| source | jsonb | YES |
-| work | jsonb | NO |
-| curation | jsonb | NO |
-| visibility | jsonb | NO |
-| provenance | jsonb | NO |
-| extraction | jsonb | NO |
-| signature | jsonb | YES |
-| relationships | jsonb | YES |
-| location | jsonb | YES |
-| affiliate | jsonb | YES |
-| claims | jsonb | YES |
-
-Notes: Primary key is `(id, version)` composite per the rec-format-v1 spec. `body_md` is the canonical markdown body; `rec_blocks` is rebuilt deterministically from this.
-
-### rec_blocks
-
-| Column | Type | Nullable |
-|---|---|---|
-| block_id | text | NO |
-| rec_id | text | NO |
-| rec_version | integer | NO |
-| block_index | integer | NO |
-| block_type | text | NO |
-| block_text | text | NO |
-| char_start | integer | NO |
-| char_end | integer | NO |
-| created_at | timestamptz | NO |
-
-Notes: Derived table. Rebuilt from `rec_files.body_md` — never edited directly. FK to `(rec_files.id, rec_files.version)`.
-
-### saved_recs
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| user_id | uuid | NO |
-| recommendation_id | uuid | NO |
-| saved_at | timestamptz | YES |
-
-Notes: Uses `user_id` (not `profile_id`) — inconsistent with the rest of the schema, flagged for future migration.
-
-### subscribers
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| curator_id | uuid | NO |
-| email | text | NO |
-| tier | text | YES |
-| subscribed_at | timestamptz | YES |
-| digest_frequency | text | YES |
-| last_notified_at | timestamptz | YES |
-| unsubscribed_at | timestamptz | YES |
-
-Notes: Email-only subscribers, no account. Digest sent only for the specific curator they subscribed to.
-
-### subscriptions
-
-| Column | Type | Nullable |
-|---|---|---|
-| id | uuid | NO |
-| subscriber_id | uuid | NO |
-| curator_id | uuid | NO |
-| subscribed_at | timestamptz | YES |
-| unsubscribed_at | timestamptz | YES |
-| digest_frequency | text | YES |
-| last_notified_at | timestamptz | YES |
-
-Notes: Account-holder subscriptions. `subscriber_id` and `curator_id` both reference `profiles.id`. Gets unified network digest across all subscriptions.
-
-### Legacy tables (exist in DB, not referenced by code)
-
-- `curator_taste_profiles` — superseded by `taste_profiles`. No active code path reads or writes this table as of 2026-04-10. Safe to drop in a future cleanup migration after confirming no RLS policies or triggers depend on it.
-
----
-
-**Last full schema audit:** 2026-04-10
-
----
-
-## New schema as of Deploy 1 of `.rec` migration (April 2026)
-
-### `rec_files` table
-Canonical storage for recommendations in the new `.rec` format. See `rec-format-v1-spec.md` v1.0.2 for the full format specification.
-
-Key columns:
-- `id` (text, part of primary key) -- ULID format `rec_<26chars>`
-- `version` (integer, part of primary key) -- monotonic version number
-- `curator_id` (uuid) -- FK to profiles
-- `curator_handle` (text) -- denormalized handle for export convenience
-- `body_md` (text) -- the Markdown body of the rec
-- `content_sha256` (text) -- SHA-256 of body_md only
-- `source`, `work`, `curation`, `visibility`, `provenance`, `extraction` (jsonb) -- structured blocks
-- `signature`, `relationships`, `location`, `affiliate`, `claims` (jsonb) -- reserved for v2+
-
-`rec_files.superseded_by` is a soft reference (TEXT, no FK constraint). The self-referencing FK was dropped in Deploy 1 because (a) supersession logic isn't implemented yet and (b) the original constraint design was incorrect -- it joined on version, which prevented the cross-version relationship supersession requires. Revisit if/when supersession is actually built.
-
-### `rec_blocks` table
-Derived table, rebuilt from `rec_files.body_md` whenever a rec is saved. Not populated in Deploy 1 -- just the schema exists.
-
-### `profiles.feature_flags` column
-JSONB object mapping flag names to booleans. `lib/features.js` exports `isFeatureEnabled` / `getFeatureFlags`. **No active callers as of 2026-04-11** — `rec_files_writes_enabled` was the only consumer and was removed when the dual-write became unconditional. Helper file retained for future flag use.
-
-### `recommendations.rec_file_id` column
-Soft reference to the `rec_files.id` that corresponds to this legacy rec row. Populated during the backfill step and by dual-writes in Deploy 2 onward. No FK constraint -- intentionally soft during migration.
-
-### `chat_messages.rec_refs` column
-JSONB array of rec_file IDs that this chat message references. Empty by default. Populated starting in Deploy 4 when the chat route migrates to read from `rec_files`.
+`[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[rec-files] Inserted`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`
 
 ---
 
 ## Source Parsers (lib/agent/parsers/)
 
-9 parsers registered in `registry.js`:
-- **Spotify** (spotify.js): tracks, albums, playlists, artists via oEmbed
-- **Apple Music** (apple-music.js): songs, albums, playlists via oEmbed
-- **YouTube** (youtube.js): videos via oEmbed
-- **SoundCloud** (soundcloud.js): tracks via oEmbed
-- **Letterboxd** (letterboxd.js): film pages, scrapes metadata
-- **Goodreads** (goodreads.js): book pages, scrapes metadata
-- **Google Maps** (google-maps.js): single places only, scrapes metadata
-- **Twitter/X** (twitter.js): single tweets via oEmbed
-- **Generic Webpage** (webpage.js): defuddle for clean content extraction and markdown output. 100K content limit. Universal fallback -- all http/https URLs route here if no platform parser matches.
-
-Instagram and Bandcamp deferred.
+9 parsers: Spotify, Apple Music, YouTube, SoundCloud, Letterboxd, Goodreads, Google Maps, Twitter/X, Generic Webpage (Defuddle — universal fallback). Instagram and Bandcamp deferred.
 
 ---
 
 ## Key File Paths
+app/api/chat/route.js                      -- chat route, mode detection, link handling, rec extraction
+lib/prompts/skills/*.md                    -- 15 AI skill files
+lib/prompts/onboarding.js, standard.js     -- system prompt builders (both carry SUBSCRIPTION_GROUNDING_RULE)
+lib/prompts/loader.js                      -- skill loader with cache
+lib/chat/inviter-context.js                -- getInviterContext
+lib/chat/network-context.js                -- getSubscribedRecs + REC_LINK sentinel
+lib/chat/link-parsing.js                   -- distillForReinjection
+app/api/onboarding/auto-subscribe/route.js -- service-role auto-subscribe
+lib/taste-profile/generate.js              -- taste profile generation (rec_files-enriched as of 2026-04-11)
+lib/agent/parsers/*.js + registry.js       -- 9 source parsers
+components/chat/ChatView.jsx               -- chat UI, rec save, taste profile regen trigger
+context/CuratorContext.jsx                 -- curator state, addRec dual-write, secondary rec_files load
+components/recs/RecDetail.jsx              -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail
+lib/rec-files/build.js                     -- buildRecFileRow (single source of truth for rec_files shape)
+lib/rec-files/ingest.js                    -- ingestUrlCapture (dual-write entry point, never throws)
+lib/rec-files/artifact.js                  -- artifact upload helper
+lib/features.js                            -- feature flag helpers (no active callers as of 2026-04-11)
+app/api/recs/parse-link/route.js           -- URL capture + artifact upload
+app/api/recs/paste/route.js                -- paste capture, AI-inferred metadata
+app/api/recs/upload/route.js               -- image upload, extraction_mode 'uploaded'
+scripts/backfill-rec-files.mjs             -- backfill: --curator <handle> | --all --live
+app/api/generate-taste-profile/route.js    -- taste profile API endpoint
+app/(curator)/me/                          -- Me section (TasteFileView + Public Profile)
+app/[handle]/                              -- visitor profile + /ask page
+components/layout/BottomTabs.jsx           -- mobile nav
+components/layout/Sidebar.jsx              -- desktop nav
 
-```
-app/api/chat/route.js                    -- chat route, mode detection, link handling, rec extraction
-lib/prompts/skills/*.md                  -- 15 AI skill files
-lib/prompts/onboarding.js, standard.js   -- system prompt build functions (both carry SUBSCRIPTION_GROUNDING_RULE)
-lib/prompts/loader.js                    -- skill file loader with cache
-lib/chat/inviter-context.js              -- getInviterContext (independent lookups, fallback path)
-lib/chat/network-context.js              -- getSubscribedRecs (REC_LINK sentinel emission)
-app/api/onboarding/auto-subscribe/route.js -- service-role auto-subscribe new curator to inviter
-lib/taste-profile/generate.js            -- taste profile generation (rec_files-enriched)
-lib/agent/parsers/*.js + registry.js     -- 9 source parsers
-components/chat/ChatView.jsx             -- chat UI, rec save, taste profile regen trigger
-app/api/generate-taste-profile/route.js  -- taste profile API endpoint
-app/(curator)/me/layout.js               -- Me section layout with segmented control
-app/(curator)/me/page.js                 -- Me page, renders TasteFileView
-components/me/MeSegmentedControl.jsx     -- shared pill toggle (Taste File / Public Profile)
-components/me/TasteFileView.jsx          -- taste profile markdown renderer
-app/[handle]/page.js                     -- visitor profile page (shows MeSegmentedControl for owner)
-app/[handle]/layout.js                   -- visitor layout (CuratorProvider + VisitorProvider for logged-in)
-components/layout/BottomTabs.jsx         -- bottom tab bar (mobile)
-components/layout/Sidebar.jsx            -- sidebar nav (desktop)
-context/CuratorContext.jsx               -- curator state, addRec dual-write to rec_files, secondary rec_files load
-components/recs/RecDetail.jsx            -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail; body_md render
-lib/rec-files/build.js                   -- buildRecFileRow: single source of truth for rec_files row shape
-lib/rec-files/ingest.js                  -- ingestUrlCapture: dual-write entry point, never throws
-lib/rec-files/artifact.js                -- artifact upload helper (Supabase storage bucket)
-lib/rec-files/id.js, hash.js             -- ULID + content_sha256 helpers
-lib/features.js                          -- feature flag helpers (no active callers as of 2026-04-11)
-app/api/recs/parse-link/route.js         -- URL capture: parser registry → enriched parsedPayload + artifact
-app/api/recs/paste/route.js              -- paste capture: AI-inferred metadata, extraction_mode 'pasted'
-app/api/recs/upload/route.js             -- image upload: artifact bucket, extraction_mode 'uploaded'
-scripts/backfill-rec-files.mjs           -- standalone backfill: --curator <handle> | --all (--all defaults DRY)
-```
+---
+
+## Schema Reference
+
+Full schema with column types: `docs/schema.md`
+Rec files migration history and architecture decisions: `docs/rec-files-migration.md`
