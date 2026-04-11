@@ -30,7 +30,26 @@ This file is the persistent layer for AI behavior work. Individual fixes happen 
 
 Not AI behavior bugs strictly — these are code references to DB tables or columns that don't exist. Live bugs waiting to fire the moment the code path executes. Tracked here alongside AI behavior work so they don't get lost.
 
-### `unsupported_source_requests` table referenced in code but doesn't exist
+### Chat route [FEEDBACK] extraction writes to nonexistent columns
+
+**Discovered:** April 10, 2026 (feedback chip recon).
+
+**What happens:** app/api/chat/route.js lines 458–462 insert into the feedback table using columns `message` and `category`. Neither column exists. The actual feedback table has `original_message`, `elaboration`, `summary`, `handle`, `profile_id`, `status`. PostgREST silently drops unknown columns, so the feedback content is lost on every AI-extracted [FEEDBACK] block — only profile_id is saved correctly.
+
+**Fix direction:** Update the chat route's feedback insert to use the correct column names: `original_message` instead of `message`, drop `category` or map it into `summary`. Align with the shape in app/api/feedback/route.js which is correct.
+
+**Priority:** P2. The feedback chip (direct submission) bypasses this path entirely and works correctly. This only affects AI-detected feedback in conversation, which is a secondary path.
+
+---
+
+## Resolved
+
+### [Resolved: 2026-04-10, no code commit needed] `unsupported_source_requests` table referenced in code but doesn't exist
+
+**Resolved:** 2026-04-10, no code commit needed
+**Fix summary:** Table already existed with correct schema. Code in app/api/agent/submit/route.js was already correct. Silent failure was due to missing table, now confirmed present. No changes required.
+
+---
 
 **Discovered:** April 10, 2026 (schema audit round 2, commit `dd05e70`). Recon confirmed the reference at `app/api/agent/submit/route.js` and previously at `app/api/account/reset/route.js` (reset route reference removed in a later commit — check git log).
 
@@ -53,8 +72,6 @@ Not AI behavior bugs strictly — these are code references to DB tables or colu
 **Do NOT fix in a schema audit thread** — needs its own focused thread with code archaeology before deciding create-vs-remove.
 
 ---
-
-## Resolved
 
 ### [Resolved: 2026-04-10, commit `c245e05`] AI is too chatty before offering to save a rec
 
