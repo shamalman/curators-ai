@@ -8,7 +8,7 @@ import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
-import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection } from "../../../lib/chat/link-parsing.js";
+import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection, buildRecFileContextBlock } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 import { uploadArtifact } from "../../../lib/rec-files/artifact.js";
 import { ingestChatParsedBlocks } from "../../../lib/chat/chat-parse-ingest.js";
@@ -157,34 +157,46 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
     const hasNewParsedContent = parsedLinkBlocks.some(b => b.quality !== 'failed');
     if (!isVisitor && profileId && !generateOpening && !hasNewParsedContent) {
       try {
-        const { data: recentMessages } = await sb
+        const { data: recentMsgs } = await sb
           .from('chat_messages')
-          .select('parsed_content')
+          .select('parsed_content, rec_refs')
           .eq('profile_id', profileId)
           .order('created_at', { ascending: false })
           .limit(5);
 
-        if (recentMessages) {
-          const withContent = recentMessages.find(m => m.parsed_content && m.parsed_content.length > 0);
-          if (withContent) {
-            // Distill each block down to a bounded reference (~800 chars max).
-            // Cap at 2 blocks total to protect context window -- if an earlier
-            // message had 3+ URLs, we only replay the most relevant 2.
-            // Deploy 4: fixes the context bloat / hallucination bug where
-            // 60KB articles were being re-injected verbatim on every turn.
-            const REINJECT_BLOCK_CAP = 2;
-            let injectedCount = 0;
-            for (const block of withContent.parsed_content) {
-              if (injectedCount >= REINJECT_BLOCK_CAP) break;
-              const distilled = distillForReinjection(block);
-              if (distilled) {
-                linkContextBlock += distilled;
-                injectedCount++;
+        if (recentMsgs) {
+          const msgWithContent = recentMsgs.find(m =>
+            (Array.isArray(m.rec_refs) && m.rec_refs.length > 0) ||
+            (Array.isArray(m.parsed_content) && m.parsed_content.length > 0)
+          );
+
+          if (msgWithContent) {
+            const hasRecRefs = Array.isArray(msgWithContent.rec_refs) && msgWithContent.rec_refs.length > 0;
+
+            if (hasRecRefs) {
+              // New path: fetch rec_files rows and build structured blocks
+              const idsToFetch = msgWithContent.rec_refs.slice(0, 2);
+              const { data: recFileRows, error: recFilesErr } = await sb
+                .from('rec_files')
+                .select('id, body_md, work, source')
+                .in('id', idsToFetch);
+
+              if (recFilesErr) {
+                console.error('[chat-route] rec_files re-injection fetch error:', recFilesErr.message);
+              } else if (recFileRows?.length > 0) {
+                linkContextBlock += recFileRows.map(row => buildRecFileContextBlock(row)).join('\n\n');
+                console.log('[chat-route] re-injection via rec_refs:', idsToFetch);
               }
-            }
-            if (injectedCount > 0) {
-              const urls = withContent.parsed_content.slice(0, injectedCount).map(b => b.url).join(',');
-              console.log(`[REINJECTION_APPLIED] profile=${profileId} blocks=${injectedCount} urls=${urls}`);
+            } else {
+              // Fallback path: use distillForReinjection on parsed_content
+              const reinjBlocks = (msgWithContent.parsed_content || []).slice(0, 2);
+              const distilled = reinjBlocks
+                .map(block => distillForReinjection(block))
+                .filter(Boolean);
+              if (distilled.length > 0) {
+                linkContextBlock += distilled.join('');
+                console.log('[chat-route] re-injection via parsed_content fallback');
+              }
             }
           }
         }
