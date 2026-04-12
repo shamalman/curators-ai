@@ -73,7 +73,6 @@ export default function ChatView({ variant }) {
   const { profile, setProfile, profileId, isFirstTime, tasteItems, messages, setMessages, dbLoaded, prevMsgCount, addRec, saveMsgToDb, saveProfileFromChat, isOwner } = useCurator();
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [typingStatus, setTypingStatus] = useState("Thinking...");
   const [pendingLink, setPendingLink] = useState(null);
   const [editingCapture, setEditingCapture] = useState(null);
   const [captureLinkInputs, setCaptureLinkInputs] = useState({});
@@ -386,14 +385,6 @@ export default function ChatView({ variant }) {
     setInput("");
     setPendingImage(null);
     setTyping(true);
-    setTypingStatus("Thinking...");
-    const userText = input.trim();
-    const hasUrl = /https?:\/\/\S+/.test(userText);
-    const statusTimers = [];
-    if (hasUrl) {
-      statusTimers.push(setTimeout(() => setTypingStatus("Reading your link..."), 2000));
-    }
-    statusTimers.push(setTimeout(() => setTypingStatus("Almost there..."), 8000));
     isWaitingForResponse.current = true;
 
     const isVis = !isCurator;
@@ -434,9 +425,7 @@ export default function ChatView({ variant }) {
       });
 
       const data = await response.json();
-      statusTimers.forEach(t => clearTimeout(t));
       setTyping(false);
-      setTypingStatus("Thinking...");
       isWaitingForResponse.current = false;
 
       let text = data.message || '';
@@ -493,9 +482,7 @@ export default function ChatView({ variant }) {
       }
     } catch (error) {
       console.error('Chat error:', error);
-      statusTimers.forEach(t => clearTimeout(t));
       setTyping(false);
-      setTypingStatus("Thinking...");
       isWaitingForResponse.current = false;
       setMessages(m => [...m, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
     }
@@ -1117,7 +1104,7 @@ export default function ChatView({ variant }) {
             })}
             </ErrorBoundary>
             {typing && <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 12 }}>
-              <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span style={{ fontSize: 14, color: W.aiText, fontFamily: F, fontStyle: "italic" }}>{typingStatus}</span></div>
+              <div style={{ padding: "14px 18px", background: W.aiBub, borderRadius: "20px 20px 20px 6px", border: `1px solid ${W.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
             </div>}
             <div ref={chatEnd} />
             {showScrollBtn && <button onClick={() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); setShowScrollBtn(false); }} style={{ position: "sticky", bottom: 8, left: "50%", transform: "translateX(-50%)", width: 36, height: 36, borderRadius: 18, background: W.s2, border: "1px solid " + W.bdr, color: T.ink2, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 10 }}>{"\u2193"}</button>}
@@ -1240,7 +1227,7 @@ export default function ChatView({ variant }) {
           <div style={{ width: 26, height: 26, borderRadius: 9, background: `linear-gradient(145deg, ${T.s2}, ${T.s})`, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 8, marginTop: 2, flexShrink: 0 }}>
             <span style={{ fontFamily: S, fontSize: 13, color: T.acc, fontWeight: 400 }}>{profile.name[0]}</span>
           </div>
-          <div style={{ padding: "14px 18px", background: V.aiBub, borderRadius: "20px 20px 20px 6px", boxShadow: `inset 0 0 0 1px ${V.bdr}` }}><span style={{ fontSize: 14, color: V.aiText, fontFamily: F, fontStyle: "italic" }}>{typingStatus}</span></div>
+          <div style={{ padding: "14px 18px", background: V.aiBub, borderRadius: "20px 20px 20px 6px", boxShadow: `inset 0 0 0 1px ${V.bdr}` }}><span className="dt" /><span className="dt" style={{ animationDelay: ".2s" }} /><span className="dt" style={{ animationDelay: ".4s" }} /></div>
         </div>}
         <div ref={chatEnd} />
       </div>
