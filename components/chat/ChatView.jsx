@@ -216,21 +216,64 @@ export default function ChatView({ variant }) {
     }
   };
 
-  // Image handling
-  const handleImageFile = (file) => {
+  // Image handling — resize to max 1600px longest edge, re-encode as JPEG
+  // to stay well under Vercel's 4.5MB serverless body limit.
+  const handleImageFile = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > 10 * 1024 * 1024) return; // 10MB limit
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result;
+    if (file.size > 15 * 1024 * 1024) return; // 15MB raw file cap (post-resize will be ~500KB-1MB)
+
+    const MAX_EDGE = 1600;
+    const JPEG_QUALITY = 0.85;
+
+    try {
+      // Load file into an HTMLImageElement via object URL
+      const objectUrl = URL.createObjectURL(file);
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("image decode failed"));
+        el.src = objectUrl;
+      });
+
+      // Compute resized dimensions preserving aspect ratio
+      let { width, height } = img;
+      if (width > MAX_EDGE || height > MAX_EDGE) {
+        if (width >= height) {
+          height = Math.round(height * (MAX_EDGE / width));
+          width = MAX_EDGE;
+        } else {
+          width = Math.round(width * (MAX_EDGE / height));
+          height = MAX_EDGE;
+        }
+      }
+
+      // Draw to canvas and re-encode as JPEG
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+
+      const base64 = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
       setPendingImage({
         base64,
-        mimeType: file.type,
-        fileName: file.name,
+        mimeType: "image/jpeg",
+        fileName: file.name.replace(/\.[^.]+$/, "") + ".jpg",
         previewUrl: base64,
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[IMAGE_RESIZE_ERROR]", err?.message || err);
+      // HEIC/HEIF can't be decoded by <img> in Chrome/Firefox (Safari works).
+      // Give the curator a clear reason instead of a silent failure.
+      const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+      if (isHeic) {
+        alert("This browser can't read HEIC images. Open this page in Safari, or convert the image to JPEG or PNG first.");
+        return;
+      }
+      alert("Couldn't process this image. Try a different file or convert to JPEG.");
+    }
   };
 
   useEffect(() => {

@@ -22,6 +22,10 @@ import { createClient } from "@supabase/supabase-js";
 import { uploadArtifact } from "@/lib/rec-files/artifact";
 import { CATEGORIES as VALID_CATEGORIES } from "@/lib/constants";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
