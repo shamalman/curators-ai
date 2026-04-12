@@ -95,7 +95,7 @@ export function CuratorProvider({ children }) {
         setTasteItems(recs.map(r => {
           const recFile = r.rec_file_id ? recFilesById[r.rec_file_id] : null;
           return {
-            id: r.id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            id: r.id, profile_id: r.profile_id, slug: r.slug || r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
             title: r.title, category: r.category, context: r.context,
             tags: (r.tags && r.tags.length > 0) ? r.tags : (recFile?.curation?.tags || []),
             links: r.links || [], date: r.created_at?.split("T")[0],

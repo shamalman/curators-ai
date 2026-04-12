@@ -334,7 +334,7 @@ export function CuratorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={selectedItem.profile_id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
 
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
@@ -859,7 +859,7 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={selectedItem.profile_id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
 
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
