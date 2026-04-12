@@ -60,7 +60,9 @@ Two tables — parent/child, both active:
 
 **buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for the `rec_files` row shape.
 
-**RecDetail section order:** Your Take / Why → Links → Saved Content (body_md) → Tags. Body renders via `react-markdown`. Gate: `body_md && mode !== 'backfill' && mode !== 'authored' && !extractor.includes('backfill') && (mode !== 'parsed' || extractor.includes('webpage'))`. Applies to all three RecDetail variants (Curator/Visitor/Network).
+**RecDetail section order:** Your Take / Why → Links → Archived Source (body_md) → Tags. Applies to all three variants (Curator/Visitor/Network).
+
+**Archived Source (RecDetail.jsx):** `ArchivedSource` component (line ~24) renders `body_md` as ReactMarkdown in a collapsible section below Links. Collapsed by default. Includes client-side .md download via Blob. Only renders if `body_md` is present -- no extractor-based visibility guards. Replaced the old "Saved Content" section which gated on extraction mode/extractor.
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern.
 
@@ -72,7 +74,11 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 **Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks). Re-injection path (Deploy 4): checks `rec_refs` first -- if present, fetches `rec_files` rows and injects structured blocks via `buildRecFileContextBlock` (`lib/chat/link-parsing.js`). Falls back to `distillForReinjection` for messages without `rec_refs`.
 
-**Chat-parsed URLs:** `ingestChatParsedBlocks` (`lib/chat/chat-parse-ingest.js`) writes a `rec_files` row (`extractor: chat-parse@v1`, `visibility: private`, `confirmed: false`) and populates `chat_messages.rec_refs` for each successfully parsed URL. Awaited with 2s timeout before response returns.
+**Chat-parsed URLs:** `ingestChatParsedBlocks` (`lib/chat/chat-parse-ingest.js`) writes a `rec_files` row (`extractor: chat-parse@v1`, `visibility: private`, `confirmed: false`) and populates `chat_messages.rec_refs` for each successfully parsed URL. Awaited with 2s timeout before response returns. These rows are ephemeral scratch records -- they exist for re-injection context, not as canonical archive entries.
+
+**Chat-save promotion flow:** When a curator saves a URL from chat, `addRec` (CuratorContext.jsx) runs three steps sequentially: (1) If `parsedPayload.extractor === 'chat-parse@v1'`, synchronously re-fetches the full article via `POST /api/recs/parse-link` to get a fresh `webpage@registry` payload with complete body_md. Original canonical_url is snapshotted as `chatParseUrl` before substitution. (2) `POST /api/recs/promote-chat-parse` marks the chat-parse@v1 scratch row `confirmed=true` (bookkeeping only, keyed on `chatParseUrl`). (3) `ingestUrlCapture` creates the canonical `rec_files` row from the fresh registry payload. `recommendations.rec_file_id` always points to the webpage@registry row. Re-parse failure falls back to chat-parse payload gracefully. Re-parse logic lives in `addRec` only -- no UI surface should re-parse independently.
+
+**draftWhyFromConversation** (ChatView.jsx) extracts the curator's own words from recent chat history to prefill the "why" field. Skips URL-only messages (`/^https?:\/\/\S+$/`), messages shorter than 15 chars after URL removal, and meta-actions (save/skip buttons). Truncates at 200 chars on a word boundary.
 
 **Rec capture:** AI emits `[REC]{...}[/REC]` JSON. `validateRecContext` strips metadata pollution, falls back to last substantive user message (skips pure affirmations).
 
@@ -83,6 +89,8 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 ### AI Skills System
 
 15 skill files in `lib/prompts/skills/`. Build functions: `buildOnboardingPrompt` and `buildStandardPrompt` in `lib/prompts/`. Both append `SUBSCRIPTION_GROUNDING_RULE` (must stay in sync between the two files).
+
+**rec-capture.md skill:** Save threshold evaluation is cumulative across the conversation. Once a descriptor is given in any message, threshold is met -- no further clarifying questions permitted. AI-005 (`docs/ai-behavior-issues.md`) tracks the multi-question drilling failure mode.
 
 ### Taste Profile Pipeline
 
