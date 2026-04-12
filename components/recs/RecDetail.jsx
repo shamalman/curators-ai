@@ -36,9 +36,15 @@ function Linkify({ text, style }) {
   );
 }
 
-function ArchivedSource({ body_md, slug, title, profileId, sourceType }) {
+function ArchivedSource({ body_md, slug, title, profileId, sourceType, lossy }) {
   const [open, setOpen] = useState(false);
   if (!body_md) return null;
+
+  // Hide for lossy-backfilled recs — body_md is synthesized from title + category +
+  // context + links (all already shown in the rec card), not real archived content.
+  if (lossy) {
+    return null;
+  }
 
   // Hide for media embed source types — body_md is just restated metadata.
   if (sourceType && THIN_SOURCE_TYPES.has(String(sourceType).toLowerCase())) {
@@ -322,7 +328,7 @@ export function CuratorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
 
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
@@ -847,7 +853,7 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} lossy={selectedItem.extraction?.lossy} />
 
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
@@ -1235,7 +1241,7 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
-            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} profileId={rec.profile_id} sourceType={rec.extraction?.extractor?.split("@")[0]} />
+            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} profileId={rec.profile_id} sourceType={rec.extraction?.extractor?.split("@")[0]} lossy={rec.extraction?.lossy} />
 
             {/* Tags */}
             {rec.tags?.length > 0 && (
