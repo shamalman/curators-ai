@@ -501,6 +501,8 @@ export default function ChatView({ variant }) {
       if (!text) continue;
       // Skip if the message is just the URL itself (no commentary)
       const textWithoutUrl = text.replace(targetUrl, "").trim();
+      // Skip if the remaining text is itself a URL
+      if (/^https?:\/\/\S+$/.test(textWithoutUrl)) continue;
       if (textWithoutUrl.length < 15) continue;
       // Skip meta actions / button responses
       if (textWithoutUrl.startsWith("save_rec_from_chat") || textWithoutUrl === "skip_save") continue;
