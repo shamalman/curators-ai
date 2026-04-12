@@ -314,28 +314,66 @@ export function CuratorProvider({ children }) {
     let recFileId = null;
     try {
       if (item.parsedPayload) {
-        const handleClean = (profile?.handle || '').replace(/^@/, '');
-        const result = await ingestUrlCapture(supabase, {
-          curatorId: profileId,
-          curatorHandle: handleClean || null,
-          parsedPayload: item.parsedPayload,
-          curation: {
-            title: item.title,
-            category: item.category,
-            context: item.context,
-            tags: item.tags || [],
-            visibility: item.visibility || 'public',
-          },
-        });
-        if (result.success) {
-          recFileId = result.recFileId;
-          // Link the legacy recommendations row to the new rec_files row
-          const { error: linkError } = await supabase
-            .from('recommendations')
-            .update({ rec_file_id: recFileId })
-            .eq('id', data.id);
-          if (linkError) {
-            console.warn('[rec-files] Failed to link recommendations.rec_file_id:', linkError.message);
+        // Promote path: if this came from a chat-parsed URL, promote the
+        // existing rec_files row instead of creating a duplicate.
+        let promoted = false;
+        if (item.parsedPayload.extractor === 'chat-parse@v1') {
+          try {
+            const promoteRes = await fetch('/api/recs/promote-chat-parse', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: item.parsedPayload.canonical_url,
+                curatorId: profileId,
+                why: item.context,
+                visibility: item.visibility || 'public',
+                title: item.title,
+                category: item.category,
+                tags: item.tags || [],
+              }),
+            });
+            const promoteData = await promoteRes.json();
+            if (promoteData.promoted && promoteData.recFileId) {
+              recFileId = promoteData.recFileId;
+              promoted = true;
+              const { error: linkError } = await supabase
+                .from('recommendations')
+                .update({ rec_file_id: recFileId })
+                .eq('id', data.id);
+              if (linkError) {
+                console.warn('[rec-files] Failed to link recommendations.rec_file_id:', linkError.message);
+              }
+            }
+          } catch (promoteErr) {
+            console.warn('[rec-files] Promote fetch failed, falling through to ingest:', promoteErr.message);
+          }
+        }
+
+        // Fallback: create a new rec_files row via ingestUrlCapture
+        if (!promoted) {
+          const handleClean = (profile?.handle || '').replace(/^@/, '');
+          const result = await ingestUrlCapture(supabase, {
+            curatorId: profileId,
+            curatorHandle: handleClean || null,
+            parsedPayload: item.parsedPayload,
+            curation: {
+              title: item.title,
+              category: item.category,
+              context: item.context,
+              tags: item.tags || [],
+              visibility: item.visibility || 'public',
+            },
+          });
+          if (result.success) {
+            recFileId = result.recFileId;
+            // Link the legacy recommendations row to the new rec_files row
+            const { error: linkError } = await supabase
+              .from('recommendations')
+              .update({ rec_file_id: recFileId })
+              .eq('id', data.id);
+            if (linkError) {
+              console.warn('[rec-files] Failed to link recommendations.rec_file_id:', linkError.message);
+            }
           }
         }
       }
