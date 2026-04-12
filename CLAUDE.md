@@ -60,7 +60,7 @@ Two tables — parent/child, both active:
 
 **buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for the `rec_files` row shape.
 
-**RecDetail section order:** Your Take / Why → Links → Saved Content (body_md) → Tags. Body renders via `react-markdown`. Gate: `body_md && mode !== 'backfill' && mode !== 'authored' && !extractor.includes('backfill')`. Applies to all three RecDetail variants (Curator/Visitor/Network).
+**RecDetail section order:** Your Take / Why → Links → Saved Content (body_md) → Tags. Body renders via `react-markdown`. Gate: `body_md && mode !== 'backfill' && mode !== 'authored' && !extractor.includes('backfill') && (mode !== 'parsed' || extractor.includes('webpage'))`. Applies to all three RecDetail variants (Curator/Visitor/Network).
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern.
 
