@@ -166,20 +166,23 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           sizeBytes: initialData.sizeBytes,
         });
         setLinks([]);
-      // Feature C: URL mode prefill — if initialData has a URL, seed the links array
-      // with a pre-parsed entry so the sheet shows the parsed card immediately
-      // and the save path has a ready-to-use parsedPayload.
+      // Feature C: URL mode prefill — seed a parsing link entry, then
+      // background re-parse via parse-link API to get a fresh parsedPayload
+      // with the registry extractor (e.g. webpage@registry instead of chat-parse@v1).
       } else if (initialData?.mode === "url" && initialData?.url && initialData?.parsedPayload) {
+        const linkId = makeLinkId();
         setLinks([{
-          id: makeLinkId(),
+          id: linkId,
           url: initialData.url,
-          parsing: false,
-          parsed: true,
+          parsing: true,
+          parsed: false,
           title: initialData.title || initialData.parsedPayload.title || "",
           thumbnail_url: initialData.thumbnail_url || null,
           provider: initialData.provider || initialData.parsedPayload.site_name || null,
-          parsedPayload: initialData.parsedPayload,
+          parsedPayload: null,
         }]);
+        // Fire background re-parse after state settles
+        setTimeout(() => parseLink(linkId, initialData.url), 0);
       } else {
         setLinks([]);
       }
@@ -290,8 +293,10 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
     if (links.length === 0) addLinkRow();
   };
 
+  const linksParsing = links.some(l => l.parsing);
+
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || linksParsing) return;
     setSaving(true);
     setError(null);
 
@@ -725,16 +730,16 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
             <button
               onClick={handleSave}
-              disabled={!title.trim() || saving}
+              disabled={!title.trim() || saving || linksParsing}
               style={{
                 width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
-                background: (!title.trim() || saving) ? T.s2 : T.acc,
-                color: (!title.trim() || saving) ? T.ink3 : T.accText,
-                fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
+                background: (!title.trim() || saving || linksParsing) ? T.s2 : T.acc,
+                color: (!title.trim() || saving || linksParsing) ? T.ink3 : T.accText,
+                fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving || linksParsing) ? "default" : "pointer",
                 fontFamily: F,
               }}
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? "Saving..." : linksParsing ? "Parsing link..." : "Save"}
             </button>
           </>
         )}
