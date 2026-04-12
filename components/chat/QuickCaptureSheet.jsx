@@ -308,46 +308,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       // Deploy 2a: pass parsed payload for the first parsed link (if any)
       // through to addRec. addRec ignores it in this deploy; Deploy 2b will
       // wire it into the rec_files dual-write.
-      let firstParsedLink = links.find(l => l.parsed && l.parsedPayload);
-
-      // If the payload came from a chat-parse, re-parse now to get the full
-      // registry extractor and body_md before handing off to addRec.
-      if (firstParsedLink?.parsedPayload?.extractor === 'chat-parse@v1') {
-        try {
-          const reParseRes = await fetch('/api/recs/parse-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: firstParsedLink.url }),
-          });
-          if (reParseRes.ok) {
-            const reParseData = await reParseRes.json();
-            if (reParseData.body_md) {
-              firstParsedLink = {
-                ...firstParsedLink,
-                parsedPayload: {
-                  body_md: reParseData.body_md || "",
-                  body_truncated: reParseData.body_truncated || false,
-                  body_original_length: reParseData.body_original_length || 0,
-                  canonical_url: reParseData.canonical_url || null,
-                  site_name: reParseData.site_name || null,
-                  author: reParseData.author || null,
-                  authors: reParseData.authors || [],
-                  published_at: reParseData.published_at || null,
-                  lang: reParseData.lang || null,
-                  word_count: reParseData.word_count || 0,
-                  media_type: reParseData.media_type || null,
-                  artifact_sha256: reParseData.artifact_sha256 || null,
-                  artifact_ref: reParseData.artifact_ref || null,
-                  extraction_mode: reParseData.extraction_mode || "parsed",
-                  extractor: reParseData.extractor || null,
-                },
-              };
-            }
-          }
-        } catch (e) {
-          console.warn('[QuickCaptureSheet] re-parse failed, using chat-parse payload:', e.message);
-        }
-      }
+      const firstParsedLink = links.find(l => l.parsed && l.parsedPayload);
 
       const newItem = {
         title: title.trim(),

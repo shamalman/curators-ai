@@ -284,6 +284,7 @@ export function CuratorProvider({ children }) {
       return item;
     }
     const slug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    item = { ...item };
     const { data, error } = await supabase.from("recommendations").insert({
       profile_id: profileId,
       title: item.title,
@@ -309,6 +310,51 @@ export function CuratorProvider({ children }) {
     }).eq('id', profileId);
     if (trackingError) console.error('TRACKING ERROR:', trackingError);
 
+    // Capture original chat-parse URL before re-parse may replace the payload
+    const chatParseUrl = item.parsedPayload?.extractor === 'chat-parse@v1'
+      ? item.parsedPayload.canonical_url
+      : null;
+
+    // If payload came from chat-parse, re-fetch the full article
+    // before writing to rec_files. This ensures body_md is always
+    // complete regardless of which UI surface triggered the save.
+    if (item.parsedPayload?.extractor === 'chat-parse@v1') {
+      try {
+        const reParseRes = await fetch('/api/recs/parse-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: item.parsedPayload.canonical_url }),
+        });
+        if (reParseRes.ok) {
+          const reParseData = await reParseRes.json();
+          if (reParseData.body_md) {
+            item = {
+              ...item,
+              parsedPayload: {
+                body_md: reParseData.body_md || "",
+                body_truncated: reParseData.body_truncated || false,
+                body_original_length: reParseData.body_original_length || 0,
+                canonical_url: reParseData.canonical_url || item.parsedPayload.canonical_url,
+                site_name: reParseData.site_name || null,
+                author: reParseData.author || null,
+                authors: reParseData.authors || [],
+                published_at: reParseData.published_at || null,
+                lang: reParseData.lang || null,
+                word_count: reParseData.word_count || 0,
+                media_type: reParseData.media_type || null,
+                artifact_sha256: reParseData.artifact_sha256 || null,
+                artifact_ref: reParseData.artifact_ref || null,
+                extraction_mode: reParseData.extraction_mode || "parsed",
+                extractor: reParseData.extractor || null,
+              },
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[rec-files] Re-parse failed, using chat-parse payload:', e.message);
+      }
+    }
+
     // Dual-write to rec_files. Runs AFTER the main insert. Failures are
     // logged, never thrown — the main save path must succeed regardless.
     let recFileId = null;
@@ -316,13 +362,13 @@ export function CuratorProvider({ children }) {
       if (item.parsedPayload) {
         // Promote path: if this came from a chat-parsed URL, promote the
         // existing rec_files row instead of creating a duplicate.
-        if (item.parsedPayload.extractor === 'chat-parse@v1') {
+        if (chatParseUrl) {
           try {
             const promoteRes = await fetch('/api/recs/promote-chat-parse', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                url: item.parsedPayload.canonical_url,
+                url: chatParseUrl,
                 curatorId: profileId,
                 why: item.context,
                 visibility: item.visibility || 'public',
