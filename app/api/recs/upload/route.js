@@ -49,14 +49,10 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
 function buildUploadPayload({ sha256, ref, mimeType, title, why }) {
   const trimmedTitle = title.trim();
   const trimmedWhy = String(why || "").trim();
-  const bodyMdParts = [`# ${trimmedTitle}`];
-  if (trimmedWhy) {
-    bodyMdParts.push("");
-    bodyMdParts.push(trimmedWhy);
-  }
-  bodyMdParts.push("");
-  bodyMdParts.push(`![Uploaded image](artifact://${sha256})`);
-  const bodyMd = bodyMdParts.join("\n");
+  // body_md contains only the image reference. Title and why are already shown
+  // above the Archived Source section on the rec detail page — repeating them
+  // here is redundant.
+  const bodyMd = `![Uploaded image](artifact://${sha256})`;
 
   const fakeCanonicalUrl = `artifact://${sha256}`;
 

@@ -9,7 +9,6 @@ const ARTIFACT_PREFIX = "artifact://";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export default function ArtifactImage({ src, alt, profileId }) {
-  console.log("[ARTIFACT_IMAGE_DEBUG]", { src, alt, profileId, startsWithPrefix: src?.startsWith?.("artifact://") });
   const [resolvedSrc, setResolvedSrc] = useState(null);
   const [error, setError] = useState(false);
 

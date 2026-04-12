@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import ArtifactImage from "./ArtifactImage";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
@@ -87,6 +87,12 @@ function ArchivedSource({ body_md, slug, title, profileId, sourceType, lossy }) 
             fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55,
           }}>
             <ReactMarkdown
+              urlTransform={(url) => {
+                // Allow artifact:// URLs through to the custom img renderer.
+                if (url && url.startsWith("artifact://")) return url;
+                // Default sanitization for everything else (block javascript:, data:, etc).
+                return defaultUrlTransform(url);
+              }}
               components={{
                 img: ({ src, alt }) => <ArtifactImage src={src} alt={alt} profileId={profileId} />,
               }}
