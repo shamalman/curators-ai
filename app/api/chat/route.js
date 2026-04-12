@@ -737,43 +737,45 @@ ${parsed.content}
       }
     }
 
-    // Fire-and-forget: write rec_files rows for chat-parsed URLs and populate rec_refs
-    // Never blocks response, never throws
-    if (profileId && parsedContentForStorage.length > 0) {
-      const messageId = parsedContentMessageId;
-      (async () => {
-        try {
-          const recFileIds = await ingestChatParsedBlocks(parsedContentForStorage, profileId, curHandle);
-          if (recFileIds.length > 0 && messageId) {
-            const { data: msgRow, error: fetchErr } = await sb
-              .from('chat_messages')
-              .select('rec_refs')
-              .eq('id', messageId)
-              .maybeSingle();
+    // Write rec_files rows for chat-parsed URLs and populate rec_refs
+    // Awaited but capped at 2s — Vercel kills unawaited async work after response returns
+    if (profileId && parsedContentForStorage.length > 0 && parsedContentMessageId) {
+      try {
+        await Promise.race([
+          (async () => {
+            const recFileIds = await ingestChatParsedBlocks(parsedContentForStorage, profileId, curHandle);
+            if (recFileIds.length > 0) {
+              const { data: msgRow, error: fetchErr } = await sb
+                .from('chat_messages')
+                .select('rec_refs')
+                .eq('id', parsedContentMessageId)
+                .maybeSingle();
 
-            if (fetchErr) {
-              console.error('[chat-parse-ingest] rec_refs fetch error:', fetchErr.message);
-              return;
+              if (fetchErr) {
+                console.error('[chat-parse-ingest] rec_refs fetch error:', fetchErr.message);
+                return;
+              }
+
+              const existing = Array.isArray(msgRow?.rec_refs) ? msgRow.rec_refs : [];
+              const merged = [...new Set([...existing, ...recFileIds])];
+
+              const { error: updateErr } = await sb
+                .from('chat_messages')
+                .update({ rec_refs: merged })
+                .eq('id', parsedContentMessageId);
+
+              if (updateErr) {
+                console.error('[chat-parse-ingest] rec_refs update error:', updateErr.message);
+              } else {
+                console.log('[chat-parse-ingest] rec_refs written:', merged, { messageId: parsedContentMessageId });
+              }
             }
-
-            const existing = Array.isArray(msgRow?.rec_refs) ? msgRow.rec_refs : [];
-            const merged = [...new Set([...existing, ...recFileIds])];
-
-            const { error: updateErr } = await sb
-              .from('chat_messages')
-              .update({ rec_refs: merged })
-              .eq('id', messageId);
-
-            if (updateErr) {
-              console.error('[chat-parse-ingest] rec_refs update error:', updateErr.message);
-            } else {
-              console.log('[chat-parse-ingest] rec_refs written:', merged, { messageId });
-            }
-          }
-        } catch (err) {
-          console.error('[chat-parse-ingest] fire-and-forget failed:', err.message);
-        }
-      })();
+          })(),
+          new Promise(resolve => setTimeout(resolve, 2000))
+        ]);
+      } catch (err) {
+        console.error('[chat-parse-ingest] ingest block failed:', err.message);
+      }
     }
 
     return NextResponse.json({
