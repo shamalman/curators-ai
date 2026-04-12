@@ -58,10 +58,9 @@ function ArchivedSource({ body_md, slug, title }) {
         }}>
           <div style={{
             maxHeight: 400, overflowY: "auto", padding: "12px 16px",
-            fontFamily: "monospace", fontSize: 12, color: T.ink2,
-            lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word",
+            fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55,
           }}>
-            {body_md}
+            <ReactMarkdown>{body_md}</ReactMarkdown>
           </div>
           <div style={{ padding: "8px 16px 12px", borderTop: `1px solid ${T.bdr}` }}>
             <button
@@ -299,27 +298,7 @@ export function CuratorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* Body content from rec_files. Hidden for synthetic backfill rows
-              and authored-only recs (no archived body to show). */}
-          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && !(selectedItem.extraction?.extractor || '').includes('backfill') && (selectedItem.extraction?.mode !== 'parsed' || (selectedItem.extraction?.extractor || '').includes('webpage')) && (
-            <div style={{
-              marginTop: 16, marginBottom: 16, padding: "16px 20px",
-              borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
-            }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: T.ink3,
-                textTransform: "uppercase", letterSpacing: ".06em",
-                marginBottom: 10, fontFamily: F,
-              }}>
-                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content'
-                  : selectedItem.extraction?.mode === 'pasted' ? 'Pasted content'
-                  : 'Saved content'}
-              </div>
-              <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
-                <ReactMarkdown>{selectedItem.body_md}</ReactMarkdown>
-              </div>
-            </div>
-          )}
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
 
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
@@ -741,8 +720,6 @@ export function CuratorRecDetail({ slug }) {
 
             </>
           )}
-
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
         </div>
       </div>
       </div>
@@ -846,27 +823,7 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          {/* Body content from rec_files. Hidden for synthetic backfill rows
-              and authored-only recs (no archived body to show). */}
-          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && !(selectedItem.extraction?.extractor || '').includes('backfill') && (selectedItem.extraction?.mode !== 'parsed' || (selectedItem.extraction?.extractor || '').includes('webpage')) && (
-            <div style={{
-              marginBottom: 24, padding: "16px 20px",
-              borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
-            }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: T.ink3,
-                textTransform: "uppercase", letterSpacing: ".06em",
-                marginBottom: 10, fontFamily: F,
-              }}>
-                {selectedItem.extraction?.mode === 'uploaded' ? 'Uploaded content'
-                  : selectedItem.extraction?.mode === 'pasted' ? 'Pasted content'
-                  : 'Saved content'}
-              </div>
-              <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
-                <ReactMarkdown>{selectedItem.body_md}</ReactMarkdown>
-              </div>
-            </div>
-          )}
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
 
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
@@ -1058,8 +1015,6 @@ export function VisitorRecDetail({ slug }) {
             </div>
             <div style={{ height: 20 }} />
           </div>}
-
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
         </div>
       </div>
       </div>
@@ -1256,27 +1211,7 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
-            {/* Body content from rec_files. Hidden for synthetic backfill rows
-                and authored-only recs (no archived body to show). */}
-            {rec.body_md && rec.extraction?.mode !== 'backfill' && rec.extraction?.mode !== 'authored' && !(rec.extraction?.extractor || '').includes('backfill') && (rec.extraction?.mode !== 'parsed' || (rec.extraction?.extractor || '').includes('webpage')) && (
-              <div style={{
-                marginBottom: 20, padding: "16px 20px",
-                borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
-              }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: T.ink3,
-                  textTransform: "uppercase", letterSpacing: ".06em",
-                  marginBottom: 10, fontFamily: F,
-                }}>
-                  {rec.extraction?.mode === 'uploaded' ? 'Uploaded content'
-                    : rec.extraction?.mode === 'pasted' ? 'Pasted content'
-                    : 'Saved content'}
-                </div>
-                <div style={{ fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55 }}>
-                  <ReactMarkdown>{rec.body_md}</ReactMarkdown>
-                </div>
-              </div>
-            )}
+            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} />
 
             {/* Tags */}
             {rec.tags?.length > 0 && (
@@ -1286,8 +1221,6 @@ export function NetworkRecDetail({ slug }) {
                 ))}
               </div>
             )}
-
-            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} />
 
           </div>
         </div>
