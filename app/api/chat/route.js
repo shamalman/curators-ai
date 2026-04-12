@@ -11,6 +11,7 @@ import { getInviterContext } from "../../../lib/chat/inviter-context.js";
 import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 import { uploadArtifact } from "../../../lib/rec-files/artifact.js";
+import { ingestChatParsedBlocks } from "../../../lib/chat/chat-parse-ingest.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -707,6 +708,7 @@ ${parsed.content}
       .filter(b => b.quality !== 'failed')
       .map(b => ({ url: b.url, content: b.content, metadata: b.metadata, quality: b.quality, sourceType: b.sourceType }));
 
+    let parsedContentMessageId = null;
     if (parsedContentForStorage.length > 0 && profileId) {
       try {
         const { data: latestUserMsg } = await sb
@@ -719,6 +721,7 @@ ${parsed.content}
           .single();
 
         if (latestUserMsg) {
+          parsedContentMessageId = latestUserMsg.id;
           const { error: updateErr } = await sb
             .from('chat_messages')
             .update({ parsed_content: parsedContentForStorage })
@@ -732,6 +735,45 @@ ${parsed.content}
       } catch (err) {
         console.error('[PARSED_CONTENT_SAVE_ERROR]', err.message);
       }
+    }
+
+    // Fire-and-forget: write rec_files rows for chat-parsed URLs and populate rec_refs
+    // Never blocks response, never throws
+    if (profileId && parsedContentForStorage.length > 0) {
+      const messageId = parsedContentMessageId;
+      (async () => {
+        try {
+          const recFileIds = await ingestChatParsedBlocks(parsedContentForStorage, profileId, curHandle);
+          if (recFileIds.length > 0 && messageId) {
+            const { data: msgRow, error: fetchErr } = await sb
+              .from('chat_messages')
+              .select('rec_refs')
+              .eq('id', messageId)
+              .maybeSingle();
+
+            if (fetchErr) {
+              console.error('[chat-parse-ingest] rec_refs fetch error:', fetchErr.message);
+              return;
+            }
+
+            const existing = Array.isArray(msgRow?.rec_refs) ? msgRow.rec_refs : [];
+            const merged = [...new Set([...existing, ...recFileIds])];
+
+            const { error: updateErr } = await sb
+              .from('chat_messages')
+              .update({ rec_refs: merged })
+              .eq('id', messageId);
+
+            if (updateErr) {
+              console.error('[chat-parse-ingest] rec_refs update error:', updateErr.message);
+            } else {
+              console.log('[chat-parse-ingest] rec_refs written:', merged, { messageId });
+            }
+          }
+        } catch (err) {
+          console.error('[chat-parse-ingest] fire-and-forget failed:', err.message);
+        }
+      })();
     }
 
     return NextResponse.json({
