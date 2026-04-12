@@ -516,7 +516,6 @@ export default function ChatView({ variant }) {
       }
 
       const imageCandidate = data.image_rec_candidate || null;
-      console.log("[FEATURE_B_CLIENT_DEBUG]", JSON.stringify({ hasImage: !!imageCandidate, blocksLength: data.blocks?.length, blockTypes: data.blocks?.map(b => b.type), textLen: text?.length, textFirst50: text?.slice(0, 50) }));
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null, image_rec_candidate: imageCandidate }]);
       // Bug 3 fix: persist imageRecCandidate in meta jsonb for DB reload hydration
       const metaForDb = imageCandidate ? { imageRecCandidate: imageCandidate } : null;
