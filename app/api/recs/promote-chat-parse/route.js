@@ -26,7 +26,6 @@ export async function POST(request) {
       .eq("curator_id", curatorId)
       .filter("source->>url", "eq", url)
       .filter("extraction->>extractor", "eq", "chat-parse@v1")
-      .filter("curation->>confirmed", "neq", "true")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -40,8 +39,12 @@ export async function POST(request) {
       return NextResponse.json({ promoted: false });
     }
 
-    // Merge curation with curator-provided fields
     const existingCuration = row.curation || {};
+    if (existingCuration.confirmed === true) {
+      return NextResponse.json({ promoted: false });
+    }
+
+    // Merge curation with curator-provided fields
     const updatedCuration = {
       ...existingCuration,
       why: why || null,
