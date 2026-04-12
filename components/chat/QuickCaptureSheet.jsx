@@ -166,23 +166,20 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           sizeBytes: initialData.sizeBytes,
         });
         setLinks([]);
-      // Feature C: URL mode prefill — seed a parsing link entry, then
-      // background re-parse via parse-link API to get a fresh parsedPayload
-      // with the registry extractor (e.g. webpage@registry instead of chat-parse@v1).
+      // Feature C: URL mode prefill — if initialData has a URL, seed the links array
+      // with a pre-parsed entry so the sheet shows the parsed card immediately
+      // and the save path has a ready-to-use parsedPayload.
       } else if (initialData?.mode === "url" && initialData?.url && initialData?.parsedPayload) {
-        const linkId = makeLinkId();
         setLinks([{
-          id: linkId,
+          id: makeLinkId(),
           url: initialData.url,
-          parsing: true,
-          parsed: false,
+          parsing: false,
+          parsed: true,
           title: initialData.title || initialData.parsedPayload.title || "",
           thumbnail_url: initialData.thumbnail_url || null,
           provider: initialData.provider || initialData.parsedPayload.site_name || null,
-          parsedPayload: null,
+          parsedPayload: initialData.parsedPayload,
         }]);
-        // Fire background re-parse after state settles
-        setTimeout(() => parseLink(linkId, initialData.url), 0);
       } else {
         setLinks([]);
       }
@@ -293,10 +290,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
     if (links.length === 0) addLinkRow();
   };
 
-  const linksParsing = links.some(l => l.parsing);
-
   const handleSave = async () => {
-    if (!title.trim() || linksParsing) return;
+    if (!title.trim()) return;
     setSaving(true);
     setError(null);
 
@@ -313,7 +308,46 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       // Deploy 2a: pass parsed payload for the first parsed link (if any)
       // through to addRec. addRec ignores it in this deploy; Deploy 2b will
       // wire it into the rec_files dual-write.
-      const firstParsedLink = links.find(l => l.parsed && l.parsedPayload);
+      let firstParsedLink = links.find(l => l.parsed && l.parsedPayload);
+
+      // If the payload came from a chat-parse, re-parse now to get the full
+      // registry extractor and body_md before handing off to addRec.
+      if (firstParsedLink?.parsedPayload?.extractor === 'chat-parse@v1') {
+        try {
+          const reParseRes = await fetch('/api/recs/parse-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: firstParsedLink.url }),
+          });
+          if (reParseRes.ok) {
+            const reParseData = await reParseRes.json();
+            if (reParseData.body_md) {
+              firstParsedLink = {
+                ...firstParsedLink,
+                parsedPayload: {
+                  body_md: reParseData.body_md || "",
+                  body_truncated: reParseData.body_truncated || false,
+                  body_original_length: reParseData.body_original_length || 0,
+                  canonical_url: reParseData.canonical_url || null,
+                  site_name: reParseData.site_name || null,
+                  author: reParseData.author || null,
+                  authors: reParseData.authors || [],
+                  published_at: reParseData.published_at || null,
+                  lang: reParseData.lang || null,
+                  word_count: reParseData.word_count || 0,
+                  media_type: reParseData.media_type || null,
+                  artifact_sha256: reParseData.artifact_sha256 || null,
+                  artifact_ref: reParseData.artifact_ref || null,
+                  extraction_mode: reParseData.extraction_mode || "parsed",
+                  extractor: reParseData.extractor || null,
+                },
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('[QuickCaptureSheet] re-parse failed, using chat-parse payload:', e.message);
+        }
+      }
 
       const newItem = {
         title: title.trim(),
@@ -730,16 +764,16 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
             <button
               onClick={handleSave}
-              disabled={!title.trim() || saving || linksParsing}
+              disabled={!title.trim() || saving}
               style={{
                 width: "100%", padding: "12px 16px", borderRadius: 12, border: "none",
-                background: (!title.trim() || saving || linksParsing) ? T.s2 : T.acc,
-                color: (!title.trim() || saving || linksParsing) ? T.ink3 : T.accText,
-                fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving || linksParsing) ? "default" : "pointer",
+                background: (!title.trim() || saving) ? T.s2 : T.acc,
+                color: (!title.trim() || saving) ? T.ink3 : T.accText,
+                fontSize: 14, fontWeight: 600, cursor: (!title.trim() || saving) ? "default" : "pointer",
                 fontFamily: F,
               }}
             >
-              {saving ? "Saving..." : linksParsing ? "Parsing link..." : "Save"}
+              {saving ? "Saving..." : "Save"}
             </button>
           </>
         )}
