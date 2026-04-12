@@ -22,7 +22,13 @@ This file is the persistent layer for AI behavior work. Individual fixes happen 
 
 ## Open
 
-*(none)*
+### AI-005 | P2 | Multi-question drilling on rec capture
+
+- **Symptom:** AI asks more than one clarifying question before offering to save, even after save threshold (WHAT + affirmative framing + descriptor) is met across multiple messages.
+- **Example:** Curator identifies track, then gives descriptor "the hymns in this album do it for me" -- AI asks a third follow-up instead of offering to save.
+- **Root cause:** AI failing to evaluate threshold across the full conversation context, not just the most recent message. Re-evaluates WHAT/framing/descriptor per-message instead of cumulatively.
+- **Fix direction:** Strengthen rec-capture.md skill to explicitly state that threshold evaluation is cumulative across the conversation, and that once a descriptor has been given (even in a prior message), no further clarifying questions are permitted.
+- **File:** lib/prompts/skills/rec-capture.md
 
 ---
 
