@@ -60,9 +60,11 @@ Two tables — parent/child, both active:
 
 **buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for the `rec_files` row shape.
 
+**Feature B (chat image → rec):** Camera button in ChatView → canvas resize to 1600px/JPEG 0.85 → `/api/chat` route uploads to artifacts bucket, runs vision inference, returns `image_rec_candidate` + `save_image_rec:<sha>` action button → curator taps → QuickCaptureSheet opens in upload mode prefilled with artifact ref + inferred title/category/why → saves via JSON path of `/api/recs/upload`. Route config: `maxDuration = 60` on both `/api/chat` and `/api/recs/upload` to accommodate the two-Claude-call pipeline. Client-side resize required to stay under Vercel's 4.5MB serverless body limit.
+
 **RecDetail section order:** Your Take / Why → Links → Archived Source (body_md) → Tags. Applies to all three variants (Curator/Visitor/Network).
 
-**Archived Source (RecDetail.jsx):** `ArchivedSource` component (line ~24) renders `body_md` as ReactMarkdown in a collapsible section below Links. Collapsed by default. Includes client-side .md download via Blob. Only renders if `body_md` is present -- no extractor-based visibility guards. Replaced the old "Saved Content" section which gated on extraction mode/extractor.
+**Archived Source (RecDetail.jsx):** `ArchivedSource` component renders `body_md` as ReactMarkdown in a collapsible section below Links. Collapsed by default. Includes client-side .md download via Blob. Body renders via `react-markdown` with a custom `img` renderer (`ArtifactImage`) that resolves `artifact://<sha256>` URLs to Supabase signed URLs (7-day TTL). Archived Source is hidden when (a) `extraction.lossy === true` (backfilled recs with synthesized body_md) or (b) the extractor name matches `THIN_SOURCE_TYPES` (spotify, apple-music, youtube, soundcloud, letterboxd, goodreads, google-maps, twitter -- media embeds whose body_md is just restated metadata). Shown for webpage@registry, chat-parse@v1, paste@v1, upload@*, and any other substantive capture.
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern.
 
@@ -136,6 +138,7 @@ lib/agent/parsers/*.js + registry.js       -- 9 source parsers
 components/chat/ChatView.jsx               -- chat UI, rec save, taste profile regen trigger
 context/CuratorContext.jsx                 -- curator state, addRec dual-write, secondary rec_files load
 components/recs/RecDetail.jsx              -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail
+components/recs/ArtifactImage.jsx          -- resolves artifact:// URLs to signed URLs on demand (7-day TTL)
 lib/rec-files/build.js                     -- buildRecFileRow (single source of truth for rec_files shape)
 lib/rec-files/ingest.js                    -- ingestUrlCapture (dual-write entry point, never throws)
 lib/chat/chat-parse-ingest.js              -- chat URL → rec_files ingest, rec_refs writer
