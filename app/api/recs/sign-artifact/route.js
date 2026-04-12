@@ -17,7 +17,7 @@ function getSupabaseAdmin() {
 
 export async function POST(request) {
   try {
-    const { profileId, artifactPath } = await request.json();
+    const { profileId, artifactPath, expiresIn } = await request.json();
 
     if (!profileId || !artifactPath) {
       return NextResponse.json({ error: "profileId and artifactPath are required" }, { status: 400 });
@@ -28,11 +28,14 @@ export async function POST(request) {
       return NextResponse.json({ error: "artifact does not belong to this curator" }, { status: 403 });
     }
 
+    // Default 1 hour; callers can request up to 7 days
+    const ttl = Math.min(Math.max(Number(expiresIn) || 3600, 60), 604800);
+
     const sb = getSupabaseAdmin();
     const { data, error } = await sb
       .storage
       .from("artifacts")
-      .createSignedUrl(artifactPath, 3600);
+      .createSignedUrl(artifactPath, ttl);
 
     if (error) {
       console.error(`[SIGN_ARTIFACT_ERROR] path=${artifactPath} profileId=${profileId} error=${error.message}`);

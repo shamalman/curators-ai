@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import ArtifactImage from "./ArtifactImage";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
@@ -21,7 +22,7 @@ function Linkify({ text, style }) {
   );
 }
 
-function ArchivedSource({ body_md, slug, title }) {
+function ArchivedSource({ body_md, slug, title, profileId }) {
   const [open, setOpen] = useState(false);
   if (!body_md) return null;
 
@@ -60,7 +61,11 @@ function ArchivedSource({ body_md, slug, title }) {
             maxHeight: 400, overflowY: "auto", padding: "12px 16px",
             fontFamily: F, fontSize: 14, color: T.ink, lineHeight: 1.55,
           }}>
-            <ReactMarkdown>{body_md}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                img: ({ src, alt }) => <ArtifactImage src={src} alt={alt} profileId={profileId} />,
+              }}
+            >{body_md}</ReactMarkdown>
           </div>
           <div style={{ padding: "8px 16px 12px", borderTop: `1px solid ${T.bdr}` }}>
             <button
@@ -298,7 +303,7 @@ export function CuratorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} />
 
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
@@ -823,7 +828,7 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} />
 
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
@@ -1211,7 +1216,7 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
-            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} />
+            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} profileId={rec.profile_id} />
 
             {/* Tags */}
             {rec.tags?.length > 0 && (
