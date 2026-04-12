@@ -240,7 +240,7 @@ export function CuratorRecDetail({ slug }) {
 
           {/* Body content from rec_files. Hidden for synthetic backfill rows
               and authored-only recs (no archived body to show). */}
-          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && !(selectedItem.extraction?.extractor || '').includes('backfill') && (
+          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && (
             <div style={{
               marginTop: 16, marginBottom: 16, padding: "16px 20px",
               borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
@@ -785,7 +785,7 @@ export function VisitorRecDetail({ slug }) {
 
           {/* Body content from rec_files. Hidden for synthetic backfill rows
               and authored-only recs (no archived body to show). */}
-          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && !(selectedItem.extraction?.extractor || '').includes('backfill') && (
+          {selectedItem.body_md && selectedItem.extraction?.mode !== 'backfill' && selectedItem.extraction?.mode !== 'authored' && (
             <div style={{
               marginBottom: 24, padding: "16px 20px",
               borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
@@ -1193,7 +1193,7 @@ export function NetworkRecDetail({ slug }) {
 
             {/* Body content from rec_files. Hidden for synthetic backfill rows
                 and authored-only recs (no archived body to show). */}
-            {rec.body_md && rec.extraction?.mode !== 'backfill' && rec.extraction?.mode !== 'authored' && !(rec.extraction?.extractor || '').includes('backfill') && (
+            {rec.body_md && rec.extraction?.mode !== 'backfill' && rec.extraction?.mode !== 'authored' && (
               <div style={{
                 marginBottom: 20, padding: "16px 20px",
                 borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`,
