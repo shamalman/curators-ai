@@ -10,6 +10,20 @@ import { useCurator } from "@/context/CuratorContext";
 import { fetchLinkMetadata } from "@/lib/links/fetchLinkMetadata";
 import LinkDisplay from "@/components/shared/LinkDisplay";
 
+// Source types whose body_md is just metadata restated, not substantive prose.
+// For these, the Archived Source section adds no information beyond what's
+// already in the rec card, so we hide it.
+const THIN_SOURCE_TYPES = new Set([
+  "spotify",
+  "apple-music",
+  "youtube",
+  "soundcloud",
+  "letterboxd",
+  "goodreads",
+  "google-maps",
+  "twitter",
+]);
+
 // Helper to auto-linkify URLs in text
 function Linkify({ text, style }) {
   if (!text) return null;
@@ -22,9 +36,14 @@ function Linkify({ text, style }) {
   );
 }
 
-function ArchivedSource({ body_md, slug, title, profileId }) {
+function ArchivedSource({ body_md, slug, title, profileId, sourceType }) {
   const [open, setOpen] = useState(false);
   if (!body_md) return null;
+
+  // Hide for media embed source types — body_md is just restated metadata.
+  if (sourceType && THIN_SOURCE_TYPES.has(String(sourceType).toLowerCase())) {
+    return null;
+  }
 
   const handleDownload = () => {
     const filename = (slug || title || 'rec').replace(/[^a-z0-9-]/gi, '-') + '.md';
@@ -303,7 +322,7 @@ export function CuratorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} />
 
           {/* Tags */}
           {!isEditing && selectedItem.tags?.length > 0 && (
@@ -828,7 +847,7 @@ export function VisitorRecDetail({ slug }) {
             </div>
           )}
 
-          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} />
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} profileId={profile.id} sourceType={selectedItem.extraction?.extractor?.split("@")[0]} />
 
           {/* Tags */}
           {selectedItem.tags?.length > 0 && (
@@ -1216,7 +1235,7 @@ export function NetworkRecDetail({ slug }) {
               </div>
             )}
 
-            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} profileId={rec.profile_id} />
+            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} profileId={rec.profile_id} sourceType={rec.extraction?.extractor?.split("@")[0]} />
 
             {/* Tags */}
             {rec.tags?.length > 0 && (
