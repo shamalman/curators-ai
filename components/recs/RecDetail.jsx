@@ -21,6 +21,67 @@ function Linkify({ text, style }) {
   );
 }
 
+function ArchivedSource({ body_md, slug, title }) {
+  const [open, setOpen] = useState(false);
+  if (!body_md) return null;
+
+  const handleDownload = () => {
+    const filename = (slug || title || 'rec').replace(/[^a-z0-9-]/gi, '-') + '.md';
+    const blob = new Blob([body_md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div style={{ marginTop: 20, marginBottom: 16 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          width: "100%", padding: "12px 16px", background: T.s, border: `1px solid ${T.bdr}`,
+          borderRadius: open ? "12px 12px 0 0" : 12, cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", fontFamily: F }}>
+          Archived Source
+        </span>
+        <span style={{ fontSize: 11, color: T.ink3 }}>{open ? "\u25B2" : "\u25BC"}</span>
+      </button>
+      {open && (
+        <div style={{
+          border: `1px solid ${T.bdr}`, borderTop: "none",
+          borderRadius: "0 0 12px 12px", background: T.s,
+        }}>
+          <div style={{
+            maxHeight: 400, overflowY: "auto", padding: "12px 16px",
+            fontFamily: "monospace", fontSize: 12, color: T.ink2,
+            lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word",
+          }}>
+            {body_md}
+          </div>
+          <div style={{ padding: "8px 16px 12px", borderTop: `1px solid ${T.bdr}` }}>
+            <button
+              onClick={handleDownload}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 8, border: `1px solid ${T.bdr}`,
+                background: T.bg, color: T.ink2, fontSize: 11, fontWeight: 600,
+                cursor: "pointer", fontFamily: F,
+              }}
+            >
+              Download .md
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const fmtDateFull = (d) => {
   if (!d) return "";
   // Accept either YYYY-MM-DD (10 chars — append T00:00:00 for local tz)
@@ -680,6 +741,8 @@ export function CuratorRecDetail({ slug }) {
 
             </>
           )}
+
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
         </div>
       </div>
       </div>
@@ -995,6 +1058,8 @@ export function VisitorRecDetail({ slug }) {
             </div>
             <div style={{ height: 20 }} />
           </div>}
+
+          <ArchivedSource body_md={selectedItem.body_md} slug={selectedItem.slug} title={selectedItem.title} />
         </div>
       </div>
       </div>
@@ -1221,6 +1286,8 @@ export function NetworkRecDetail({ slug }) {
                 ))}
               </div>
             )}
+
+            <ArchivedSource body_md={rec.body_md} slug={rec.slug} title={rec.title} />
 
           </div>
         </div>
