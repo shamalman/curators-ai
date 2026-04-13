@@ -33,6 +33,7 @@ export default function SettingsView() {
   const [email, setEmail] = useState("")
   const [weeklyDigest, setWeeklyDigest] = useState(true)
   const [newSubscriber, setNewSubscriber] = useState(true)
+  const [newRec, setNewRec] = useState(true)
   const [inviteHistory, setInviteHistory] = useState([])
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
@@ -50,13 +51,14 @@ export default function SettingsView() {
     if (!profileId) return
     supabase
       .from("profiles")
-      .select("weekly_digest_enabled, new_subscriber_email_enabled")
+      .select("weekly_digest_enabled, new_subscriber_email_enabled, new_rec_email_enabled")
       .eq("id", profileId)
       .single()
       .then(({ data }) => {
         if (data) {
           setWeeklyDigest(data.weekly_digest_enabled !== false)
           setNewSubscriber(data.new_subscriber_email_enabled !== false)
+          setNewRec(data.new_rec_email_enabled !== false)
         }
         setPrefsLoaded(true)
       })
@@ -97,6 +99,19 @@ export default function SettingsView() {
     if (error) {
       console.error("Failed to update new_subscriber_email_enabled:", error)
       setNewSubscriber(!next)
+    }
+  }
+
+  const toggleNewRec = async () => {
+    const next = !newRec
+    setNewRec(next)
+    const { error } = await supabase
+      .from("profiles")
+      .update({ new_rec_email_enabled: next })
+      .eq("id", profileId)
+    if (error) {
+      console.error("Failed to update new_rec_email_enabled:", error)
+      setNewRec(!next)
     }
   }
 
@@ -154,6 +169,9 @@ export default function SettingsView() {
             )}
             {settingRow("New subscriber", "When someone subscribes to you",
               <Toggle on={newSubscriber} onToggle={toggleNewSubscriber} />
+            )}
+            {settingRow("New rec", "When curators you subscribe to save a new rec",
+              <Toggle on={newRec} onToggle={toggleNewRec} />
             )}
           </div>
 
