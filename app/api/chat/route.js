@@ -164,15 +164,14 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
       try {
         const { data: recentMsgs } = await sb
           .from('chat_messages')
-          .select('parsed_content, rec_refs')
+          .select('rec_refs')
           .eq('profile_id', profileId)
           .order('created_at', { ascending: false })
           .limit(5);
 
         if (recentMsgs) {
           const msgWithContent = recentMsgs.find(m =>
-            (Array.isArray(m.rec_refs) && m.rec_refs.length > 0) ||
-            (Array.isArray(m.parsed_content) && m.parsed_content.length > 0)
+            Array.isArray(m.rec_refs) && m.rec_refs.length > 0
           );
 
           if (msgWithContent) {
@@ -191,16 +190,6 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
               } else if (recFileRows?.length > 0) {
                 linkContextBlock += recFileRows.map(row => buildRecFileContextBlock(row)).join('\n\n');
                 console.log('[chat-route] re-injection via rec_refs:', idsToFetch);
-              }
-            } else {
-              // Fallback path: use distillForReinjection on parsed_content
-              const reinjBlocks = (msgWithContent.parsed_content || []).slice(0, 2);
-              const distilled = reinjBlocks
-                .map(block => distillForReinjection(block))
-                .filter(Boolean);
-              if (distilled.length > 0) {
-                linkContextBlock += distilled.join('');
-                console.log('[chat-route] re-injection via parsed_content fallback');
               }
             }
           }
@@ -424,6 +413,9 @@ ${s.location ? `Location: ${s.location}` : ""}`;
           const qualityNote = parsed.quality === 'full'
             ? 'you have the complete content. Reference it specifically.'
             : 'you have some content but not everything. Name the specific items you can see.';
+          const tasteReadContent = parsed.content.length > 40000
+            ? parsed.content.slice(0, 40000) + '\n\n[content truncated due to length]'
+            : parsed.content;
           systemPrompt += `\n\n=== PARSED LINK CONTENT (${recentUrl.url}) ===
 Quality: ${qualityLabel} -- ${qualityNote}
 The curator wants you to engage with this link they shared earlier.
@@ -431,7 +423,7 @@ Title: ${meta.title || 'Unknown'}
 Provider: ${meta.providerName || meta.source || 'Unknown'}
 Author: ${meta.author || 'Unknown'}
 
-${parsed.content}
+${tasteReadContent}
 === END PARSED CONTENT ===`;
 
           parsedLinkBlocks.push({ url: recentUrl.url, quality: parsed.quality, metadata: parsed.metadata, content: parsed.content, sourceType: parsed.sourceType, parseTimeMs: durationMs });
