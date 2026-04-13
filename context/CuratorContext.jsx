@@ -69,27 +69,29 @@ export function CuratorProvider({ children }) {
         .select("*")
         .eq("profile_id", prof.id)
         .order("created_at", { ascending: false });
+
+      // Deploy 3.2: secondary load from rec_files to get body_md and extraction
+      // for paste/upload/URL recs. The rec_file_id on each recommendations row
+      // links to the canonical rec_files row. If this secondary load fails or
+      // returns nothing, items still render fine without body — this is additive.
+      const recFileIds = (recs || [])
+        .map(r => r.rec_file_id)
+        .filter(Boolean);
+
+      // Fire rec_files + chat_messages in parallel
+      const [recFilesResult, msgsResult] = await Promise.all([
+        recFileIds.length > 0
+          ? supabase.from('rec_files').select('id, body_md, extraction, work, curation, curator_is_author').in('id', recFileIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.from('chat_messages').select('*').eq('profile_id', prof.id).order('created_at', { ascending: false }).limit(50)
+      ]);
+
       if (recs && recs.length > 0) {
-        // Deploy 3.2: secondary load from rec_files to get body_md and extraction
-        // for paste/upload/URL recs. The rec_file_id on each recommendations row
-        // links to the canonical rec_files row. If this secondary load fails or
-        // returns nothing, items still render fine without body — this is additive.
-        const recFileIds = recs
-          .map(r => r.rec_file_id)
-          .filter(Boolean);
-
         let recFilesById = {};
-        if (recFileIds.length > 0) {
-          const { data: recFilesData, error: recFilesErr } = await supabase
-            .from("rec_files")
-            .select("id, body_md, extraction, work, curation, curator_is_author")
-            .in("id", recFileIds);
-
-          if (recFilesErr) {
-            console.warn("[CONTEXT_LOAD] rec_files secondary load failed:", recFilesErr.message);
-          } else if (recFilesData) {
-            recFilesById = Object.fromEntries(recFilesData.map(rf => [rf.id, rf]));
-          }
+        if (recFilesResult.error) {
+          console.warn("[CONTEXT_LOAD] rec_files secondary load failed:", recFilesResult.error.message);
+        } else if (recFilesResult.data) {
+          recFilesById = Object.fromEntries(recFilesResult.data.map(rf => [rf.id, rf]));
         }
 
         setTasteItems(recs.map(r => {
@@ -113,12 +115,8 @@ export function CuratorProvider({ children }) {
           };
         }));
       }
-      const { data: msgs } = await supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("profile_id", prof.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
+
+      const msgs = msgsResult.data;
       if (msgs && msgs.length > 0) {
         setMessages(msgs.reverse().map(m => ({ id: m.id, role: m.role === "assistant" ? "ai" : m.role, text: m.text, capturedRec: m.captured_rec, blocks: m.blocks || null, interactions: m.interactions || [], image_rec_candidate: m.meta?.imageRecCandidate || null })));
         prevMsgCount.current = msgs.length;

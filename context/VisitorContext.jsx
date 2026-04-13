@@ -37,18 +37,18 @@ export function VisitorProvider({ handle, children }) {
           subsText: "Curated recs straight to your inbox. Only things worth your time.",
         });
 
-        // Check if logged-in user owns this profile
-        const { data: { user } } = await supabase.auth.getUser();
+        // Check if logged-in user owns this profile + fetch recs in parallel
+        const [authResult, recsResult] = await Promise.all([
+          supabase.auth.getUser(),
+          supabase.from("recommendations").select("*").eq("profile_id", prof.id).eq("visibility", "public").order("created_at", { ascending: false })
+        ]);
+
+        const { data: { user } } = authResult;
         if (user && prof.auth_user_id === user.id) {
           setIsOwner(true);
         }
 
-        const { data: recs } = await supabase
-          .from("recommendations")
-          .select("*")
-          .eq("profile_id", prof.id)
-          .eq("visibility", "public")
-          .order("created_at", { ascending: false });
+        const recs = recsResult.data;
         if (recs && recs.length > 0) {
           const recFileIds = recs.map(r => r.rec_file_id).filter(Boolean);
           let recFilesById = {};
