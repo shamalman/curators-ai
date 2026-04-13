@@ -426,6 +426,16 @@ export function CuratorProvider({ children }) {
     }
 
     const saved = { ...item, id: data.id, rec_file_id: recFileId };
+
+    // Fire-and-forget: notify subscribers
+    if (data?.visibility === 'public' && data?.status === 'approved') {
+      fetch('/api/notify/new-rec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recId: data.id, curatorId: profileId }),
+      }).catch(err => console.error('[new-rec trigger] failed:', err));
+    }
+
     setTasteItems(prev => [saved, ...prev]);
     return saved;
   };

@@ -37,6 +37,11 @@ export async function GET(request) {
               .from('profiles')
               .update({ weekly_digest_enabled: false })
               .eq('id', tokenData.profile_id);
+          } else if (type === 'new_rec_email') {
+            await supabase
+              .from('profiles')
+              .update({ new_rec_email_enabled: false })
+              .eq('id', tokenData.profile_id);
           }
           await markTokenUsed(tokenData.id);
           return Response.redirect('https://curators.ai/email/unsubscribed', 302);
@@ -105,6 +110,11 @@ export async function POST(request) {
     await supabase
       .from('profiles')
       .update({ weekly_digest_enabled: false })
+      .eq('id', tokenData.profile_id);
+  } else if (type === 'new_rec_email') {
+    await supabase
+      .from('profiles')
+      .update({ new_rec_email_enabled: false })
       .eq('id', tokenData.profile_id);
   }
 
