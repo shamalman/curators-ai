@@ -470,6 +470,31 @@ export function CuratorProvider({ children }) {
         .select();
       if (updateError) console.error("[UPDATE_REC_ERROR]", updateError.message, updateError);
       else if (!updatedRows || updatedRows.length === 0) console.error("[UPDATE_REC_NO_ROWS]", "update matched 0 rows", updated.id);
+
+      // Sync rec_files curation + work blocks to match edited values.
+      // rec_file_id lives on the tasteItem — look it up from current state.
+      if (updated.rec_file_id) {
+        const now = new Date().toISOString();
+        const { error: recFileErr } = await supabase
+          .from("rec_files")
+          .update({
+            curation: {
+              ...(updated.curation_block || {}),
+              why: updated.context || null,
+              tags: updated.tags || [],
+              confirmed_at: now,
+            },
+            work: {
+              ...(updated.work || {}),
+              title: updated.title,
+              category: updated.category,
+            },
+            updated_at: now,
+          })
+          .eq("id", updated.rec_file_id);
+        if (recFileErr) console.error("[UPDATE_REC_FILE_ERROR]", recFileErr.message, updated.rec_file_id);
+        else console.log("[UPDATE_REC_FILE] synced rec_files curation+work for", updated.rec_file_id);
+      }
     }
   };
 
