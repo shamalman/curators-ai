@@ -489,6 +489,11 @@ export function CuratorProvider({ children }) {
               title: updated.title,
               category: updated.category,
             },
+            visibility: {
+              ...(updated.visibility_block || {}),
+              level: updated.visibility === 'public' ? 'public' : 'taste-file-only',
+              pool_eligible: true,
+            },
             updated_at: now,
           })
           .eq("id", updated.rec_file_id);
