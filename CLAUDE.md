@@ -68,13 +68,17 @@ Two tables — parent/child, both active:
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern. Both also map `profile_id` onto each tasteItem so rec detail components can pass the rec owner's UUID to `ArtifactImage` (required for signed URL path construction).
 
+`updateRec` syncs `rec_files.curation` (why, tags) and `rec_files.work` (title, category) after every edit. Logs `[UPDATE_REC_FILE]` on success, `[UPDATE_REC_FILE_ERROR]` on failure. Added April 13 2026.
+
 ### Chat Route (app/api/chat/route.js)
 
 **Modes:** Onboarding (< 3 recs OR no bio) | Standard (3+ recs AND bio) | Visitor (another curator's /ask page).
 
 Both onboarding and standard inject `getSubscribedRecs(profileId)` network context into the system prompt.
 
-**Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks). Re-injection path (Deploy 4): checks `rec_refs` first -- if present, fetches `rec_files` rows and injects structured blocks via `buildRecFileContextBlock` (`lib/chat/link-parsing.js`). Falls back to `distillForReinjection` for messages without `rec_refs`.
+**Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks). **Re-injection path:** Checks `rec_refs` on recent messages -- if present, fetches `rec_files` rows and injects structured blocks via `buildRecFileContextBlock` (`lib/chat/link-parsing.js`). No fallback to `parsed_content` -- if `rec_refs` is empty, re-injection is skipped. The `parsed_content` fallback was removed April 13 2026.
+
+**Taste-read re-injection cap:** fixed April 13 2026. `parsed.content` capped at 40K chars before injection into systemPrompt, matching the primary parse path.
 
 **Chat-parsed URLs:** `ingestChatParsedBlocks` (`lib/chat/chat-parse-ingest.js`) writes a `rec_files` row (`extractor: chat-parse@v1`, `visibility: private`, `confirmed: false`) and populates `chat_messages.rec_refs` for each successfully parsed URL. Awaited with 2s timeout before response returns. These rows are ephemeral scratch records -- they exist for re-injection context, not as canonical archive entries.
 
@@ -134,7 +138,7 @@ Key files:
 
 ## Key Log Markers
 
-`[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[rec-files] Inserted`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`, `[chat-parse-ingest] inserted rec_files row:`, `[chat-parse-ingest] rec_refs written:`, `[chat-route] re-injection via rec_refs:`, `[chat-route] re-injection via parsed_content fallback`, `[NOTIFY_NEW_REC]`, `[NOTIFY_NEW_REC_TRIGGER]`
+`[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[FEEDBACK_CAPTURED]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[rec-files] Inserted`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`, `[chat-parse-ingest] inserted rec_files row:`, `[chat-parse-ingest] rec_refs written:`, `[chat-route] re-injection via rec_refs:`, `[UPDATE_REC_FILE]`, `[UPDATE_REC_FILE_ERROR]`, `[NOTIFY_NEW_REC]`, `[NOTIFY_NEW_REC_TRIGGER]`
 
 ---
 
