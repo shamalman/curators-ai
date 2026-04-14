@@ -675,12 +675,12 @@ export default function TasteReadCard({ data, onSendMessage }) {
           <button
             onClick={onSaveAsRec}
             style={{
-              padding: "6px 12px", borderRadius: 16,
-              border: `1px solid ${T.bdr}`, background: "transparent",
-              color: T.ink, fontFamily: F, fontSize: 12, cursor: "pointer",
+              padding: "6px 12px", borderRadius: 16, border: "none",
+              background: ACCENT, color: T.accText,
+              fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer",
             }}
           >
-            Save as a Recommendation
+            + Save as a Recommendation
           </button>
         )}
         <span style={{ flex: 1 }} />
@@ -689,9 +689,9 @@ export default function TasteReadCard({ data, onSendMessage }) {
           <button
             onClick={onClickDone}
             style={{
-              padding: "6px 12px", borderRadius: 16, border: "none",
-              background: ACCENT, color: T.accText,
-              fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              padding: "6px 12px", borderRadius: 16,
+              border: `1px solid ${T.bdr}`, background: "transparent",
+              color: T.ink, fontFamily: F, fontSize: 12, cursor: "pointer",
             }}
           >
             Done
