@@ -45,6 +45,10 @@ export async function POST(request) {
       return NextResponse.json({ message: "No message provided" }, { status: 400 });
     }
 
+    // Deploy 3: detect "Do a taste read on <url>" trigger from the taste_read action button
+    const tasteReadMatch = message && message.match(/^Do a taste read on (https?:\/\/\S+)/i);
+    const tasteReadUrl = tasteReadMatch ? tasteReadMatch[1] : null;
+
     const recCount = recommendations ? recommendations.length : 0;
     const hasBio = curatorBio && curatorBio.trim() !== '';
 
@@ -310,6 +314,32 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         networkContext,
         tasteProfileBlock,
       }) + recsContext + linkContextBlock;
+    }
+
+    // Deploy 3: taste read injection — strict grounding rules + parsed content from this turn
+    if (tasteReadUrl && !isVisitor) {
+      const block = parsedLinkBlocks.find(b => b.url === tasteReadUrl && (b.quality === 'full' || b.quality === 'partial'));
+      const parsedBody = block?.content
+        ? `${block.metadata?.title ? `Title: ${block.metadata.title}\n` : ''}${block.metadata?.providerName || block.metadata?.source ? `Provider: ${block.metadata.providerName || block.metadata.source}\n` : ''}${block.metadata?.author ? `Author: ${block.metadata.author}\n` : ''}\n${block.content}`
+        : '[No parsed content available for this URL — tell the curator honestly that you could not read it and ask them to paste the content.]';
+
+      const tasteReadInjection = `\n\n=== TASTE READ REQUEST ===
+The curator has asked for a taste read on: ${tasteReadUrl}
+
+PARSED CONTENT (this is ALL you have — do not invent anything beyond this):
+${parsedBody}
+
+TASTE READ RULES — follow these exactly:
+1. Only reference items, people, themes, or facts that appear in the parsed content above. Never invent observations.
+2. State your sample size honestly. If you only saw part of the content, say so explicitly: "I can see X of Y items" or "I only have the landing page."
+3. Your taste read must be 3-5 sentences. Dense with specific observations, not generic adjectives.
+4. End with a single question that invites the curator to confirm or correct your read.
+5. Connect observations to the curator's existing taste where genuinely supported by their recs — but only if the connection is real, not forced.
+6. Do not use the word "curator" when addressing them.
+7. After your taste read response, the system will automatically append action buttons — do NOT add any call to action or prompt about saving to their profile yourself.
+=== END TASTE READ REQUEST ===`;
+
+      systemPrompt += tasteReadInjection;
     }
 
     // Handle opening message generation (no user message yet)
@@ -643,7 +673,9 @@ ${tasteReadContent}
     const isFollowOnFromButtons =
       incomingMsg.startsWith("discuss_link:") ||
       incomingMsg.startsWith("taste_read:") ||
-      incomingMsg.startsWith("Do a taste read on ");
+      incomingMsg.startsWith("Do a taste read on ") ||
+      incomingMsg.startsWith("confirm_taste_read:") ||
+      incomingMsg === "keep_exploring_taste";
 
     if (hasNewParsedContent && !recCapture && !isFollowOnFromButtons) {
       const successfulBlocks = parsedLinkBlocks.filter(
@@ -675,6 +707,34 @@ ${tasteReadContent}
           },
         });
       }
+    }
+
+    // Deploy 3: append confirmation buttons after a taste read response
+    let tasteReadMeta = null;
+    if (tasteReadUrl) {
+      blocks.push({
+        type: "action_buttons",
+        data: {
+          prompt: "Want to add this read to your Taste File?",
+          options: [
+            {
+              label: "Add to my Taste File",
+              action: `confirm_taste_read:${tasteReadUrl}`,
+              style: "primary",
+            },
+            {
+              label: "Keep exploring",
+              action: "keep_exploring_taste",
+              style: "secondary",
+            },
+          ],
+        },
+      });
+      tasteReadMeta = {
+        taste_read_observation: aiMessage,
+        taste_read_url: tasteReadUrl,
+      };
+      console.log(`[TASTE_READ_META_WRITE] profileId=${profileId} url=${tasteReadUrl} length=${aiMessage.length}`);
     }
 
     // Feature B: emit save prompt buttons when an image was persisted and inference succeeded.
@@ -836,6 +896,8 @@ ${tasteReadContent}
       // Feature B: return imageRecCandidate so the frontend can look up inferred metadata
       // when the curator taps "Save as a Recommendation" from an image action button.
       image_rec_candidate: imageRecCandidate || undefined,
+      // Deploy 3: taste read meta — frontend merges into chat_messages.meta
+      meta: tasteReadMeta || undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);

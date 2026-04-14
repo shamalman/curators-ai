@@ -518,7 +518,15 @@ export default function ChatView({ variant }) {
       const imageCandidate = data.image_rec_candidate || null;
       setMessages(m => [...m, { role: "ai", text, capturedRec, capturedProfile, blocks: data.blocks || null, interactions: [], parsed_content: data.parsed_content || null, image_rec_candidate: imageCandidate }]);
       // Bug 3 fix: persist imageRecCandidate in meta jsonb for DB reload hydration
-      const metaForDb = imageCandidate ? { imageRecCandidate: imageCandidate } : null;
+      // Deploy 3: merge taste-read meta from server (taste_read_observation, taste_read_url)
+      const serverMeta = data.meta || null;
+      let metaForDb = null;
+      if (imageCandidate || serverMeta) {
+        metaForDb = {
+          ...(imageCandidate ? { imageRecCandidate: imageCandidate } : {}),
+          ...(serverMeta || {}),
+        };
+      }
       const savedId = await saveMsgToDb("ai", text, capturedRec, data.blocks, [], metaForDb);
       if (savedId) {
         setMessages(m => m.map((msg, idx) => idx === m.length - 1 && msg.role === "ai" && !msg.id ? { ...msg, id: savedId } : msg));
@@ -953,6 +961,10 @@ export default function ChatView({ variant }) {
                       messageId={msg.id}
                       tapped={tappedActionMsgIndices.current.has(i)}
                       onSendMessage={(action) => {
+                        // Deploy 3: keep_exploring_taste — silent no-op, conversation continues
+                        if (action === "keep_exploring_taste") {
+                          return;
+                        }
                         // Deploy 2: discuss_link — silent meta-action. Must fire BEFORE
                         // any other branch so the action string can never leak to send().
                         if (typeof action === "string" && action.startsWith("discuss_link:")) {
