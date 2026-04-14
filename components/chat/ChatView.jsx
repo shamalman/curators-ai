@@ -965,6 +965,27 @@ export default function ChatView({ variant }) {
                           handleSaveFromChat(url);
                           return;
                         }
+                        // Deploy 2: taste_read — inject a normal user message + mark dropped_links
+                        if (typeof action === "string" && action.startsWith("taste_read:")) {
+                          const url = action.slice("taste_read:".length);
+                          fetch("/api/dropped-links/mark-action", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url, action: "taste_read" }),
+                          }).catch(() => {});
+                          send(`Do a taste read on ${url}`);
+                          return;
+                        }
+                        // Deploy 2: discuss_link — mark dropped_links, no injected message
+                        if (typeof action === "string" && action.startsWith("discuss_link:")) {
+                          const url = action.slice("discuss_link:".length);
+                          fetch("/api/dropped-links/mark-action", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url, action: "discussed" }),
+                          }).catch(() => {});
+                          return;
+                        }
                         if (action === "skip_save") {
                           // No-op — interaction tracking via onInteraction handles button state
                           return;

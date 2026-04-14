@@ -153,6 +153,30 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
 === END ===`;
         }
       }
+
+      // ── Fire-and-forget: write each parsed URL to dropped_links ──
+      if (parsedLinkBlocks.length > 0) {
+        const blocksToLog = parsedLinkBlocks.slice();
+        (async () => {
+          for (const block of blocksToLog) {
+            try {
+              const meta = block.metadata || {};
+              const qualityLabel = block.quality === 'full' ? 'FULL' : block.quality === 'partial' ? 'PARTIAL' : 'FAILED';
+              const { error } = await sb.from('dropped_links').insert({
+                profile_id: profileId,
+                url: block.url,
+                title: meta.title || null,
+                platform: meta.providerName || meta.source || block.sourceType || null,
+                parse_quality: qualityLabel,
+                parsed_metadata: block.metadata || null,
+              });
+              if (error) console.error('[DROPPED_LINKS_WRITE]', error.message);
+            } catch (err) {
+              console.error('[DROPPED_LINKS_WRITE]', err?.message || err);
+            }
+          }
+        })();
+      }
     }
 
     // ── Re-inject parsed content from recent messages for follow-up turns ──
@@ -621,16 +645,22 @@ ${tasteReadContent}
         blocks.push({
           type: "action_buttons",
           data: {
-            prompt: "Want to add this to your archive?",
+            prompt: "What do you want to do with this link?",
             options: [
               {
-                label: "Save as a Recommendation",
+                label: "Add as recommendation",
                 action: `save_rec_from_chat:${firstUrl}`,
                 style: "primary",
               },
               {
-                label: "Not Now",
-                action: "skip_save",
+                label: "Taste read",
+                action: `taste_read:${firstUrl}`,
+                style: "secondary",
+              },
+              {
+                label: "Just talk about it",
+                action: `discuss_link:${firstUrl}`,
+                style: "secondary",
               },
             ],
           },
