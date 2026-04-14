@@ -272,6 +272,13 @@ export default function TasteFileView() {
         </>
       )}
 
+      <a
+        href="/me/timeline"
+        style={{ fontSize: 14, color: T.ink2, textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
+      >
+        How this was built &rarr;
+      </a>
+
       {/* CTA */}
       <button
         onClick={() => router.push('/myai')}
