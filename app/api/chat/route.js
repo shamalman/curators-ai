@@ -376,7 +376,7 @@ TASTE READ RULES — follow these exactly:
 2. State your sample size honestly. If you only saw part of the content, say so explicitly: "I can see X of Y items" or "I only have the landing page."
 3. Your taste read must be 3-5 sentences. Dense with specific observations, not generic adjectives.
 4. End with a single question that invites the curator to confirm or correct your read.
-5. This is a pure analysis of the submitted content only. Do not reference the curator's other recommendations, taste profile, or previous conversations. Analyze only what is in the parsed content above.
+5. ABSOLUTE RULE: Analyze ONLY the content in the PARSED CONTENT block above. You have NO information about this person's taste, history, or preferences. Do not reference anything from outside the parsed content. Do not mention any artists, works, or themes not explicitly named in the parsed content above.
 6. Do not use the word "curator" when addressing them.
 7. After your taste read response, the system will automatically append action buttons — do NOT add any call to action or prompt about saving to their profile yourself.
 === END TASTE READ REQUEST ===`;
@@ -484,6 +484,14 @@ TASTE READ RULES — follow these exactly:
     // Ensure first message is from user
     if (cleanedMessages.length > 0 && cleanedMessages[0].role !== "user") {
       cleanedMessages.shift();
+    }
+
+    // Taste read turns: strip ALL conversation history. The taste-read prompt
+    // injection already carries the full parsed content; prior messages
+    // contaminate the read with rec references the AI shouldn't see.
+    if (tasteReadUrl) {
+      cleanedMessages.length = 0;
+      cleanedMessages.push({ role: "user", content: message });
     }
 
     // ── Taste read on previous link: curator says "read those links" without pasting a new URL ──
