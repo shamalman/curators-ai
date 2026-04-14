@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { generateTasteProfile } from "../../../../lib/taste-profile/generate.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,17 +125,14 @@ export async function POST(request) {
       }
     })();
 
-    // Fire-and-forget: regenerate the Taste File
+    // Fire-and-forget: regenerate the Taste File via direct import.
+    // Vercel serverless functions can't reach each other via relative fetch.
     (async () => {
       try {
-        const origin = request.nextUrl?.origin || new URL(request.url).origin;
-        await fetch(`${origin}/api/generate-taste-profile`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profileId }),
-        });
-      } catch (e) {
-        console.error('[TASTE_READ_CONFIRM] taste-profile regen trigger failed:', e?.message || e);
+        await generateTasteProfile(profileId, admin);
+        console.log('[TASTE_READ_CONFIRM] taste profile regenerated for', profileId);
+      } catch (err) {
+        console.error('[TASTE_READ_CONFIRM] taste profile regen failed:', err?.message || err);
       }
     })();
 
