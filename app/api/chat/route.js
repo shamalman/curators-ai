@@ -148,14 +148,34 @@ ${block.content}
         }
       }
 
+      // Bug 2: detect URLs already attempted in the last 10 history messages so we
+      // don't ask the curator to "try pasting again" on a URL that already failed once.
+      const priorUrlSet = new Set();
+      if (Array.isArray(history)) {
+        for (const h of history.slice(-10)) {
+          const txt = h?.text || "";
+          const matches = txt.match(URL_REGEX) || [];
+          for (const u of matches) priorUrlSet.add(u);
+        }
+      }
+
       // Add explicit FAILED blocks for URLs that couldn't be parsed
+      let anyFailedThisTurn = false;
       for (const note of agentNotes) {
         if (note.type === 'link_parse_failed') {
-          linkContextBlock += `\n\n=== LINK PARSE FAILED (${note.url}) ===
+          anyFailedThisTurn = true;
+          if (priorUrlSet.has(note.url)) {
+            linkContextBlock += `\n\n[Previously attempted URL: ${note.url} — parse failed. Do not ask the curator to try again. Acknowledge you cannot access this source and move on.]`;
+          } else {
+            linkContextBlock += `\n\n=== LINK PARSE FAILED (${note.url}) ===
 You could NOT read this link. Do NOT describe, summarize, or reference its contents.
 Tell the curator honestly: "I couldn't read that link. Can you paste the content or tell me about it?"
 === END ===`;
+          }
         }
+      }
+      if (anyFailedThisTurn) {
+        linkContextBlock += `\n\nFAILED PARSE RULE: If a link could not be parsed, say so once clearly and do not ask the curator to paste it again.`;
       }
 
       // ── Fire-and-forget: write each parsed URL to dropped_links ──

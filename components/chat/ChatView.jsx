@@ -87,6 +87,10 @@ export default function ChatView({ variant }) {
   const typedSinceSave = useRef(false);
   const tappedActionMsgIndices = useRef(new Set());
   const isWaitingForResponse = useRef(false);
+  // Bug 1: scope draftWhyFromConversation to messages added in the current session,
+  // not historical chat loaded from the DB on mount.
+  const sessionStartIndexRef = useRef(0);
+  const sessionStartCapturedRef = useRef(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -103,6 +107,14 @@ export default function ChatView({ variant }) {
   const cats = [...new Set(items.map(i => i.category))];
 
   useEffect(() => { return () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }; }, []);
+
+  // Bug 1: capture session-start index once, when the initial DB load completes.
+  useEffect(() => {
+    if (dbLoaded && !sessionStartCapturedRef.current) {
+      sessionStartIndexRef.current = messages.length;
+      sessionStartCapturedRef.current = true;
+    }
+  }, [dbLoaded, messages.length]);
 
   // Fetch curator's last rec visibility to default the quick capture sheet
   useEffect(() => {
@@ -545,7 +557,8 @@ export default function ChatView({ variant }) {
   // return empty string and let the curator type their own.
   const draftWhyFromConversation = (targetUrl) => {
     if (!messages || messages.length === 0) return "";
-    for (let i = messages.length - 1; i >= 0 && i >= messages.length - 6; i--) {
+    const sessionStart = sessionStartIndexRef.current;
+    for (let i = messages.length - 1; i >= sessionStart && i >= messages.length - 6; i--) {
       const m = messages[i];
       if (m.role !== "user") continue;
       const text = (m.text || "").trim();
@@ -959,7 +972,7 @@ export default function ChatView({ variant }) {
                       blocks={msg.blocks}
                       interactions={msg.interactions || []}
                       messageId={msg.id}
-                      tapped={tappedActionMsgIndices.current.has(i)}
+                      tapped={msg.id ? tappedActionMsgIndices.current.has(msg.id) : false}
                       onSendMessage={(action) => {
                         // Deploy 3: keep_exploring_taste — silent no-op, conversation continues
                         if (action === "keep_exploring_taste") {
@@ -1006,7 +1019,8 @@ export default function ChatView({ variant }) {
                         send(action);
                       }}
                       onInteraction={(msgId, blockIdx, act) => {
-                        tappedActionMsgIndices.current.add(i);
+                        // Bug 3: track by DB message ID, not array index — indices shift when history loads.
+                        if (msg.id) tappedActionMsgIndices.current.add(msg.id);
                         handleInteraction(msgId, blockIdx, act);
                       }}
                     />
