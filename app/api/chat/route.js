@@ -110,12 +110,12 @@ export async function POST(request) {
       if (urlNotes) linkContextBlock += urlNotes;
 
       // ── Hard cap on total parsed content injected into system prompt ──
-      const LINK_CONTEXT_CAP = 40000;
+      const linkContentCap = tasteReadUrl ? 100000 : 40000;
       originalParsedContentLength = parsedLinkBlocks.reduce((sum, b) => sum + (b.content?.length || 0), 0);
-      linkContextCapped = originalParsedContentLength > LINK_CONTEXT_CAP;
+      linkContextCapped = originalParsedContentLength > linkContentCap;
       if (linkContextCapped) {
-        console.warn(`[LINK_CONTEXT_CAPPED] original_length=${originalParsedContentLength} capped_to=${LINK_CONTEXT_CAP} blocks=${parsedLinkBlocks.length}`);
-        const ratio = LINK_CONTEXT_CAP / originalParsedContentLength;
+        console.warn(`[LINK_CONTEXT_CAPPED] original_length=${originalParsedContentLength} capped_to=${linkContentCap} blocks=${parsedLinkBlocks.length}`);
+        const ratio = linkContentCap / originalParsedContentLength;
         for (const block of parsedLinkBlocks) {
           if (block.content) {
             const allowance = Math.floor(block.content.length * ratio);
