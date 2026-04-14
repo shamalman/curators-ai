@@ -570,6 +570,11 @@ export default function ChatView({ variant }) {
       if (textWithoutUrl.length < 15) continue;
       // Skip meta actions / button responses
       if (textWithoutUrl.startsWith("save_rec_from_chat") || textWithoutUrl === "skip_save") continue;
+      // Skip known action confirmation strings injected by the system
+      if (textWithoutUrl === "Added to my Taste File." || textWithoutUrl === "Added to my Taste File") continue;
+      if (textWithoutUrl.startsWith("Do a taste read on ")) continue;
+      if (textWithoutUrl.length < 20 && /\.$/.test(textWithoutUrl)) continue;
+      if (/^(Added|Saved|Done|Got it|Skip|Keep exploring)[\.\!]?$/i.test(textWithoutUrl)) continue;
       // Got something substantive — return verbatim, truncated to 200 chars
       if (textWithoutUrl.length <= 200) return textWithoutUrl;
       const sliced = textWithoutUrl.slice(0, 200);
