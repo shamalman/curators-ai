@@ -344,6 +344,21 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       }) + recsContext + linkContextBlock;
     }
 
+    // Link drop acknowledgment: when a curator drops a link, do not analyze it
+    // unsolicited — wait for them to choose an action via the buttons.
+    const hasSuccessfulParse = parsedLinkBlocks.some(b => b.quality === 'full' || b.quality === 'partial');
+    if (hasSuccessfulParse && !tasteReadUrl && !generateOpening && !isVisitor) {
+      systemPrompt += `\n\n=== LINK DROPPED — ACKNOWLEDGMENT ONLY ===
+The curator just dropped a link. Do NOT analyze it, interpret it, summarize its themes, or connect it to their taste or existing recommendations.
+Your ONLY job right now is to acknowledge what you can see:
+- State the title and author/publication
+- State what you have access to: full article, partial content (X of Y items), or just the landing page
+- Do not editorialize, do not offer opinions, do not make connections
+- Keep it to 1-2 sentences maximum
+The curator will choose what to do with it via the action buttons.
+=== END ===`;
+    }
+
     // Deploy 3: taste read injection — strict grounding rules + parsed content from this turn
     if (tasteReadUrl && !isVisitor) {
       const block = parsedLinkBlocks.find(b => b.url === tasteReadUrl && (b.quality === 'full' || b.quality === 'partial'));
