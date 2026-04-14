@@ -5,6 +5,7 @@ import FeedMediaEmbed from "./FeedMediaEmbed";
 import FeedActionButtons from "./FeedActionButtons";
 import FeedTasteRead from "./FeedTasteRead";
 import FeedAgentBanner from "./FeedAgentBanner";
+import TasteReadCard from "../taste-read/TasteReadCard";
 
 export default function FeedBlockGroup({ blocks, interactions, messageId, tapped, onSendMessage, onInteraction }) {
   if (!blocks || blocks.length === 0) return null;
@@ -18,6 +19,8 @@ export default function FeedBlockGroup({ blocks, interactions, messageId, tapped
             return <FeedMediaEmbed key={i} data={block.data} />;
           case 'taste_read':
             return <FeedTasteRead key={i} data={block.data} />;
+          case 'taste_read_card':
+            return <TasteReadCard key={i} data={block.data} />;
           case 'action_buttons': {
             const isUsed = tapped || (interactions || []).some(x => x.block_index === i);
             return (

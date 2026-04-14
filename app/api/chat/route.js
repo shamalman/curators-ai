@@ -203,6 +203,69 @@ You could NOT access the full content of this link. Acknowledge only the title a
       }
     }
 
+    // ── Taste read turn: emit a taste_read_card block and short-circuit ──
+    // No inline Claude call; the client fetches /api/taste-read on mount using
+    // the parsed_content payload below. Replaces the v1 observation flow.
+    if (tasteReadUrl && !isVisitor) {
+      const parsedBlock = parsedLinkBlocks.find(b => b.url === tasteReadUrl && b.quality !== 'failed');
+
+      const cardBlocks = [];
+      if (parsedBlock?.content) {
+        const meta = parsedBlock.metadata || {};
+        const header = [
+          meta.title ? `Title: ${meta.title}` : null,
+          meta.providerName || meta.source ? `Provider: ${meta.providerName || meta.source}` : null,
+          meta.author ? `Author: ${meta.author}` : null,
+        ].filter(Boolean).join('\n');
+        const parsedContentPayload = header ? `${header}\n\n${parsedBlock.content}` : parsedBlock.content;
+
+        cardBlocks.push({
+          type: 'taste_read_card',
+          data: {
+            parsed_content: parsedContentPayload,
+            source_url: tasteReadUrl,
+            rec_file_id: null,
+          },
+        });
+      } else {
+        cardBlocks.push({
+          type: 'text',
+          data: { content: "I couldn't read that link. Paste the content or tell me about it and I'll do the read from there." },
+        });
+      }
+
+      // Persist parsed_content on the user's latest message (same as normal path),
+      // best-effort and non-blocking on failure.
+      if (profileId && parsedBlock?.content) {
+        try {
+          const { data: latestUserMsg } = await sb
+            .from('chat_messages')
+            .select('id')
+            .eq('profile_id', profileId)
+            .eq('role', 'user')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (latestUserMsg) {
+            await sb.from('chat_messages').update({
+              parsed_content: [{
+                url: parsedBlock.url,
+                content: parsedBlock.content,
+                metadata: parsedBlock.metadata,
+                quality: parsedBlock.quality,
+                sourceType: parsedBlock.sourceType,
+              }],
+            }).eq('id', latestUserMsg.id);
+          }
+        } catch (e) {
+          console.error('[TASTE_READ_CARD] parsed_content persist failed:', e?.message || e);
+        }
+      }
+
+      console.log(`[TASTE_READ_CARD] profileId=${profileId} url=${tasteReadUrl} parsed=${!!parsedBlock?.content}`);
+      return NextResponse.json({ message: '', blocks: cardBlocks });
+    }
+
     // ── Re-inject parsed content from recent messages for follow-up turns ──
     // If the current message has no URLs but a recent message has parsed_content,
     // re-inject it so the AI can continue discussing the link accurately.
@@ -359,18 +422,6 @@ The curator will choose what to do with it via the action buttons.
 === END ===`;
     }
 
-    // Taste read turns: replace the entire system prompt with the taste-read skill
-    // plus the parsed content. No rec list, no taste profile, no network context,
-    // no standard/onboarding prompt — pure isolated content analysis.
-    if (tasteReadUrl && !isVisitor) {
-      const block = parsedLinkBlocks.find(b => b.url === tasteReadUrl && (b.quality === 'full' || b.quality === 'partial'));
-      const parsedBody = block?.content
-        ? `${block.metadata?.title ? `Title: ${block.metadata.title}\n` : ''}${block.metadata?.providerName || block.metadata?.source ? `Provider: ${block.metadata.providerName || block.metadata.source}\n` : ''}${block.metadata?.author ? `Author: ${block.metadata.author}\n` : ''}\n${block.content}`
-        : '[No parsed content available for this URL — tell the curator honestly that you could not read it and ask them to paste the content.]';
-
-      systemPrompt = `${loadSkill('taste-read')}\n\n=== CONTENT TO ANALYZE ===\nSource: ${tasteReadUrl}\n${parsedBody}\n=== END ===`;
-    }
-
     // Handle opening message generation (no user message yet)
     if (generateOpening) {
       const openingMessages = [
@@ -471,14 +522,6 @@ The curator will choose what to do with it via the action buttons.
     // Ensure first message is from user
     if (cleanedMessages.length > 0 && cleanedMessages[0].role !== "user") {
       cleanedMessages.shift();
-    }
-
-    // Taste read turns: strip ALL conversation history. The taste-read prompt
-    // injection already carries the full parsed content; prior messages
-    // contaminate the read with rec references the AI shouldn't see.
-    if (tasteReadUrl) {
-      cleanedMessages.length = 0;
-      cleanedMessages.push({ role: "user", content: message });
     }
 
     // ── Taste read on previous link: curator says "read those links" without pasting a new URL ──
@@ -709,10 +752,7 @@ ${tasteReadContent}
     const incomingMsg = (message || "").trim();
     const isFollowOnFromButtons =
       incomingMsg.startsWith("discuss_link:") ||
-      incomingMsg.startsWith("taste_read:") ||
-      incomingMsg.startsWith("Do a taste read on ") ||
-      incomingMsg.startsWith("confirm_taste_read:") ||
-      incomingMsg === "keep_exploring_taste";
+      incomingMsg.startsWith("taste_read:");
 
     // Show buttons on ANY URL drop — including failed parses. The curator can
     // still choose to save it as a rec or attempt a taste read (which will
@@ -742,39 +782,6 @@ ${tasteReadContent}
           ],
         },
       });
-    }
-
-    // Deploy 3: append confirmation buttons after a taste read response
-    let tasteReadMeta = null;
-    if (tasteReadUrl) {
-      blocks.push({
-        type: "action_buttons",
-        data: {
-          prompt: "Want to add this read to your Taste File?",
-          options: [
-            {
-              label: "Add to my Taste File",
-              action: `confirm_taste_read:${tasteReadUrl}`,
-              style: "primary",
-            },
-            {
-              label: "Add as recommendation",
-              action: `save_rec_from_chat:${tasteReadUrl}`,
-              style: "secondary",
-            },
-            {
-              label: "Keep exploring",
-              action: "keep_exploring_taste",
-              style: "secondary",
-            },
-          ],
-        },
-      });
-      tasteReadMeta = {
-        taste_read_observation: aiMessage,
-        taste_read_url: tasteReadUrl,
-      };
-      console.log(`[TASTE_READ_META_WRITE] profileId=${profileId} url=${tasteReadUrl} length=${aiMessage.length}`);
     }
 
     // Feature B: emit save prompt buttons when an image was persisted and inference succeeded.
@@ -936,8 +943,6 @@ ${tasteReadContent}
       // Feature B: return imageRecCandidate so the frontend can look up inferred metadata
       // when the curator taps "Save as a Recommendation" from an image action button.
       image_rec_candidate: imageRecCandidate || undefined,
-      // Deploy 3: taste read meta — frontend merges into chat_messages.meta
-      meta: tasteReadMeta || undefined,
     });
   } catch (error) {
     console.error("Chat API error:", error?.message || error);

@@ -46,11 +46,6 @@ export async function POST(request) {
 
     const body = await request.json();
     const { inference_text, source_url, rec_file_id } = body || {};
-    // DEPLOY 3 CLEANUP: v1 bridge accepts legacy { url } shape (and falls back
-    // to source_url as the lookup key). Remove this alias along with the v1
-    // bridge branch below when the chat route migrates to taste_read_card
-    // content blocks.
-    const legacyUrl = body?.url || source_url;
 
     const admin = getSupabaseAdmin();
 
@@ -66,36 +61,8 @@ export async function POST(request) {
     }
     const profileId = profile.id;
 
-    let observation = typeof inference_text === "string" ? inference_text.trim() : "";
-    let sourceKey = buildSourceKey(rec_file_id, source_url);
-
-    // DEPLOY 3 CLEANUP: Remove this v1 bridge when chat route migrates to
-    // taste_read_card content blocks. Entire branch (url-only body) should
-    // be deleted along with the meta.taste_read_observation write path in
-    // app/api/chat/route.js.
-    if (!observation && legacyUrl) {
-      const { data: msgRow, error: msgErr } = await admin
-        .from("chat_messages")
-        .select("id, meta")
-        .eq("profile_id", profileId)
-        .eq("role", "assistant")
-        .eq("meta->>taste_read_url", legacyUrl)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (msgErr) {
-        console.error("[TASTE_READ_CONFIRM] v1 bridge lookup failed:", msgErr.message);
-        return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
-      }
-      const legacyObservation = msgRow?.meta?.taste_read_observation;
-      if (!legacyObservation) {
-        return NextResponse.json({ error: "No taste read observation found for this URL" }, { status: 400 });
-      }
-      observation = String(legacyObservation).trim();
-      sourceKey = `taste_read:${legacyUrl}`;
-      console.log(`[TASTE_READ_V1_BRIDGE] profileId=${profileId} url=${legacyUrl} msgId=${msgRow.id}`);
-    }
+    const observation = typeof inference_text === "string" ? inference_text.trim() : "";
+    const sourceKey = buildSourceKey(rec_file_id, source_url);
 
     if (!observation) {
       return NextResponse.json({ error: "inference_text is required" }, { status: 400 });
