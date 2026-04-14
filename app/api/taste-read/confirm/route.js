@@ -30,6 +30,12 @@ async function getAuthUser(cookieStore) {
   return user;
 }
 
+function buildSourceKey(rec_file_id, source_url) {
+  if (rec_file_id) return `taste_read:${rec_file_id}`;
+  if (source_url) return `taste_read:${source_url}`;
+  return "taste_read:unknown";
+}
+
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
@@ -38,10 +44,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { url } = await request.json();
-    if (!url) {
-      return NextResponse.json({ error: "url is required" }, { status: 400 });
-    }
+    const body = await request.json();
+    const { inference_text, source_url, rec_file_id } = body || {};
+    // DEPLOY 3 CLEANUP: v1 bridge accepts legacy { url } shape (and falls back
+    // to source_url as the lookup key). Remove this alias along with the v1
+    // bridge branch below when the chat route migrates to taste_read_card
+    // content blocks.
+    const legacyUrl = body?.url || source_url;
 
     const admin = getSupabaseAdmin();
 
@@ -52,31 +61,44 @@ export async function POST(request) {
       .single();
 
     if (profileErr || !profile) {
-      console.error('[TASTE_READ_CONFIRM] profile lookup failed:', profileErr?.message);
+      console.error("[TASTE_READ_CONFIRM] profile lookup failed:", profileErr?.message);
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
-
     const profileId = profile.id;
 
-    // Find the most recent assistant message whose meta.taste_read_url matches.
-    const { data: msgRow, error: msgErr } = await admin
-      .from("chat_messages")
-      .select("id, meta")
-      .eq("profile_id", profileId)
-      .eq("role", "assistant")
-      .eq("meta->>taste_read_url", url)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    let observation = typeof inference_text === "string" ? inference_text.trim() : "";
+    let sourceKey = buildSourceKey(rec_file_id, source_url);
 
-    if (msgErr) {
-      console.error('[TASTE_READ_CONFIRM] message lookup failed:', msgErr.message);
-      return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+    // DEPLOY 3 CLEANUP: Remove this v1 bridge when chat route migrates to
+    // taste_read_card content blocks. Entire branch (url-only body) should
+    // be deleted along with the meta.taste_read_observation write path in
+    // app/api/chat/route.js.
+    if (!observation && legacyUrl) {
+      const { data: msgRow, error: msgErr } = await admin
+        .from("chat_messages")
+        .select("id, meta")
+        .eq("profile_id", profileId)
+        .eq("role", "assistant")
+        .eq("meta->>taste_read_url", legacyUrl)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (msgErr) {
+        console.error("[TASTE_READ_CONFIRM] v1 bridge lookup failed:", msgErr.message);
+        return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+      }
+      const legacyObservation = msgRow?.meta?.taste_read_observation;
+      if (!legacyObservation) {
+        return NextResponse.json({ error: "No taste read observation found for this URL" }, { status: 400 });
+      }
+      observation = String(legacyObservation).trim();
+      sourceKey = `taste_read:${legacyUrl}`;
+      console.log(`[TASTE_READ_V1_BRIDGE] profileId=${profileId} url=${legacyUrl} msgId=${msgRow.id}`);
     }
 
-    const observation = msgRow?.meta?.taste_read_observation;
-    if (!msgRow || !observation) {
-      return NextResponse.json({ error: "No taste read observation found for this URL" }, { status: 400 });
+    if (!observation) {
+      return NextResponse.json({ error: "inference_text is required" }, { status: 400 });
     }
 
     const { error: insertErr } = await admin
@@ -85,61 +107,28 @@ export async function POST(request) {
         profile_id: profileId,
         type: "taste_read_confirmed",
         observation,
-        source: `chat:${msgRow.id}`,
+        source: sourceKey,
       });
 
     if (insertErr) {
-      console.error('[TASTE_READ_CONFIRM] insert failed:', insertErr.message);
+      console.error("[TASTE_READ_CONFIRM] insert failed:", insertErr.message);
       return NextResponse.json({ error: "Insert failed" }, { status: 500 });
     }
 
-    // Fire-and-forget: bump the corresponding dropped_links row to taste_read_confirmed
-    (async () => {
-      try {
-        // Match on profile+url only — the row may have action_taken=null (race)
-        // or any prior action; we promote the most recent one to confirmed.
-        const { data: dropRow, error: dropErr } = await admin
-          .from("dropped_links")
-          .select("id")
-          .eq("profile_id", profileId)
-          .eq("url", url)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (dropErr) {
-          console.error('[TASTE_READ_CONFIRM] dropped_links lookup failed:', dropErr.message);
-          return;
-        }
-        if (!dropRow) return;
-
-        const { error: updErr } = await admin
-          .from("dropped_links")
-          .update({ action_taken: "taste_read_confirmed", acted_at: new Date().toISOString() })
-          .eq("id", dropRow.id);
-        if (updErr) {
-          console.error('[TASTE_READ_CONFIRM] dropped_links update failed:', updErr.message);
-        }
-      } catch (e) {
-        console.error('[TASTE_READ_CONFIRM] dropped_links side-effect:', e?.message || e);
-      }
-    })();
-
     // Fire-and-forget: regenerate the Taste File via direct import.
-    // Vercel serverless functions can't reach each other via relative fetch.
     (async () => {
       try {
         await generateTasteProfile(profileId, admin);
-        console.log('[TASTE_READ_CONFIRM] taste profile regenerated for', profileId);
+        console.log("[TASTE_READ_CONFIRM] taste profile regenerated for", profileId);
       } catch (err) {
-        console.error('[TASTE_READ_CONFIRM] taste profile regen failed:', err?.message || err);
+        console.error("[TASTE_READ_CONFIRM] taste profile regen failed:", err?.message || err);
       }
     })();
 
-    console.log(`[TASTE_READ_CONFIRM] profileId=${profileId} url=${url} observationLength=${observation.length}`);
-    return NextResponse.json({ success: true });
+    console.log(`[TASTE_READ_CONFIRM] profileId=${profileId} source=${sourceKey} observationLength=${observation.length}`);
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[TASTE_READ_CONFIRM]', err?.message || err);
-    return NextResponse.json({ success: false }, { status: 200 });
+    console.error("[TASTE_READ_CONFIRM]", err?.message || err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

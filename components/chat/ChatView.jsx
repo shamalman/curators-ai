@@ -989,7 +989,7 @@ export default function ChatView({ variant }) {
                           fetch("/api/taste-read/confirm", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url }),
+                            body: JSON.stringify({ source_url: url }),
                           }).catch(() => {});
                           send("Added to my Taste File.");
                           return;
