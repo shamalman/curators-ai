@@ -636,7 +636,16 @@ ${tasteReadContent}
     // by the existing URL regex slice). Skip on failed parses — nothing to save.
     // Skip if the AI already captured a rec in this turn (recCapture is set) — no
     // need to double up the save prompt.
-    if (hasNewParsedContent && !recCapture) {
+    // Suppress on follow-on turns triggered by the action buttons themselves —
+    // raw action strings or the taste_read injected prompt. Otherwise we re-emit
+    // the buttons and create a tap loop.
+    const incomingMsg = (message || "").trim();
+    const isFollowOnFromButtons =
+      incomingMsg.startsWith("discuss_link:") ||
+      incomingMsg.startsWith("taste_read:") ||
+      incomingMsg.startsWith("Do a taste read on ");
+
+    if (hasNewParsedContent && !recCapture && !isFollowOnFromButtons) {
       const successfulBlocks = parsedLinkBlocks.filter(
         b => b.quality === "full" || b.quality === "partial"
       );

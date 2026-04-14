@@ -953,19 +953,18 @@ export default function ChatView({ variant }) {
                       messageId={msg.id}
                       tapped={tappedActionMsgIndices.current.has(i)}
                       onSendMessage={(action) => {
-                        // Feature B: intercept save-image-rec actions before they hit send()
-                        if (typeof action === "string" && action.startsWith("save_image_rec:")) {
-                          const sha = action.slice("save_image_rec:".length);
-                          handleSaveImageFromChat(sha);
+                        // Deploy 2: discuss_link — silent meta-action. Must fire BEFORE
+                        // any other branch so the action string can never leak to send().
+                        if (typeof action === "string" && action.startsWith("discuss_link:")) {
+                          const url = action.slice("discuss_link:".length);
+                          fetch("/api/dropped-links/mark-action", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url, action: "discussed" }),
+                          }).catch(() => {});
                           return;
                         }
-                        // Feature C: intercept save-from-chat actions before they hit send()
-                        if (typeof action === "string" && action.startsWith("save_rec_from_chat:")) {
-                          const url = action.slice("save_rec_from_chat:".length);
-                          handleSaveFromChat(url);
-                          return;
-                        }
-                        // Deploy 2: taste_read — inject a normal user message + mark dropped_links
+                        // Deploy 2: taste_read — substitute a natural-language prompt for the raw action string
                         if (typeof action === "string" && action.startsWith("taste_read:")) {
                           const url = action.slice("taste_read:".length);
                           fetch("/api/dropped-links/mark-action", {
@@ -976,14 +975,16 @@ export default function ChatView({ variant }) {
                           send(`Do a taste read on ${url}`);
                           return;
                         }
-                        // Deploy 2: discuss_link — mark dropped_links, no injected message
-                        if (typeof action === "string" && action.startsWith("discuss_link:")) {
-                          const url = action.slice("discuss_link:".length);
-                          fetch("/api/dropped-links/mark-action", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url, action: "discussed" }),
-                          }).catch(() => {});
+                        // Feature B: intercept save-image-rec actions before they hit send()
+                        if (typeof action === "string" && action.startsWith("save_image_rec:")) {
+                          const sha = action.slice("save_image_rec:".length);
+                          handleSaveImageFromChat(sha);
+                          return;
+                        }
+                        // Feature C: intercept save-from-chat actions before they hit send()
+                        if (typeof action === "string" && action.startsWith("save_rec_from_chat:")) {
+                          const url = action.slice("save_rec_from_chat:".length);
+                          handleSaveFromChat(url);
                           return;
                         }
                         if (action === "skip_save") {
