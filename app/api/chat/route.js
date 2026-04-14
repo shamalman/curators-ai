@@ -168,8 +168,7 @@ ${block.content}
             linkContextBlock += `\n\n[Previously attempted URL: ${note.url} — parse failed. Do not ask the curator to try again. Acknowledge you cannot access this source and move on.]`;
           } else {
             linkContextBlock += `\n\n=== LINK PARSE FAILED (${note.url}) ===
-You could NOT read this link. Do NOT describe, summarize, or reference its contents.
-Tell the curator honestly: "I couldn't read that link. Can you paste the content or tell me about it?"
+You could NOT access the full content of this link. Acknowledge only the title and platform if visible from the URL itself, and state that you couldn't access the full content. Do NOT describe or summarize what's in it. Do NOT ask the curator to paste it or tell you what it contains. Keep it to ONE sentence. The curator already has action buttons to choose what to do next.
 === END ===`;
           }
         }
@@ -720,36 +719,34 @@ ${tasteReadContent}
       incomingMsg.startsWith("confirm_taste_read:") ||
       incomingMsg === "keep_exploring_taste";
 
-    if (hasNewParsedContent && !recCapture && !isFollowOnFromButtons) {
-      const successfulBlocks = parsedLinkBlocks.filter(
-        b => b.quality === "full" || b.quality === "partial"
-      );
-      if (successfulBlocks.length > 0) {
-        const firstUrl = successfulBlocks[0].url;
-        blocks.push({
-          type: "action_buttons",
-          data: {
-            prompt: "What do you want to do with this link?",
-            options: [
-              {
-                label: "Add as recommendation",
-                action: `save_rec_from_chat:${firstUrl}`,
-                style: "primary",
-              },
-              {
-                label: "Taste read",
-                action: `taste_read:${firstUrl}`,
-                style: "secondary",
-              },
-              {
-                label: "Just talk about it",
-                action: `discuss_link:${firstUrl}`,
-                style: "secondary",
-              },
-            ],
-          },
-        });
-      }
+    // Show buttons on ANY URL drop — including failed parses. The curator can
+    // still choose to save it as a rec or attempt a taste read (which will
+    // honestly report no content) or just talk about it.
+    if (parsedLinkBlocks.length > 0 && !recCapture && !isFollowOnFromButtons) {
+      const firstUrl = parsedLinkBlocks[0].url;
+      blocks.push({
+        type: "action_buttons",
+        data: {
+          prompt: "What do you want to do with this link?",
+          options: [
+            {
+              label: "Add as recommendation",
+              action: `save_rec_from_chat:${firstUrl}`,
+              style: "primary",
+            },
+            {
+              label: "Taste read",
+              action: `taste_read:${firstUrl}`,
+              style: "secondary",
+            },
+            {
+              label: "Just talk about it",
+              action: `discuss_link:${firstUrl}`,
+              style: "secondary",
+            },
+          ],
+        },
+      });
     }
 
     // Deploy 3: append confirmation buttons after a taste read response
