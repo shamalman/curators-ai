@@ -95,12 +95,13 @@ export async function POST(request) {
     // Fire-and-forget: bump the corresponding dropped_links row to taste_read_confirmed
     (async () => {
       try {
+        // Match on profile+url only — the row may have action_taken=null (race)
+        // or any prior action; we promote the most recent one to confirmed.
         const { data: dropRow, error: dropErr } = await admin
           .from("dropped_links")
           .select("id")
           .eq("profile_id", profileId)
           .eq("url", url)
-          .eq("action_taken", "taste_read")
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();

@@ -55,7 +55,12 @@ export async function POST(request) {
       return NextResponse.json({ ok: false }, { status: 200 });
     }
 
-    const { data: row, error: lookupErr } = await admin
+    const nowIso = new Date().toISOString();
+
+    // Upsert pattern (fixes race with chat route's fire-and-forget insert):
+    // 1) Try to update the most recent unacted row for this profile+url.
+    // 2) If nothing matched, insert a new row with action_taken set immediately.
+    const { data: existing, error: lookupErr } = await admin
       .from("dropped_links")
       .select("id")
       .eq("profile_id", profile.id)
@@ -70,21 +75,35 @@ export async function POST(request) {
       return NextResponse.json({ ok: false }, { status: 200 });
     }
 
-    if (!row) {
-      return NextResponse.json({ ok: true, matched: false });
+    if (existing) {
+      const { error: updateErr } = await admin
+        .from("dropped_links")
+        .update({ action_taken: action, acted_at: nowIso })
+        .eq("id", existing.id);
+      if (updateErr) {
+        console.error('[DROPPED_LINKS_ACTION] update failed:', updateErr.message);
+        return NextResponse.json({ ok: false }, { status: 200 });
+      }
+      return NextResponse.json({ ok: true, matched: true });
     }
 
-    const { error: updateErr } = await admin
+    // No unacted row exists yet — chat-route insert hasn't landed (or never will).
+    // Insert a new row carrying the action so it's never lost.
+    const { error: insertErr } = await admin
       .from("dropped_links")
-      .update({ action_taken: action, acted_at: new Date().toISOString() })
-      .eq("id", row.id);
+      .insert({
+        profile_id: profile.id,
+        url,
+        action_taken: action,
+        acted_at: nowIso,
+      });
 
-    if (updateErr) {
-      console.error('[DROPPED_LINKS_ACTION] update failed:', updateErr.message);
+    if (insertErr) {
+      console.error('[DROPPED_LINKS_ACTION] insert failed:', insertErr.message);
       return NextResponse.json({ ok: false }, { status: 200 });
     }
 
-    return NextResponse.json({ ok: true, matched: true });
+    return NextResponse.json({ ok: true, matched: false, inserted: true });
   } catch (err) {
     console.error('[DROPPED_LINKS_ACTION]', err?.message || err);
     return NextResponse.json({ ok: false }, { status: 200 });
