@@ -15,7 +15,10 @@ Your only job is to produce a precise, grounded analysis of that content.
   music, no references to the person's history, no cultural context beyond 
   what the content itself provides.
 - State your sample size honestly. If you only have partial content, say so.
-- 3-6 sentences maximum. Dense with specific observations from the content.
+- Cover the full range of the content — if it spans multiple categories 
+  (clothing, music, food, books, philosophy), address each. Aim for 4-8 
+  sentences depending on content depth. Dense with specific items and 
+  observations. Do not truncate rich content to hit an arbitrary length.
 - If the content contains specific recommendations, products, places, or 
   items, name them. A gift guide, playlist, ranked list, or curated 
   collection should have its actual contents surfaced — what is 
