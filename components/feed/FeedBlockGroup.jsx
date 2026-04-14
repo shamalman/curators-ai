@@ -20,7 +20,7 @@ export default function FeedBlockGroup({ blocks, interactions, messageId, tapped
           case 'taste_read':
             return <FeedTasteRead key={i} data={block.data} />;
           case 'taste_read_card':
-            return <TasteReadCard key={i} data={block.data} />;
+            return <TasteReadCard key={i} data={block.data} onSendMessage={onSendMessage} />;
           case 'action_buttons': {
             const isUsed = tapped || (interactions || []).some(x => x.block_index === i);
             return (

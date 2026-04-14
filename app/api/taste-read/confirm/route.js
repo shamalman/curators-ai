@@ -99,3 +99,74 @@ export async function POST(request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const cookieStore = await cookies();
+    const user = await getAuthUser(cookieStore);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { inference_text, source_url, rec_file_id } = await request.json();
+    const observation = typeof inference_text === "string" ? inference_text.trim() : "";
+    if (!observation) {
+      return NextResponse.json({ error: "inference_text is required" }, { status: 400 });
+    }
+
+    const admin = getSupabaseAdmin();
+    const { data: profile, error: profileErr } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
+    if (profileErr || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+    const profileId = profile.id;
+    const sourceKey = buildSourceKey(rec_file_id, source_url);
+
+    const { data: row, error: selErr } = await admin
+      .from("taste_confirmations")
+      .select("id")
+      .eq("profile_id", profileId)
+      .eq("type", "taste_read_confirmed")
+      .eq("observation", observation)
+      .eq("source", sourceKey)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (selErr) {
+      console.error("[TASTE_READ_CONFIRM_UNDO] select failed:", selErr.message);
+      return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+    }
+    if (!row) {
+      return NextResponse.json({ ok: true, deleted: 0 });
+    }
+
+    const { error: delErr } = await admin
+      .from("taste_confirmations")
+      .delete()
+      .eq("id", row.id);
+    if (delErr) {
+      console.error("[TASTE_READ_CONFIRM_UNDO] delete failed:", delErr.message);
+      return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+    }
+
+    (async () => {
+      try {
+        await generateTasteProfile(profileId, admin);
+        console.log("[TASTE_READ_CONFIRM_UNDO] taste profile regenerated for", profileId);
+      } catch (err) {
+        console.error("[TASTE_READ_CONFIRM_UNDO] regen failed:", err?.message || err);
+      }
+    })();
+
+    console.log(`[TASTE_READ_CONFIRM_UNDO] profileId=${profileId} source=${sourceKey}`);
+    return NextResponse.json({ ok: true, deleted: 1 });
+  } catch (err) {
+    console.error("[TASTE_READ_CONFIRM_UNDO]", err?.message || err);
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}

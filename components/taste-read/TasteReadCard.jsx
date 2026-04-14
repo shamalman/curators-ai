@@ -5,7 +5,7 @@ import { T, F } from "@/lib/constants";
 
 // Module-level session cache. Survives remount (chat scroll-back, React re-render)
 // but not page reload. Keyed by source_url::rec_file_id.
-// Shape: Map<key, { extraction, inferences: [{id,text}], states: {id: state} }>
+// Shape: Map<key, { extraction, inferences: [{id,text}], states: {id: state}, refined: {id: text} }>
 const cache = new Map();
 
 function cacheKey(source_url, rec_file_id) {
@@ -24,6 +24,19 @@ function writeInferenceState(key, inferenceId, state) {
   cache.set(key, { ...entry, states });
 }
 
+function writeRefinedText(key, inferenceId, text) {
+  const entry = cache.get(key);
+  if (!entry) return;
+  const refined = { ...(entry.refined || {}), [inferenceId]: text };
+  cache.set(key, { ...entry, refined });
+}
+
+function writeDismissed(key, value) {
+  const entry = cache.get(key);
+  if (!entry) return;
+  cache.set(key, { ...entry, dismissed: value });
+}
+
 const ACCENT = T.acc;
 const CONFIRMED_BG = "#5E9E8218";
 const CONFIRMED_FG = "#5E9E82";
@@ -32,7 +45,7 @@ const REFINED_FG = "#4B92CC";
 const IGNORED_BG = T.s2;
 const IGNORED_FG = T.ink3;
 
-export default function TasteReadCard({ data }) {
+export default function TasteReadCard({ data, onSendMessage }) {
   const parsed_content = data?.parsed_content || "";
   const source_url = data?.source_url || null;
   const rec_file_id = data?.rec_file_id || null;
@@ -44,7 +57,10 @@ export default function TasteReadCard({ data }) {
   const [extraction, setExtraction] = useState(cached?.extraction || "");
   const [inferences, setInferences] = useState(cached?.inferences || []);
   const [states, setStates] = useState(cached?.states || {});
+  const [refinedTexts, setRefinedTexts] = useState(cached?.refined || {});
   const [drafts, setDrafts] = useState({}); // id -> textarea content during refine
+  const [collapsed, setCollapsed] = useState(false); // ephemeral; resets on remount
+  const [dismissed, setDismissed] = useState(cached?.dismissed === true); // sticky via cache
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -70,10 +86,12 @@ export default function TasteReadCard({ data }) {
           extraction: json.extraction,
           inferences: json.inferences,
           states: initialStates,
+          refined: {},
         });
         setExtraction(json.extraction);
         setInferences(json.inferences);
         setStates(initialStates);
+        setRefinedTexts({});
         setLoading(false);
       } catch (e) {
         setError(e.message || "Couldn't read this.");
@@ -91,7 +109,16 @@ export default function TasteReadCard({ data }) {
     });
   };
 
+  const setRefinedFor = (id, text) => {
+    setRefinedTexts(prev => {
+      const next = { ...prev, [id]: text };
+      writeRefinedText(key, id, text);
+      return next;
+    });
+  };
+
   const onConfirm = async (inf) => {
+    const prevState = states[inf.id] || "idle";
     setState(inf.id, "pending");
     try {
       const res = await fetch("/api/taste-read/confirm", {
@@ -107,7 +134,7 @@ export default function TasteReadCard({ data }) {
       if (!res.ok || j.error) throw new Error();
       setState(inf.id, "confirmed");
     } catch {
-      setState(inf.id, "idle");
+      setState(inf.id, prevState === "pending" ? "idle" : prevState);
     }
   };
 
@@ -142,6 +169,7 @@ export default function TasteReadCard({ data }) {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) throw new Error();
+      setRefinedFor(inf.id, refined);
       setState(inf.id, "refined");
       setDrafts(prev => {
         const next = { ...prev };
@@ -173,7 +201,65 @@ export default function TasteReadCard({ data }) {
     }
   };
 
-  const onIgnoreUndo = (id) => setState(id, "idle");
+  const onUndoConfirm = async (inf) => {
+    setState(inf.id, "idle");
+    try {
+      const res = await fetch("/api/taste-read/confirm", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inference_text: inf.text,
+          source_url,
+          rec_file_id,
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setState(inf.id, "confirmed"); // revert
+    }
+  };
+
+  const onUndoRefine = async (inf) => {
+    const refined = refinedTexts[inf.id] || "";
+    setState(inf.id, "idle");
+    try {
+      const res = await fetch("/api/taste-read/refine", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          refined_text: refined,
+          source_url,
+          rec_file_id,
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setState(inf.id, "refined"); // revert
+    }
+  };
+
+  const onUndoIgnore = async (inf) => {
+    setState(inf.id, "idle");
+    try {
+      const res = await fetch("/api/taste-read/ignore", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inference_text: inf.text,
+          source_url,
+          rec_file_id,
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setState(inf.id, "ignored"); // revert
+    }
+  };
+
+  const onSaveAsRec = () => {
+    if (!source_url || !onSendMessage) return;
+    onSendMessage(`save_rec_from_chat:${source_url}`);
+  };
 
   // ── Render ──
 
@@ -184,6 +270,8 @@ export default function TasteReadCard({ data }) {
     overflow: "hidden",
     marginBottom: 4,
   };
+
+  if (dismissed) return null;
 
   if (loading) {
     return (
@@ -210,6 +298,52 @@ export default function TasteReadCard({ data }) {
         <div style={{ padding: "14px 16px", fontFamily: F, fontSize: 13, color: T.ink2 }}>
           Couldn't read this. {error}
         </div>
+      </div>
+    );
+  }
+
+  const counts = inferences.reduce((acc, inf) => {
+    const st = states[inf.id] || "idle";
+    if (st === "confirmed") acc.confirmed += 1;
+    else if (st === "refined") acc.refined += 1;
+    else if (st === "ignored") acc.ignored += 1;
+    else acc.unresolved += 1;
+    return acc;
+  }, { confirmed: 0, refined: 0, ignored: 0, unresolved: 0 });
+
+  const anyResolved = counts.confirmed + counts.refined + counts.ignored > 0;
+  const allResolved = inferences.length > 0 && counts.unresolved === 0;
+
+  // Collapsed summary view
+  if (collapsed) {
+    const parts = [];
+    if (counts.confirmed) parts.push(`${counts.confirmed} confirmed`);
+    if (counts.refined) parts.push(`${counts.refined} refined`);
+    if (counts.ignored) parts.push(`${counts.ignored} ignored`);
+    const summary = parts.join(", ") || "resolved";
+
+    return (
+      <div
+        onClick={() => setCollapsed(false)}
+        style={{
+          ...containerStyle,
+          cursor: "pointer",
+          padding: "10px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span style={{
+          fontFamily: F, fontSize: 11, fontWeight: 700,
+          letterSpacing: "0.06em", textTransform: "uppercase", color: ACCENT,
+        }}>
+          TASTE READ
+        </span>
+        <span style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>·</span>
+        <span style={{ fontFamily: F, fontSize: 12, color: T.ink2 }}>{summary}</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: F, fontSize: 11, color: T.ink3 }}>Tap to expand</span>
       </div>
     );
   }
@@ -265,7 +399,7 @@ export default function TasteReadCard({ data }) {
                   Ignored: {preview}
                 </span>
                 <button
-                  onClick={() => onIgnoreUndo(inf.id)}
+                  onClick={() => onUndoIgnore(inf)}
                   style={{
                     background: "none", border: "none", color: ACCENT,
                     fontSize: 12, fontFamily: F, cursor: "pointer", padding: 0,
@@ -288,6 +422,17 @@ export default function TasteReadCard({ data }) {
                 </div>
                 <div style={{ fontFamily: F, fontSize: 11, color: CONFIRMED_FG, marginTop: 6, fontWeight: 600 }}>
                   Saved to taste profile
+                  <span style={{ color: T.ink3, fontWeight: 400 }}> · </span>
+                  <button
+                    onClick={() => onUndoConfirm(inf)}
+                    style={{
+                      background: "none", border: "none", color: ACCENT,
+                      fontSize: 11, fontFamily: F, fontWeight: 600,
+                      cursor: "pointer", padding: 0,
+                    }}
+                  >
+                    Undo
+                  </button>
                 </div>
               </div>
             );
@@ -300,10 +445,21 @@ export default function TasteReadCard({ data }) {
                 background: REFINED_BG, border: `1px solid ${REFINED_FG}30`,
               }}>
                 <div style={{ fontFamily: F, fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>
-                  {inf.text}
+                  {refinedTexts[inf.id] || inf.text}
                 </div>
                 <div style={{ fontFamily: F, fontSize: 11, color: REFINED_FG, marginTop: 6, fontWeight: 600 }}>
                   Saved your correction
+                  <span style={{ color: T.ink3, fontWeight: 400 }}> · </span>
+                  <button
+                    onClick={() => onUndoRefine(inf)}
+                    style={{
+                      background: "none", border: "none", color: ACCENT,
+                      fontSize: 11, fontFamily: F, fontWeight: 600,
+                      cursor: "pointer", padding: 0,
+                    }}
+                  >
+                    Undo
+                  </button>
                 </div>
               </div>
             );
@@ -412,6 +568,54 @@ export default function TasteReadCard({ data }) {
             </div>
           );
         })}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        borderTop: `1px solid ${T.bdr}`,
+        padding: "10px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+      }}>
+        {source_url && onSendMessage && (
+          <button
+            onClick={onSaveAsRec}
+            style={{
+              padding: "6px 12px", borderRadius: 16,
+              border: `1px solid ${T.bdr}`, background: "transparent",
+              color: T.ink, fontFamily: F, fontSize: 12, cursor: "pointer",
+            }}
+          >
+            Save as rec
+          </button>
+        )}
+        <span style={{ flex: 1 }} />
+        {allResolved && (
+          <button
+            onClick={() => setCollapsed(true)}
+            style={{
+              padding: "6px 12px", borderRadius: 16, border: "none",
+              background: ACCENT, color: T.accText,
+              fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Done
+          </button>
+        )}
+        {!anyResolved && (
+          <button
+            onClick={() => { writeDismissed(key, true); setDismissed(true); }}
+            style={{
+              padding: "6px 12px", borderRadius: 16,
+              border: `1px solid ${T.bdr}`, background: "transparent",
+              color: T.ink3, fontFamily: F, fontSize: 12, cursor: "pointer",
+            }}
+          >
+            Dismiss
+          </button>
+        )}
       </div>
     </div>
   );
