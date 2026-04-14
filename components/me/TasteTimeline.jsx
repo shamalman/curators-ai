@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { T } from '@/lib/constants'
 
 const DOT_COLOR = {
   confirmed: '#1D9E75',
@@ -65,11 +66,11 @@ function DomainChip({ domain, url }) {
   if (!domain) return null
   const style = {
     fontSize: 11,
-    background: 'var(--color-background-secondary)',
-    border: '0.5px solid var(--color-border-tertiary)',
+    background: T.bg2,
+    border: `0.5px solid ${T.bdr}`,
     borderRadius: 4,
     padding: '1px 6px',
-    color: 'var(--color-text-secondary)',
+    color: T.ink2,
     textDecoration: 'none',
     display: 'inline-block',
   }
@@ -104,7 +105,7 @@ function PrimaryText({ ev }) {
         {ev.original_text && (
           <div style={{
             fontSize: 13,
-            color: 'var(--color-text-tertiary)',
+            color: T.ink3,
             textDecoration: 'line-through',
             lineHeight: 1.4,
           }}>
@@ -113,7 +114,7 @@ function PrimaryText({ ev }) {
         )}
         <div style={{
           fontSize: 11,
-          color: 'var(--color-text-tertiary)',
+          color: T.ink3,
           margin: '2px 0',
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
@@ -123,7 +124,7 @@ function PrimaryText({ ev }) {
         <div style={{
           fontSize: 14,
           lineHeight: 1.4,
-          color: 'var(--color-text-primary)',
+          color: T.ink,
         }}>
           {ev.inference_text}
         </div>
@@ -132,14 +133,14 @@ function PrimaryText({ ev }) {
   }
   if (ev.type === 'ignored') {
     return (
-      <div style={{ ...base, color: 'var(--color-text-tertiary)', ...truncate2 }}>
+      <div style={{ ...base, color: T.ink3, ...truncate2 }}>
         {ev.inference_text}
       </div>
     )
   }
   if (ev.type === 'confirmed') {
     return (
-      <div style={{ ...base, color: 'var(--color-text-primary)', ...truncate2 }}>
+      <div style={{ ...base, color: T.ink, ...truncate2 }}>
         {ev.inference_text}
       </div>
     )
@@ -147,7 +148,7 @@ function PrimaryText({ ev }) {
   if (ev.type === 'rec_saved') {
     const text = (ev.rec_why && ev.rec_why.trim()) ? ev.rec_why : ev.rec_title
     return (
-      <div style={{ ...base, color: 'var(--color-text-primary)', ...truncate2 }}>
+      <div style={{ ...base, color: T.ink, ...truncate2 }}>
         {text}
       </div>
     )
@@ -158,7 +159,7 @@ function PrimaryText({ ev }) {
 function SecondaryLine({ ev }) {
   const wrapStyle = {
     fontSize: 12,
-    color: 'var(--color-text-secondary)',
+    color: T.ink2,
     display: 'flex',
     flexDirection: 'row',
     gap: 5,
@@ -201,10 +202,10 @@ function EventRow({ ev, handle }) {
     flexDirection: 'row',
     gap: 12,
     padding: '12px 16px',
-    borderBottom: '0.5px solid var(--color-border-tertiary)',
+    borderBottom: `0.5px solid ${T.bdr}`,
     background: isRec && hover
-      ? 'var(--color-background-secondary)'
-      : 'var(--color-background-primary)',
+      ? T.bg2
+      : T.bg,
     color: 'inherit',
     textDecoration: 'none',
     cursor: isRec ? 'pointer' : 'default',
@@ -236,7 +237,7 @@ function EventRow({ ev, handle }) {
       </div>
       <div style={{
         fontSize: 11,
-        color: 'var(--color-text-tertiary)',
+        color: T.ink3,
         flexShrink: 0,
         paddingTop: 3,
         textAlign: 'right',
@@ -312,8 +313,8 @@ export default function TasteTimeline({ handle }) {
       gap: 12,
       alignItems: 'center',
       padding: 16,
-      borderBottom: '0.5px solid var(--color-border-tertiary)',
-      background: 'var(--color-background-primary)',
+      borderBottom: `0.5px solid ${T.bdr}`,
+      background: T.bg,
       position: 'sticky',
       top: 0,
       zIndex: 10,
@@ -322,7 +323,7 @@ export default function TasteTimeline({ handle }) {
         href="/me"
         style={{
           fontSize: 18,
-          color: 'var(--color-text-secondary)',
+          color: T.ink2,
           textDecoration: 'none',
           lineHeight: 1,
         }}
@@ -332,7 +333,7 @@ export default function TasteTimeline({ handle }) {
       <div style={{
         fontSize: 16,
         fontWeight: 500,
-        color: 'var(--color-text-primary)',
+        color: T.ink,
       }}>
         How your taste was built
       </div>
@@ -343,7 +344,7 @@ export default function TasteTimeline({ handle }) {
     return (
       <div>
         {header}
-        <div style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: 13, padding: '80px 24px' }}>
+        <div style={{ textAlign: 'center', color: T.ink3, fontSize: 13, padding: '80px 24px' }}>
           Loading...
         </div>
       </div>
@@ -354,7 +355,7 @@ export default function TasteTimeline({ handle }) {
     return (
       <div>
         {header}
-        <div style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: 13, padding: '80px 24px' }}>
+        <div style={{ textAlign: 'center', color: T.ink3, fontSize: 13, padding: '80px 24px' }}>
           Something went wrong
         </div>
       </div>
@@ -365,7 +366,7 @@ export default function TasteTimeline({ handle }) {
     return (
       <div>
         {header}
-        <div style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: 14, lineHeight: 1.6, padding: '80px 24px' }}>
+        <div style={{ textAlign: 'center', color: T.ink3, fontSize: 14, lineHeight: 1.6, padding: '80px 24px' }}>
           No taste signals yet. Start by sharing a link in your AI chat and tapping Taste read.
         </div>
       </div>
@@ -384,9 +385,9 @@ export default function TasteTimeline({ handle }) {
             fontWeight: 500,
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            color: 'var(--color-text-tertiary)',
+            color: T.ink3,
             padding: '10px 16px 6px',
-            background: 'var(--color-background-tertiary)',
+            background: T.s,
           }}>
             {g.label}
           </div>
@@ -397,7 +398,7 @@ export default function TasteTimeline({ handle }) {
       ))}
       {nextCursor && (
         loadingMore ? (
-          <div style={{ textAlign: 'center', color: 'var(--color-text-tertiary)', fontSize: 13, padding: '20px' }}>
+          <div style={{ textAlign: 'center', color: T.ink3, fontSize: 13, padding: '20px' }}>
             Loading...
           </div>
         ) : (
@@ -408,10 +409,10 @@ export default function TasteTimeline({ handle }) {
               margin: '20px auto',
               padding: '8px 20px',
               fontSize: 13,
-              color: 'var(--color-text-secondary)',
-              background: 'var(--color-background-primary)',
-              border: '0.5px solid var(--color-border-secondary)',
-              borderRadius: 'var(--border-radius-md)',
+              color: T.ink2,
+              background: T.bg,
+              border: `0.5px solid ${T.bdr}`,
+              borderRadius: 8,
               cursor: 'pointer',
             }}
           >
