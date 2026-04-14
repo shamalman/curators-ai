@@ -1,5 +1,5 @@
 # Curators.AI — Database Schema
-Last full audit: 2026-04-10. Source of truth: `information_schema.columns`.
+Last full audit: 2026-04-10. taste_reads and taste_read_ignores added 2026-04-14. Source of truth: `information_schema.columns`.
 To refresh: run `SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position;` in Supabase SQL Editor.
 
 Categories (recommendations + rec_files): watch | listen | read | visit | get | wear | play | other
@@ -141,7 +141,40 @@ Notes: `sources.generated_from` = `'rec_files+recommendations+subscriptions+conf
 | source | text | YES |
 | created_at | timestamptz | YES |
 
-Notes: Append-only. `type` values: `taste_read_confirmed`, `correction`, `explicit_statement`, `anti_taste`.
+Notes: Append-only. `type` values: `taste_read_confirmed`, `correction`, `explicit_statement`, `anti_taste`. `source` field formats: `taste_read:<url>` for confirmations, `taste_read:<key>|refined_from:<original_text>` for corrections, `chat:<msgId>` for legacy pre-v2 rows.
+
+## taste_reads
+
+| Column | Type | Nullable |
+| --- | --- | --- |
+| id | uuid | NO |
+| profile_id | uuid | NO |
+| source_url | text | YES |
+| rec_file_id | text | YES |
+| extraction | text | YES |
+| inferences | jsonb | YES |
+| states | jsonb | YES |
+| refined_texts | jsonb | YES |
+| collapsed | boolean | YES |
+| dismissed | boolean | YES |
+| done | boolean | YES |
+| created_at | timestamptz | YES |
+| updated_at | timestamptz | YES |
+
+Notes: Partial unique indexes on (profile_id, source_url) WHERE rec_file_id IS NULL and (profile_id, rec_file_id) WHERE rec_file_id IS NOT NULL. RLS enabled. `extraction` is text (not jsonb). `inferences` = [{id, text}] array. `states` = {inferenceId: 'confirmed'|'corrected'|'ignored'} map. `refined_texts` = {inferenceId: string} map.
+
+## taste_read_ignores
+
+| Column | Type | Nullable |
+| --- | --- | --- |
+| id | uuid | NO |
+| profile_id | uuid | NO |
+| inference_text | text | YES |
+| source_rec_file_id | text | YES |
+| source_url | text | YES |
+| created_at | timestamptz | YES |
+
+Notes: Append-only log of ignored inferences. curator-only (RLS). source_url links back to taste_reads.source_url for article context.
 
 ## invite_codes
 | Column | Type | Nullable |
