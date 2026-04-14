@@ -45,6 +45,82 @@ function stripFences(text) {
     .trim();
 }
 
+// Apply the (profile_id, source_url, rec_file_id) lookup match. Matches the
+// partial unique indexes on taste_reads: one on (profile_id, rec_file_id)
+// when rec_file_id IS NOT NULL, the other on (profile_id, source_url) when
+// rec_file_id IS NULL.
+function matchTasteRead(query, profileId, source_url, rec_file_id) {
+  query = query.eq("profile_id", profileId);
+  if (rec_file_id) {
+    return query.eq("rec_file_id", rec_file_id);
+  }
+  return query.eq("source_url", source_url).is("rec_file_id", null);
+}
+
+function serializeRow(row) {
+  if (!row) return null;
+  return {
+    extraction: row.extraction || "",
+    inferences: Array.isArray(row.inferences) ? row.inferences : [],
+    states: row.states || {},
+    refined_texts: row.refined_texts || {},
+    collapsed: !!row.collapsed,
+    dismissed: !!row.dismissed,
+    done: !!row.done,
+  };
+}
+
+async function resolveProfileId(admin, authUserId) {
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("auth_user_id", authUserId)
+    .single();
+  if (error || !profile) return null;
+  return profile.id;
+}
+
+export async function GET(request) {
+  try {
+    const cookieStore = await cookies();
+    const user = await getAuthUser(cookieStore);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const source_url = searchParams.get("source_url") || null;
+    const rec_file_id = searchParams.get("rec_file_id") || null;
+    if (!source_url && !rec_file_id) {
+      return NextResponse.json({ error: "source_url or rec_file_id is required" }, { status: 400 });
+    }
+
+    const admin = getSupabaseAdmin();
+    const profileId = await resolveProfileId(admin, user.id);
+    if (!profileId) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    let query = admin
+      .from("taste_reads")
+      .select("extraction, inferences, states, refined_texts, collapsed, dismissed, done");
+    query = matchTasteRead(query, profileId, source_url, rec_file_id);
+    const { data: row, error: selErr } = await query.maybeSingle();
+
+    if (selErr) {
+      console.error("[TASTE_READ_V2] GET select failed:", selErr.message);
+      return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+    }
+    if (!row) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(serializeRow(row));
+  } catch (err) {
+    console.error("[TASTE_READ_V2] GET error:", err?.message || err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
@@ -57,22 +133,32 @@ export async function POST(request) {
     if (!parsed_content || typeof parsed_content !== "string") {
       return NextResponse.json({ error: "parsed_content is required" }, { status: 400 });
     }
+    if (!source_url && !rec_file_id) {
+      return NextResponse.json({ error: "source_url or rec_file_id is required" }, { status: 400 });
+    }
 
     const admin = getSupabaseAdmin();
-
-    const { data: profile, error: profileErr } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
-
-    if (profileErr || !profile) {
-      console.error("[TASTE_READ_V2] profile lookup failed:", profileErr?.message);
+    const profileId = await resolveProfileId(admin, user.id);
+    if (!profileId) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
-    const profileId = profile.id;
 
-    // Load taste profile (markdown content) and last 15 own recs in parallel.
+    // Check for an existing row first. If found, return it without hitting Claude.
+    {
+      let query = admin
+        .from("taste_reads")
+        .select("extraction, inferences, states, refined_texts, collapsed, dismissed, done");
+      query = matchTasteRead(query, profileId, source_url, rec_file_id);
+      const { data: existing, error: selErr } = await query.maybeSingle();
+      if (selErr) {
+        console.error("[TASTE_READ_V2] POST pre-check failed:", selErr.message);
+      } else if (existing) {
+        console.log(`[TASTE_READ_V2] cache hit profileId=${profileId} source_url=${source_url || "-"} rec_file_id=${rec_file_id || "-"}`);
+        return NextResponse.json(serializeRow(existing));
+      }
+    }
+
+    // Load taste profile + last 15 own recs for prompt context.
     const [{ data: tasteProfileRow }, { data: recentRecs }] = await Promise.all([
       admin
         .from("taste_profiles")
@@ -93,7 +179,6 @@ export async function POST(request) {
       .join("\n");
 
     const skill = loadSkill("taste-read");
-
     const systemPrompt =
       skill +
       "\n\nCURATOR TASTE PROFILE:\n" +
@@ -136,11 +221,48 @@ export async function POST(request) {
       return NextResponse.json({ error: "Malformed taste read response" }, { status: 500 });
     }
 
-    console.log(`[TASTE_READ_V2] profileId=${profileId} source_url=${source_url || "-"} rec_file_id=${rec_file_id || "-"} inferences=${inferences.length} elapsed_ms=${elapsedMs}`);
+    const initialStates = Object.fromEntries(inferences.map(i => [i.id, "idle"]));
 
-    return NextResponse.json({ extraction, inferences });
+    // Insert. The partial unique indexes will raise 23505 on race; on conflict
+    // re-SELECT and return the existing row.
+    const { data: inserted, error: insErr } = await admin
+      .from("taste_reads")
+      .insert({
+        profile_id: profileId,
+        source_url: rec_file_id ? null : source_url,
+        rec_file_id: rec_file_id || null,
+        extraction,
+        inferences,
+        states: initialStates,
+        refined_texts: {},
+        collapsed: false,
+        dismissed: false,
+        done: false,
+      })
+      .select("extraction, inferences, states, refined_texts, collapsed, dismissed, done")
+      .single();
+
+    if (insErr && insErr.code === "23505") {
+      let query = admin
+        .from("taste_reads")
+        .select("extraction, inferences, states, refined_texts, collapsed, dismissed, done");
+      query = matchTasteRead(query, profileId, source_url, rec_file_id);
+      const { data: existing } = await query.maybeSingle();
+      if (existing) {
+        console.log(`[TASTE_READ_V2] race-resolved to existing row profileId=${profileId}`);
+        return NextResponse.json(serializeRow(existing));
+      }
+    }
+
+    if (insErr) {
+      console.error("[TASTE_READ_V2] insert failed:", insErr.message);
+      return NextResponse.json({ error: "Persist failed" }, { status: 500 });
+    }
+
+    console.log(`[TASTE_READ_V2] generated profileId=${profileId} source_url=${source_url || "-"} rec_file_id=${rec_file_id || "-"} inferences=${inferences.length} elapsed_ms=${elapsedMs}`);
+    return NextResponse.json(serializeRow(inserted));
   } catch (err) {
-    console.error("[TASTE_READ_V2] error:", err?.message || err);
+    console.error("[TASTE_READ_V2] POST error:", err?.message || err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
