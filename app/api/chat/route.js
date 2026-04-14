@@ -758,6 +758,11 @@ ${tasteReadContent}
               style: "primary",
             },
             {
+              label: "Add as recommendation",
+              action: `save_rec_from_chat:${tasteReadUrl}`,
+              style: "secondary",
+            },
+            {
               label: "Keep exploring",
               action: "keep_exploring_taste",
               style: "secondary",
