@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { detectSource } from "../../../lib/agent/registry.js";
 import { buildOnboardingPrompt } from "../../../lib/prompts/onboarding.js";
 import { buildStandardPrompt } from "../../../lib/prompts/standard.js";
+import { loadSkill } from "../../../lib/prompts/loader.js";
 import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
@@ -358,30 +359,16 @@ The curator will choose what to do with it via the action buttons.
 === END ===`;
     }
 
-    // Deploy 3: taste read injection — strict grounding rules + parsed content from this turn
+    // Taste read turns: replace the entire system prompt with the taste-read skill
+    // plus the parsed content. No rec list, no taste profile, no network context,
+    // no standard/onboarding prompt — pure isolated content analysis.
     if (tasteReadUrl && !isVisitor) {
       const block = parsedLinkBlocks.find(b => b.url === tasteReadUrl && (b.quality === 'full' || b.quality === 'partial'));
       const parsedBody = block?.content
         ? `${block.metadata?.title ? `Title: ${block.metadata.title}\n` : ''}${block.metadata?.providerName || block.metadata?.source ? `Provider: ${block.metadata.providerName || block.metadata.source}\n` : ''}${block.metadata?.author ? `Author: ${block.metadata.author}\n` : ''}\n${block.content}`
         : '[No parsed content available for this URL — tell the curator honestly that you could not read it and ask them to paste the content.]';
 
-      const tasteReadInjection = `\n\n=== TASTE READ REQUEST ===
-The curator has asked for a taste read on: ${tasteReadUrl}
-
-PARSED CONTENT (this is ALL you have — do not invent anything beyond this):
-${parsedBody}
-
-TASTE READ RULES — follow these exactly:
-1. Only reference items, people, themes, or facts that appear in the parsed content above. Never invent observations.
-2. State your sample size honestly. If you only saw part of the content, say so explicitly: "I can see X of Y items" or "I only have the landing page."
-3. Your taste read must be 3-5 sentences. Dense with specific observations, not generic adjectives.
-4. End with a single question that invites the curator to confirm or correct your read.
-5. ABSOLUTE RULE: Analyze ONLY the content in the PARSED CONTENT block above. You have NO information about this person's taste, history, or preferences. Do not reference anything from outside the parsed content. Do not mention any artists, works, or themes not explicitly named in the parsed content above.
-6. Do not use the word "curator" when addressing them.
-7. After your taste read response, the system will automatically append action buttons — do NOT add any call to action or prompt about saving to their profile yourself.
-=== END TASTE READ REQUEST ===`;
-
-      systemPrompt += tasteReadInjection;
+      systemPrompt = `${loadSkill('taste-read')}\n\n=== CONTENT TO ANALYZE ===\nSource: ${tasteReadUrl}\n${parsedBody}\n=== END ===`;
     }
 
     // Handle opening message generation (no user message yet)
