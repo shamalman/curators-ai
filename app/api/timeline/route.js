@@ -260,6 +260,7 @@ export async function GET(request) {
         rec_why: why,
         rec_category: rec.category,
         rec_slug: rec.slug,
+        rec_is_own: true,
       };
     });
 

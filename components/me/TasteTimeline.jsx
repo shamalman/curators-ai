@@ -3,25 +3,25 @@
 import { useEffect, useState } from 'react'
 import { T } from '@/lib/constants'
 
-const DOT_COLOR = {
-  confirmed: '#1D9E75',
-  corrected: '#BA7517',
-  ignored: '#888780',
-  rec_saved: '#378ADD',
+function dotColor(ev) {
+  if (ev.type === 'confirmed') return '#1D9E75'
+  if (ev.type === 'corrected') return '#BA7517'
+  if (ev.type === 'rec_saved') return ev.rec_is_own ? '#378ADD' : '#7F77DD'
+  return '#888780'
 }
 
-const LABEL_TEXT = {
-  confirmed: 'Taste read · confirmed',
-  corrected: 'Taste read · corrected',
-  ignored: 'Taste read · ignored',
-  rec_saved: 'Saved rec',
+function labelText(ev) {
+  if (ev.type === 'confirmed') return 'Taste read · confirmed'
+  if (ev.type === 'corrected') return 'Taste read · corrected'
+  if (ev.type === 'rec_saved') return ev.rec_is_own ? 'Your Recommendation' : 'Saved Recommendation'
+  return ''
 }
 
-const LABEL_COLOR = {
-  confirmed: '#0F6E56',
-  corrected: '#854F0B',
-  ignored: '#888780',
-  rec_saved: '#185FA5',
+function labelColor(ev) {
+  if (ev.type === 'confirmed') return '#0F6E56'
+  if (ev.type === 'corrected') return '#854F0B'
+  if (ev.type === 'rec_saved') return ev.rec_is_own ? '#185FA5' : '#534AB7'
+  return '#888780'
 }
 
 function formatTime(iso) {
@@ -217,7 +217,7 @@ function EventRow({ ev, handle }) {
         width: 8,
         height: 8,
         borderRadius: '50%',
-        background: DOT_COLOR[ev.type],
+        background: dotColor(ev),
         flexShrink: 0,
         marginTop: 4,
       }} />
@@ -228,9 +228,9 @@ function EventRow({ ev, handle }) {
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
           marginBottom: 3,
-          color: LABEL_COLOR[ev.type],
+          color: labelColor(ev),
         }}>
-          {LABEL_TEXT[ev.type]}
+          {labelText(ev)}
         </div>
         <PrimaryText ev={ev} />
         <SecondaryLine ev={ev} />
@@ -277,7 +277,7 @@ export default function TasteTimeline({ handle }) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         if (cancelled) return
-        setEvents(data.events || [])
+        setEvents((data.events || []).filter(e => e.type !== 'ignored'))
         setNextCursor(data.next_cursor || null)
       } catch (err) {
         console.error('[TasteTimeline] load failed:', err?.message || err)
@@ -297,7 +297,7 @@ export default function TasteTimeline({ handle }) {
       const res = await fetch(`/api/timeline?cursor=${encodeURIComponent(nextCursor)}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setEvents(prev => [...prev, ...(data.events || [])])
+      setEvents(prev => [...prev, ...((data.events || []).filter(e => e.type !== 'ignored'))])
       setNextCursor(data.next_cursor || null)
     } catch (err) {
       console.error('[TasteTimeline] load more failed:', err?.message || err)
