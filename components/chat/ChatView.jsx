@@ -569,7 +569,7 @@ export default function ChatView({ variant }) {
       if (/^https?:\/\/\S+$/.test(textWithoutUrl)) continue;
       if (textWithoutUrl.length < 15) continue;
       // Skip meta actions / button responses
-      if (textWithoutUrl.startsWith("save_rec_from_chat") || textWithoutUrl === "skip_save") continue;
+      if (textWithoutUrl.startsWith("save_rec_from_chat") || textWithoutUrl.startsWith("save_rec_from_taste_read") || textWithoutUrl === "skip_save") continue;
       // Skip known action confirmation strings injected by the system
       if (textWithoutUrl === "Added to my Taste File." || textWithoutUrl === "Added to my Taste File") continue;
       if (textWithoutUrl.startsWith("Do a taste read on ")) continue;
@@ -592,7 +592,7 @@ export default function ChatView({ variant }) {
   // Feature C: handle the "Save as a Recommendation" action button tap from chat.
   // Opens QuickCaptureSheet prefilled with the URL, parsed content, and a
   // draft "why" extracted from the curator's own conversation words.
-  const handleSaveFromChat = (url) => {
+  const handleSaveFromChat = (url, { skipWhyDraft = false } = {}) => {
     let parsedPayload = null;
     let title = "";
     let thumbnail_url = null;
@@ -630,7 +630,9 @@ export default function ChatView({ variant }) {
       }
     }
 
-    const why = draftWhyFromConversation(url);
+    // Save-from-TasteReadCard passes skipWhyDraft: the taste read context is
+    // not the curator's why. Let QCS open with a blank context field.
+    const why = skipWhyDraft ? "" : draftWhyFromConversation(url);
 
     setSheetPrefillData({
       mode: "url",
@@ -1011,6 +1013,13 @@ export default function ChatView({ variant }) {
                         if (typeof action === "string" && action.startsWith("save_rec_from_chat:")) {
                           const url = action.slice("save_rec_from_chat:".length);
                           handleSaveFromChat(url);
+                          return;
+                        }
+                        // TasteReadCard footer: same save flow but skip the
+                        // conversational why-draft (taste read text is not the why).
+                        if (typeof action === "string" && action.startsWith("save_rec_from_taste_read:")) {
+                          const url = action.slice("save_rec_from_taste_read:".length);
+                          handleSaveFromChat(url, { skipWhyDraft: true });
                           return;
                         }
                         if (action === "skip_save") {

@@ -49,7 +49,7 @@ Return a JSON object with this exact shape:
   "inferences": [
     { "id": "1", "text": "First atomic hypothesis." },
     { "id": "2", "text": "Second atomic hypothesis." },
-    { "id": "3", "text": "Third atomic hypothesis (optional)." }
+    { "id": "3", "text": "Third atomic hypothesis." }
   ]
 }
 ```
@@ -130,9 +130,10 @@ specific.
 
 ### Rules for inferences
 
-- Maximum 3 inferences. Often 2 is enough. Never fewer than 1 unless the
-  content genuinely offers nothing to infer from, in which case return 1
-  that acknowledges this honestly rather than fabricating.
+- Aim for 3 inferences per taste read. The inference card UX shows three
+  distinct hypotheses per card and expects three. Only return 2 if the
+  content genuinely doesn't support a third non-redundant hypothesis.
+  Never return fewer than 1.
 - Each inference is 1 to 2 sentences. No paragraphs.
 - Frame as a proposal the curator can agree with, disagree with, or refine.
   Direct second-person ("You are drawn to...", "You notice...") is fine. It

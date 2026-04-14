@@ -139,7 +139,6 @@ export default function TasteReadCard({ data, onSendMessage }) {
   };
 
   const onRefineStart = (id) => {
-    setDrafts(prev => ({ ...prev, [id]: prev[id] ?? "Closer to: " }));
     setState(id, "refining");
   };
 
@@ -258,7 +257,7 @@ export default function TasteReadCard({ data, onSendMessage }) {
 
   const onSaveAsRec = () => {
     if (!source_url || !onSendMessage) return;
-    onSendMessage(`save_rec_from_chat:${source_url}`);
+    onSendMessage(`save_rec_from_taste_read:${source_url}`);
   };
 
   // ── Render ──
@@ -466,7 +465,7 @@ export default function TasteReadCard({ data, onSendMessage }) {
           }
 
           if (st === "refining") {
-            const draft = drafts[inf.id] ?? "Closer to: ";
+            const draft = drafts[inf.id] ?? "";
             return (
               <div key={inf.id} style={{
                 padding: "12px 14px", borderRadius: 10,
@@ -478,6 +477,7 @@ export default function TasteReadCard({ data, onSendMessage }) {
                 <textarea
                   value={draft}
                   onChange={(e) => setDrafts(prev => ({ ...prev, [inf.id]: e.target.value }))}
+                  placeholder="Closer to: ..."
                   autoFocus
                   rows={3}
                   style={{
@@ -588,7 +588,7 @@ export default function TasteReadCard({ data, onSendMessage }) {
               color: T.ink, fontFamily: F, fontSize: 12, cursor: "pointer",
             }}
           >
-            Save as rec
+            Save as a Recommendation
           </button>
         )}
         <span style={{ flex: 1 }} />
