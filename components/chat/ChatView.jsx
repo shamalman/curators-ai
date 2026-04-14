@@ -978,6 +978,17 @@ export default function ChatView({ variant }) {
                         if (action === "keep_exploring_taste") {
                           return;
                         }
+                        // Deploy 4: confirm_taste_read — write taste_confirmation + trigger Taste File regen
+                        if (typeof action === "string" && action.startsWith("confirm_taste_read:")) {
+                          const url = action.slice("confirm_taste_read:".length);
+                          fetch("/api/taste-read/confirm", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url }),
+                          }).catch(() => {});
+                          send("Added to my Taste File.");
+                          return;
+                        }
                         // Deploy 2: discuss_link — silent meta-action. Must fire BEFORE
                         // any other branch so the action string can never leak to send().
                         if (typeof action === "string" && action.startsWith("discuss_link:")) {
