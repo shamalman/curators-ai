@@ -208,7 +208,9 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
     // re-inject it so the AI can continue discussing the link accurately.
     // Only look within the last 5 messages (if the link is older, conversation moved on).
     const hasNewParsedContent = parsedLinkBlocks.some(b => b.quality !== 'failed');
-    if (!isVisitor && profileId && !generateOpening && !hasNewParsedContent) {
+    // Skip on taste read turns — the parsed content is already injected directly
+    // via the TASTE READ REQUEST block; re-injecting prior context degrades the read.
+    if (!isVisitor && profileId && !generateOpening && !hasNewParsedContent && !tasteReadUrl) {
       try {
         const { data: recentMsgs } = await sb
           .from('chat_messages')
@@ -247,14 +249,18 @@ Tell the curator honestly: "I couldn't read that link. Can you paste the content
       }
     }
 
-    // Build the recommendations context
+    // Build the recommendations context.
+    // Taste read turns get an empty context — the read must be a pure analysis
+    // of the submitted content, with no awareness of the curator's other recs.
     const curHandle = curatorHandle?.replace('@', '') || '';
-    const recsContext = recommendations && recommendations.length > 0
-      ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r => {
-          const recLink = r.slug ? ` [REC_LINK: /${curHandle}/${r.slug}]` : "";
-          return `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})${recLink}`;
-        }).join("\n")}`
-      : "\n\nNo recommendations captured yet.";
+    const recsContext = tasteReadUrl
+      ? ""
+      : (recommendations && recommendations.length > 0
+        ? `\n\nCRITICAL: Only reference recommendations that appear in the CURRENT RECOMMENDATIONS LIST below. If something was discussed in previous chat messages but is NOT in the current list, the curator has deleted it. Never mention it, never reference it, pretend it never existed. The current list is the ONLY source of truth for what the curator recommends.\n\nCURRENT RECOMMENDATIONS LIST (${recommendations.length} total):\n${recommendations.map(r => {
+            const recLink = r.slug ? ` [REC_LINK: /${curHandle}/${r.slug}]` : "";
+            return `- ${r.title} [${r.category}] (added: ${r.date || 'unknown'}) — ${r.context || "No context"} (tags: ${(r.tags || []).join(", ")})${recLink}`;
+          }).join("\n")}`
+        : "\n\nNo recommendations captured yet.");
 
     // Build the system prompt based on mode
     let systemPrompt;
@@ -301,7 +307,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
       }
 
       inviterCtx = await getInviterContext(profileId);
-      const onboardingNetworkContext = profileId ? await getSubscribedRecs(profileId) : '';
+      // Taste read turns: skip network context — pure content analysis only.
+      const onboardingNetworkContext = (profileId && !tasteReadUrl) ? await getSubscribedRecs(profileId) : '';
       systemPrompt = buildOnboardingPrompt({
         curatorName,
         inviterName: inviterCtx.inviterName,
@@ -326,7 +333,8 @@ ${s.location ? `Location: ${s.location}` : ""}`;
         console.error('Failed to fetch taste profile:', err);
       }
 
-      const networkContext = profileId ? await getSubscribedRecs(profileId) : '';
+      // Taste read turns: skip network context — pure content analysis only.
+      const networkContext = (profileId && !tasteReadUrl) ? await getSubscribedRecs(profileId) : '';
       systemPrompt = buildStandardPrompt({
         curatorName,
         curatorHandle: curatorHandle || '',
@@ -354,7 +362,7 @@ TASTE READ RULES — follow these exactly:
 2. State your sample size honestly. If you only saw part of the content, say so explicitly: "I can see X of Y items" or "I only have the landing page."
 3. Your taste read must be 3-5 sentences. Dense with specific observations, not generic adjectives.
 4. End with a single question that invites the curator to confirm or correct your read.
-5. Connect observations to the curator's existing taste where genuinely supported by their recs — but only if the connection is real, not forced.
+5. This is a pure analysis of the submitted content only. Do not reference the curator's other recommendations, taste profile, or previous conversations. Analyze only what is in the parsed content above.
 6. Do not use the word "curator" when addressing them.
 7. After your taste read response, the system will automatically append action buttons — do NOT add any call to action or prompt about saving to their profile yourself.
 === END TASTE READ REQUEST ===`;
