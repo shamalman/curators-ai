@@ -281,13 +281,6 @@ export function CuratorProvider({ children }) {
     }
     const slug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     item = { ...item };
-    console.log('[ADDREC_IMAGE]', {
-      hasParsedPayload: !!item.parsedPayload,
-      parsedPayloadImageUrl: item.parsedPayload?.image_url,
-      extracted: extractImageUrl(item.parsedPayload),
-      extractor: item.parsedPayload?.extractor,
-      createdVia: item.createdVia,
-    });
     const { data, error } = await supabase.from("recommendations").insert({
       profile_id: profileId,
       title: item.title,
@@ -303,11 +296,6 @@ export function CuratorProvider({ children }) {
       created_via: item.createdVia || "unknown",
       image_url: extractImageUrl(item.parsedPayload),
     }).select().single();
-    console.log('[ADDREC_INSERT_RESULT]', {
-      sent_image_url: extractImageUrl(item.parsedPayload),
-      returned_image_url: data?.image_url,
-      error: error?.message || null,
-    });
     if (error) {
       console.error("Failed to save rec:", error);
       throw new Error(error.message || "Failed to save recommendation");

@@ -285,13 +285,5 @@ export async function POST(request) {
     console.error("[LINK_PARSE_LOG_ERROR]", err.message || err);
   }
 
-  console.log('[PARSE_LINK_ENVELOPE]', {
-    url: response.url,
-    source: response.parsed_successfully ? (response.provider || null) : null,
-    thumbnail_url: response.thumbnail_url,
-    image_url: response.image_url,
-    parsed_successfully: response.parsed_successfully,
-  });
-
   return NextResponse.json(response);
 }
