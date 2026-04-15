@@ -10,7 +10,7 @@ import { extractPublicSections, extractVoiceAndStyle } from "../../../lib/taste-
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
-import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection, buildRecFileContextBlock } from "../../../lib/chat/link-parsing.js";
+import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseContentForTasteRead, buildAgentUrlNotes, distillForReinjection, buildRecFileContextBlock, truncateOnBoundary } from "../../../lib/chat/link-parsing.js";
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 import { uploadArtifact } from "../../../lib/rec-files/artifact.js";
 import { ingestChatParsedBlocks } from "../../../lib/chat/chat-parse-ingest.js";
@@ -570,9 +570,10 @@ The curator will choose what to do with it via the action buttons.
           const qualityNote = parsed.quality === 'full'
             ? 'you have the complete content. Reference it specifically.'
             : 'you have some content but not everything. Name the specific items you can see.';
-          const tasteReadContent = parsed.content.length > 40000
-            ? parsed.content.slice(0, 40000) + '\n\n[content truncated due to length]'
-            : parsed.content;
+          const tasteReadContent = truncateOnBoundary(parsed.content, 40000);
+          if (parsed.content.length > 40000) {
+            console.log(`[TASTE_READ_REINJECTION] Capped content from ${parsed.content.length} to ${tasteReadContent.length} chars`);
+          }
           systemPrompt += `\n\n=== PARSED LINK CONTENT (${recentUrl.url}) ===
 Quality: ${qualityLabel} -- ${qualityNote}
 The curator wants you to engage with this link they shared earlier.

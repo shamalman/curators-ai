@@ -1,5 +1,5 @@
 # CLAUDE.md — Curators.AI Engineering Guide
-## Last updated: April 15, 2026
+## Last updated: April 15, 2026 (taste-read re-injection hardening)
 
 ---
 
@@ -84,7 +84,7 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 **Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks). **Re-injection path:** Checks `rec_refs` on recent messages -- if present, fetches `rec_files` rows and injects structured blocks via `buildRecFileContextBlock` (`lib/chat/link-parsing.js`). No fallback to `parsed_content` -- if `rec_refs` is empty, re-injection is skipped. The `parsed_content` fallback was removed April 13 2026.
 
-**Taste-read re-injection cap:** fixed April 13 2026. `parsed.content` capped at 40K chars before injection into systemPrompt, matching the primary parse path.
+**Taste-read re-injection cap:** `parsed.content` capped at 40K chars before injection into systemPrompt (matches primary parse path). Uses `truncateOnBoundary` (`lib/chat/link-parsing.js`) for paragraph/sentence/line-aware cutting; emits `[TASTE_READ_REINJECTION] Capped content from <original> to <capped> chars` when truncation fires. 40K retained as-is — taste-read is the deep-reading moment and a smaller cap would truncate substantive article content mid-piece. Boundary-aware upgrade and log marker added April 15 2026.
 
 **Chat-parsed URLs:** `ingestChatParsedBlocks` (`lib/chat/chat-parse-ingest.js`) writes a `rec_files` row (`extractor: chat-parse@v1`, `visibility: private`, `confirmed: false`) and populates `chat_messages.rec_refs` for each successfully parsed URL. Awaited with 2s timeout before response returns. These rows are ephemeral scratch records -- they exist for re-injection context, not as canonical archive entries.
 
@@ -172,7 +172,6 @@ Curator-only audit trail at `/me/timeline`. Shows every signal that shaped the t
 - Taste Read v2: QuickCaptureSheet integration deferred (Option Y, portal/modal at page level after QCS closes)
 - Taste Timeline: ignored events stored in DB but not shown in UI — future consideration
 - Taste Timeline: Saved Recommendation type (rec_is_own: false) — deferred until saved_recs table is wired into timeline API
-- Taste-read re-injection overflow: lines 360-400 in chat route bypass the 40K cap (same class as YouTube bug) — not yet fixed
 
 ---
 
