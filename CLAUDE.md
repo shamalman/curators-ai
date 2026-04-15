@@ -1,5 +1,5 @@
 # CLAUDE.md — Curators.AI Engineering Guide
-## Last updated: April 14, 2026
+## Last updated: April 15, 2026
 
 ---
 
@@ -66,9 +66,11 @@ Two tables — parent/child, both active:
 
 **Feature B (chat image → rec):** Camera in ChatView → `/api/chat` vision inference → `save_image_rec:<sha>` action button → QCS prefill → `/api/recs/upload`. `maxDuration = 60` on both routes. Client-side resize to 1600px / JPEG 0.85 keeps payload under Vercel's 4.5MB serverless body limit. Upload `body_md` is just `![Uploaded image](artifact://<sha>)`; title/why render above Archived Source, not inside it.
 
-**RecDetail section order:** Your Take / Why → Links → Archived Source (body_md) → Tags. Applies to all three variants (Curator/Visitor/Network).
+**RecDetail section order:** Your Take / Why → MediaEmbed (gated by NEXT_PUBLIC_MEDIA_EMBEDS_ENABLED) → Links → Archived Source (body_md) → Tags. Applies to all three variants (Curator/Visitor/Network).
 
 **Archived Source (RecDetail.jsx):** `ArchivedSource` renders `body_md` as ReactMarkdown in a collapsible block below Links, with client-side .md download. Custom `img` renderer (`ArtifactImage`) resolves `artifact://<sha256>` URLs via Supabase signed URLs (7-day TTL); react-markdown v10's `urlTransform` is overridden to whitelist the `artifact://` protocol. Hidden when `extraction.lossy === true` or the extractor is in `THIN_SOURCE_TYPES` (media embeds whose body_md just restates metadata).
+
+**MediaEmbed (RecDetail.jsx):** Inline iframe player for embeddable source types (YouTube, Spotify track/album/playlist/episode, Apple Music song/album/playlist, SoundCloud). Renders between Why and Links. Click-to-play, no autoplay. Returns null for non-embeddable sources, missing media IDs, or when `NEXT_PUBLIC_MEDIA_EMBEDS_ENABLED !== 'true'`. Extractor matching strips `@registry`/`@v1` suffix and normalizes hyphens to underscores (so `apple_music@registry` matches). Source URL read from `links[0].url`. Helper: `lib/recs/embed-url.js` (`deriveEmbedUrl`). Sandboxed and lazy-loaded.
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern. Both also map `profile_id` onto each tasteItem so rec detail components can pass the rec owner's UUID to `ArtifactImage` (required for signed URL path construction).
 
@@ -213,6 +215,8 @@ context/CuratorContext.jsx                 -- addRec dual-write, chat-save promo
 components/chat/ChatView.jsx               -- chat UI, rec save, taste profile regen trigger
 components/recs/RecDetail.jsx              -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail
 components/recs/ArtifactImage.jsx          -- resolves artifact:// URLs to signed URLs (7-day TTL)
+components/recs/MediaEmbed.jsx             -- inline media player, gated by NEXT_PUBLIC_MEDIA_EMBEDS_ENABLED
+lib/recs/embed-url.js                      -- deriveEmbedUrl({ extractor, sourceUrl, mediaId })
 lib/rec-files/build.js                     -- buildRecFileRow, single source of truth for rec_files shape
 lib/rec-files/ingest.js                    -- ingestUrlCapture, dual-write entry point, never throws
 lib/taste-profile/generate.js              -- taste profile generation

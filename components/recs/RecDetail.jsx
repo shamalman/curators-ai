@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import ArtifactImage from "./ArtifactImage";
+import MediaEmbed from "./MediaEmbed";
 import { supabase } from "@/lib/supabase";
 import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
@@ -325,6 +326,13 @@ export function CuratorRecDetail({ slug }) {
               <p style={{ fontFamily: F, fontSize: 15, lineHeight: 1.6, color: T.ink, whiteSpace: "pre-line" }}><Linkify text={selectedItem.context} style={{ fontFamily: F, fontSize: 15 }} /></p>
             )}
           </div>
+
+          {!isEditing && (
+            <MediaEmbed
+              extractor={selectedItem.extraction?.extractor}
+              sourceUrl={selectedItem.links?.[0]?.url}
+            />
+          )}
 
           {/* Links */}
           {!isEditing && selectedItem.links?.length > 0 && (
@@ -851,6 +859,11 @@ export function VisitorRecDetail({ slug }) {
             </p>
           </div>
 
+          <MediaEmbed
+            extractor={selectedItem.extraction?.extractor}
+            sourceUrl={selectedItem.links?.[0]?.url}
+          />
+
           {/* Links */}
           {selectedItem.links?.length > 0 && (
             <div style={{ marginBottom: 24 }}>
@@ -1238,6 +1251,11 @@ export function NetworkRecDetail({ slug }) {
                 </p>
               </div>
             )}
+
+            <MediaEmbed
+              extractor={rec.extraction?.extractor}
+              sourceUrl={rec.links?.[0]?.url}
+            />
 
             {/* Links */}
             {rec.links?.length > 0 && (
