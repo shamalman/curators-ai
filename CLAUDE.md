@@ -60,11 +60,11 @@ Two tables — parent/child, both active:
 
 **buildRecFileRow** (`lib/rec-files/build.js`) is the single source of truth for the `rec_files` row shape.
 
-**Feature B (chat image → rec):** Camera button in ChatView → canvas resize to 1600px / JPEG 0.85 → `/api/chat` route uploads to artifacts bucket, runs vision inference, returns `image_rec_candidate` + `save_image_rec:<sha>` action button → curator taps → QuickCaptureSheet opens in upload mode prefilled with artifact ref + inferred title/category/why → saves via JSON path of `/api/recs/upload`. Route config: `maxDuration = 60` on both `/api/chat` and `/api/recs/upload` to accommodate the two-Claude-call pipeline. Client-side resize required to stay under Vercel's 4.5MB serverless body limit. Upload body_md contains only `![Uploaded image](artifact://<sha>)` -- title and why render above the Archived Source section, not duplicated inside it.
+**Feature B (chat image → rec):** Camera in ChatView → `/api/chat` vision inference → `save_image_rec:<sha>` action button → QCS prefill → `/api/recs/upload`. `maxDuration = 60` on both routes. Client-side resize to 1600px / JPEG 0.85 keeps payload under Vercel's 4.5MB serverless body limit. Upload `body_md` is just `![Uploaded image](artifact://<sha>)`; title/why render above Archived Source, not inside it.
 
 **RecDetail section order:** Your Take / Why → Links → Archived Source (body_md) → Tags. Applies to all three variants (Curator/Visitor/Network).
 
-**Archived Source (RecDetail.jsx):** `ArchivedSource` component renders `body_md` as ReactMarkdown in a collapsible section below Links. Collapsed by default. Includes client-side .md download via Blob. Body renders via `react-markdown` with a custom `img` renderer (`ArtifactImage`) that resolves `artifact://<sha256>` URLs to Supabase signed URLs (7-day TTL). `urlTransform` override whitelists the `artifact://` protocol (react-markdown v10's `defaultUrlTransform` strips non-standard protocols by default). Archived Source is hidden when (a) `extraction.lossy === true` (backfilled recs with synthesized body_md) or (b) the extractor name matches `THIN_SOURCE_TYPES` (spotify, apple-music, youtube, soundcloud, letterboxd, goodreads, google-maps, twitter -- media embeds whose body_md is just restated metadata). Shown for webpage@registry, chat-parse@v1, paste@v1, upload@*, and any other substantive capture.
+**Archived Source (RecDetail.jsx):** `ArchivedSource` renders `body_md` as ReactMarkdown in a collapsible block below Links, with client-side .md download. Custom `img` renderer (`ArtifactImage`) resolves `artifact://<sha256>` URLs via Supabase signed URLs (7-day TTL); react-markdown v10's `urlTransform` is overridden to whitelist the `artifact://` protocol. Hidden when `extraction.lossy === true` or the extractor is in `THIN_SOURCE_TYPES` (media embeds whose body_md just restates metadata).
 
 **Curator + Visitor context secondary load** merges `body_md`, `extraction`, `work`, `curation_block`, `curator_is_author` from rec_files onto each tasteItem after the recommendations fetch. Null-safe. Both `CuratorContext` and `VisitorContext` use the same pattern. Both also map `profile_id` onto each tasteItem so rec detail components can pass the rec owner's UUID to `ArtifactImage` (required for signed URL path construction).
 
@@ -82,7 +82,7 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 **Chat-parsed URLs:** `ingestChatParsedBlocks` (`lib/chat/chat-parse-ingest.js`) writes a `rec_files` row (`extractor: chat-parse@v1`, `visibility: private`, `confirmed: false`) and populates `chat_messages.rec_refs` for each successfully parsed URL. Awaited with 2s timeout before response returns. These rows are ephemeral scratch records -- they exist for re-injection context, not as canonical archive entries.
 
-**Chat-save promotion flow:** When a curator saves a URL from chat, `addRec` (CuratorContext.jsx) runs three steps sequentially: (1) If `parsedPayload.extractor === 'chat-parse@v1'`, synchronously re-fetches the full article via `POST /api/recs/parse-link` to get a fresh `webpage@registry` payload with complete body_md. Original canonical_url is snapshotted as `chatParseUrl` before substitution. (2) `POST /api/recs/promote-chat-parse` marks the chat-parse@v1 scratch row `confirmed=true` (bookkeeping only, keyed on `chatParseUrl`). (3) `ingestUrlCapture` creates the canonical `rec_files` row from the fresh registry payload. `recommendations.rec_file_id` always points to the webpage@registry row. Re-parse failure falls back to chat-parse payload gracefully. Re-parse logic lives in `addRec` only -- no UI surface should re-parse independently.
+**Chat-save promotion flow:** When a curator saves a `chat-parse@v1` URL, `addRec` synchronously re-fetches via `/api/recs/parse-link` for a fresh `webpage@registry` payload, then `/api/recs/promote-chat-parse` marks the scratch row confirmed, then `ingestUrlCapture` writes the canonical `rec_files` row. `recommendations.rec_file_id` always points to the registry row. Re-parse failure falls back to the chat-parse payload. **Re-parse logic lives in `addRec` only** — no other UI surface should re-parse.
 
 **draftWhyFromConversation** (ChatView.jsx) extracts the curator's own words from recent chat history to prefill the "why" field. Skips URL-only messages (`/^https?:\/\/\S+$/`), messages shorter than 15 chars after URL removal, and meta-actions (save/skip buttons). Truncates at 200 chars on a word boundary.
 
@@ -100,9 +100,7 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 ### Taste Profile Pipeline
 
-Generated by `lib/taste-profile/generate.js` via `POST /api/generate-taste-profile`. Auto-regenerates after every rec save (3+ rec threshold, fire-and-forget from ChatView.jsx). As of 2026-04-11, enriched from `rec_files` — prefers `work.title`, `work.authors`, `work.site_name`, `curation.why`, `curation.tags`, `curation.conviction` over legacy `recommendations` columns. `sources.generated_from` = `'rec_files+recommendations+subscriptions+confirmations'`.
-
-As of 2026-04-14, the Stats section in the generated Taste File includes a "N taste signals confirmed or corrected" bullet. `taste_profiles.sources` jsonb now includes `taste_read_confirmed_count` and `taste_read_corrected_count` broken out from the total `confirmation_count`.
+Generated by `lib/taste-profile/generate.js` via `POST /api/generate-taste-profile`. Auto-regenerates after every rec save (3+ rec threshold, fire-and-forget from ChatView.jsx). Enriched from `rec_files` — prefers `work.title`, `work.authors`, `work.site_name`, `curation.why`, `curation.tags`, `curation.conviction` over legacy `recommendations` columns. `sources.generated_from` = `'rec_files+recommendations+subscriptions+confirmations'`. Stats section includes a "N taste signals confirmed or corrected" bullet. `taste_profiles.sources` breaks out `taste_read_confirmed_count` and `taste_read_corrected_count` from the total `confirmation_count`.
 
 ### Taste Read v2 (shipped April 14, 2026 across deploys 2.0-2.4)
 
@@ -132,8 +130,6 @@ As of 2026-04-14, the Stats section in the generated Taste File includes a "N ta
 **Action buttons:**
 - `save_rec_from_taste_read:<url>` — from TasteReadCard footer. ChatView handler routes to `handleSaveFromChat(url, { skipWhyDraft: true })` — QCS opens with blank why field (taste read context is not the curator's why).
 - `save_rec_from_chat:<url>` — from pre-taste-read three-button row. Unchanged from Feature C.
-
-**Deleted in Deploy 2.0:** v1 `confirm_taste_read:<url>` action, `meta.taste_read_observation` / `meta.taste_read_url` write paths, "Keep exploring" action, inline AI-generates-taste-read-in-chat flow. All replaced by the structured card.
 
 **What's NOT wired yet:**
 - QuickCaptureSheet integration (TasteReadCard rendering after URL/paste save). Deferred per Option Y (portal/modal at page level after QCS closes).
@@ -174,27 +170,19 @@ Curator-only audit trail at `/me/timeline`. Shows every signal that shaped the t
 
 ## Email Notification System
 
-**Subscriber notifications (Phase 1, shipped April 13 2026):** Real-time email to all active account-holder subscribers when a curator saves a public+approved rec. Fire-and-forget from `addRec` in `CuratorContext.jsx` → `POST /api/notify/new-rec`. Never blocks the rec save.
+**Subscriber notifications (Phase 1):** Real-time email to active account-holder subscribers when a curator saves a public+approved rec. Fire-and-forget from `addRec` → `POST /api/notify/new-rec`, never blocks the save. Trigger gate reads the DB-returned row (not the client object). Recipients: `subscriptions` where `unsubscribed_at IS NULL` and `profiles.new_rec_email_enabled = true`; email looked up via `supabase.auth.admin.getUserById(auth_user_id)`. Unsubscribe is token-based (`generateEmailToken(... 'unsubscribe', { type: 'new_rec_email' })`) and flips `profiles.new_rec_email_enabled`. Logged as `notification_log` rows with `type='new_rec_realtime'`.
 
-- **Trigger:** `data.visibility === 'public' && data.status === 'approved'` check against the DB-returned row (not the client object)
-- **Recipients:** `subscriptions` table, `unsubscribed_at IS NULL`, excludes the curator themselves, `profiles.new_rec_email_enabled = true`
-- **Email lookup:** `supabase.auth.admin.getUserById(subscriber.auth_user_id)` — uses `auth_user_id`, not `id`
-- **Unsubscribe:** Token-based via `generateEmailToken(subscriberId, 'unsubscribe', { type: 'new_rec_email' })`. Dispatched in `email-action/route.js` on `tokenData.payload.type === 'new_rec_email'`. Sets `profiles.new_rec_email_enabled = false`.
-- **Idempotency:** No dedup check — trigger fires once per INSERT, duplicate sends not possible in normal flow
-- **Log:** `notification_log` rows with `type='new_rec_realtime'`, `status='sent'`
-- **Pure email subscribers** (`subscribers` table): deferred until public launch
-- **Rich content** (authors, thumbnails, body_md excerpts): deferred to Phase 3
+Pure email subscribers (`subscribers` table) and rich content (authors/thumbnails/excerpts) deferred.
 
-Key files:
-- `app/api/notify/new-rec/route.js` — main send route
-- `lib/email-templates.js` — `newRecEmail` template (added)
-- `app/api/email-action/route.js` — unsubscribe handler (`new_rec_email` branch in GET + POST)
+Key files: `app/api/notify/new-rec/route.js`, `lib/email-templates.js` (`newRecEmail`), `app/api/email-action/route.js` (`new_rec_email` branch).
 
 ---
 
 ## Key Log Markers
 
-`[TASTE_READ_PARSE]`, `[TASTE_READ_TIMING]`, `[TASTE_READ_SLOW]`, `[TASTE_READ_V2]`, `[TASTE_READ_CARD]`, `[TASTE_READ_CONFIRM]`, `[TASTE_READ_REFINE]`, `[TASTE_READ_IGNORE]`, `[TASTE_READ_CONFIRM_UNDO]`, `[TASTE_READ_REFINE_UNDO]`, `[TASTE_READ_IGNORE_UNDO]`, `[TASTE_READ_STATE_PATCH]`, `[FEEDBACK_CAPTURED]`, `[PARSED_CONTENT_SAVED]`, `[OPENING_API_ERROR]`, `[OPENING_FALLBACK]`, `[INVITER_CONTEXT]`, `[INVITER_CONTEXT_ERROR]`, `[NETWORK_CONTEXT]`, `[NETWORK_CONTEXT_ERROR]`, `[AUTO_SUBSCRIBE]`, `[AUTO_SUBSCRIBE_CLIENT_FAIL]`, `[rec-files] Inserted`, `[rec-files] Insert failed:`, `[rec-files] Unexpected dual-write error:`, `[CONTEXT_LOAD] rec_files secondary load failed:`, `[taste-profile] enriched N of M recs from rec_files`, `[chat-parse-ingest] inserted rec_files row:`, `[chat-parse-ingest] rec_refs written:`, `[chat-route] re-injection via rec_refs:`, `[UPDATE_REC_FILE]`, `[UPDATE_REC_FILE_ERROR]`, `[NOTIFY_NEW_REC]`, `[NOTIFY_NEW_REC_TRIGGER]`, `[TIMELINE]`, `[TIMELINE_ERROR]`
+Primary filters (grep on these when debugging end-to-end flows): `[TASTE_READ_V2]`, `[TIMELINE]`, `[rec-files]`, `[chat-parse-ingest]`, `[taste-profile]`, `[NOTIFY_NEW_REC]`, `[INVITER_CONTEXT]`, `[AUTO_SUBSCRIBE]`, `[UPDATE_REC_FILE]`.
+
+Each area has a matching `_ERROR` / `_FAILED` / `_UNDO` variant — grep the code for the full set when you need it.
 
 ---
 
@@ -205,46 +193,29 @@ Key files:
 ---
 
 ## Key File Paths
-app/api/chat/route.js                      -- chat route, mode detection, link handling, rec extraction
-lib/prompts/skills/*.md                    -- 15 AI skill files
+
+Non-obvious load-bearing files. Everything else is findable by Glob.
+
+app/api/chat/route.js                      -- mode detection, link handling, rec extraction
 lib/prompts/onboarding.js, standard.js     -- system prompt builders (both carry SUBSCRIPTION_GROUNDING_RULE)
 lib/prompts/loader.js                      -- skill loader with cache
 lib/chat/inviter-context.js                -- getInviterContext
 lib/chat/network-context.js                -- getSubscribedRecs + REC_LINK sentinel
 lib/chat/link-parsing.js                   -- distillForReinjection
-app/api/onboarding/auto-subscribe/route.js -- service-role auto-subscribe
-lib/taste-profile/generate.js              -- taste profile generation (rec_files-enriched as of 2026-04-11)
-lib/agent/parsers/*.js + registry.js       -- 9 source parsers
-components/chat/ChatView.jsx               -- chat UI, rec save, taste profile regen trigger
-context/CuratorContext.jsx                 -- curator state, addRec dual-write, secondary rec_files load
-components/recs/RecDetail.jsx              -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail
-components/recs/ArtifactImage.jsx          -- resolves artifact:// URLs to signed URLs on demand (7-day TTL)
-lib/rec-files/build.js                     -- buildRecFileRow (single source of truth for rec_files shape)
-lib/rec-files/ingest.js                    -- ingestUrlCapture (dual-write entry point, never throws)
 lib/chat/chat-parse-ingest.js              -- chat URL → rec_files ingest, rec_refs writer
-lib/rec-files/artifact.js                  -- artifact upload helper
-lib/features.js                            -- feature flag helpers (no active callers as of 2026-04-11)
-app/api/recs/parse-link/route.js           -- URL capture + artifact upload
-app/api/recs/paste/route.js                -- paste capture, AI-inferred metadata
-app/api/recs/upload/route.js               -- image upload, extraction_mode 'uploaded'
-scripts/backfill-rec-files.mjs             -- backfill: --curator <handle> | --all --live
-app/api/generate-taste-profile/route.js    -- taste profile API endpoint
-app/(curator)/me/                          -- Me section (TasteFileView + Public Profile)
-app/[handle]/                              -- visitor profile + /ask page
-components/layout/BottomTabs.jsx           -- mobile nav
-components/layout/Sidebar.jsx              -- desktop nav
-app/api/notify/new-rec/route.js            -- real-time subscriber notification on rec save
-app/api/notify/new-subscriber/route.js     -- notification to curator on new subscription
-app/api/cron/weekly-digest/route.js        -- weekly digest cron
-lib/email-templates.js                     -- email templates (newSubscriberEmail, weeklyDigestEmail, agentCompletionEmail, newRecEmail)
+context/CuratorContext.jsx                 -- addRec dual-write, chat-save promotion, secondary rec_files load
+components/chat/ChatView.jsx               -- chat UI, rec save, taste profile regen trigger
+components/recs/RecDetail.jsx              -- CuratorRecDetail / VisitorRecDetail / NetworkRecDetail
+components/recs/ArtifactImage.jsx          -- resolves artifact:// URLs to signed URLs (7-day TTL)
+lib/rec-files/build.js                     -- buildRecFileRow, single source of truth for rec_files shape
+lib/rec-files/ingest.js                    -- ingestUrlCapture, dual-write entry point, never throws
+lib/taste-profile/generate.js              -- taste profile generation
+lib/email-templates.js                     -- newSubscriberEmail, weeklyDigestEmail, agentCompletionEmail, newRecEmail
 lib/email-tokens.js                        -- generateEmailToken, validateEmailToken, markTokenUsed
-app/api/email-action/route.js              -- token-based email action dispatch (unsubscribe, save_rec, update_settings)
-app/api/taste-read/route.js                -- taste read hydrate (GET) + generate-or-cache-hit (POST)
-app/api/taste-read/confirm/route.js        -- confirm inference (POST) + undo (DELETE)
-app/api/taste-read/refine/route.js         -- refine inference (POST) + undo (DELETE)
-app/api/taste-read/ignore/route.js         -- ignore inference (POST) + undo (DELETE)
-app/api/taste-read/state/route.js          -- PATCH UI state (states, refined_texts, collapsed, dismissed, done)
-components/taste-read/TasteReadCard.jsx    -- taste read card: hydrate, render, confirm/refine/ignore/undo, done/dismiss
+app/api/email-action/route.js              -- token-based dispatch (unsubscribe, save_rec, update_settings)
+components/taste-read/TasteReadCard.jsx    -- hydrate, render, confirm/refine/ignore/undo, done/dismiss
+components/me/TasteTimeline.jsx            -- timeline UI (grouped by local date)
+scripts/backfill-rec-files.mjs             -- backfill: --curator <handle> | --all --live
 
 ---
 
