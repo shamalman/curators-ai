@@ -321,6 +321,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revision: 1,
         revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }],
         parsedPayload: firstParsedLink?.parsedPayload || null,
+        createdVia: initialData?.createdViaOverride || "quick_capture_url",
       };
 
       const saved = await onSaved(newItem);
@@ -396,6 +397,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revision: 1,
         revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
+        createdVia: initialData?.createdViaOverride || "quick_capture_paste",
       };
 
       const saved = await onSaved(newItem);
@@ -480,6 +482,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revision: 1,
         revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
+        createdVia: initialData?.createdViaOverride || "quick_capture_upload",
       };
 
       const saved = await onSaved(newItem);

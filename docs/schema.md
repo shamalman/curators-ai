@@ -54,8 +54,22 @@ Notes: `invited_by` → `profiles.id`. `style_summary` = visitor-AI personality 
 | earnable_mode | text | YES |
 | depth_score | double precision | YES |
 | rec_file_id | text | YES |
+| created_via | text | YES |
 
 Notes: `rec_file_id` → `rec_files.id` (soft reference, no FK). All 30 production rows have non-null `rec_file_id` as of 2026-04-11. `saved_recs.recommendation_id` FK points here.
+
+`created_via` is analytics-only (not surfaced in UI). Valid values (enforced in application code):
+- `quick_capture_url` — Quick capture sheet, URL tab
+- `quick_capture_paste` — Quick capture sheet, Paste tab
+- `quick_capture_upload` — Quick capture sheet, Upload tab
+- `chat_rec_block` — AI-emitted `[REC]{...}[/REC]` block save
+- `chat_save_from_url` — `save_rec_from_chat:<url>` action button
+- `chat_save_from_image` — `save_image_rec:<sha>` action button
+- `chat_save_from_taste_read` — `save_rec_from_taste_read:<url>` action button
+- `backfill` — backfill scripts
+- `unknown` — fallback when origin cannot be determined
+
+Indexed via partial index `idx_recommendations_created_via` (`WHERE created_via IS NOT NULL`). Pre-existing rows are `NULL`.
 
 ## rec_files
 | Column | Type | Nullable |

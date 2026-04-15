@@ -592,7 +592,7 @@ export default function ChatView({ variant }) {
   // Feature C: handle the "Save as a Recommendation" action button tap from chat.
   // Opens QuickCaptureSheet prefilled with the URL, parsed content, and a
   // draft "why" extracted from the curator's own conversation words.
-  const handleSaveFromChat = (url, { skipWhyDraft = false } = {}) => {
+  const handleSaveFromChat = (url, { skipWhyDraft = false, createdVia = "chat_save_from_url" } = {}) => {
     let parsedPayload = null;
     let title = "";
     let thumbnail_url = null;
@@ -643,6 +643,7 @@ export default function ChatView({ variant }) {
       parsedPayload: parsedPayload || undefined,
       thumbnail_url: thumbnail_url,
       provider: provider,
+      createdViaOverride: createdVia,
     });
     setSheetOpen(true);
   };
@@ -693,6 +694,7 @@ export default function ChatView({ variant }) {
         title: candidate.inferred.title,
         category: candidate.inferred.category,
         context: candidate.inferred.suggested_why,
+        createdViaOverride: "chat_save_from_image",
       });
       setSheetOpen(true);
       return;
@@ -777,7 +779,8 @@ export default function ChatView({ variant }) {
         if (pendingLink) return [{ type: pendingLink.source?.toLowerCase() || "website", url: pendingLink.url, label: pendingLink.title }];
         return capturedRec.links || [];
       })(),
-      revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }]
+      revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }],
+      createdVia: "chat_rec_block",
     };
     let savedFromAddRec;
     try {
@@ -1019,7 +1022,7 @@ export default function ChatView({ variant }) {
                         // conversational why-draft (taste read text is not the why).
                         if (typeof action === "string" && action.startsWith("save_rec_from_taste_read:")) {
                           const url = action.slice("save_rec_from_taste_read:".length);
-                          handleSaveFromChat(url, { skipWhyDraft: true });
+                          handleSaveFromChat(url, { skipWhyDraft: true, createdVia: "chat_save_from_taste_read" });
                           return;
                         }
                         if (action === "skip_save") {

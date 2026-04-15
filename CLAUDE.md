@@ -54,6 +54,8 @@ Two tables — parent/child, both active:
 - `recommendations` — flat queryable metadata (title, slug, category, tags, context, links, visibility, profile_id, rec_file_id)
 - `rec_files` — canonical structured content blocks (body_md, work, curation, source, provenance, extraction, visibility). See `docs/rec-files-migration.md`.
 
+**`recommendations.created_via`** (analytics-only, not UI) tags each save with its origin — `quick_capture_url|paste|upload`, `chat_rec_block`, `chat_save_from_url|image|taste_read`, `backfill`, or `unknown`. Populated in `addRec` from `item.createdVia`; QCS reads `initialData.createdViaOverride` to distinguish chat-originated saves from direct QCS tab saves.
+
 **Dual-write is unconditional.** Every URL/paste/upload save writes to both tables. Gate: `if (item.parsedPayload)` in `addRec` (CuratorContext.jsx ~line 310). Failures logged, never thrown. All 30 production rows have `rec_file_id` populated as of 2026-04-11.
 
 **Capture flow:** `parse-link / paste / upload` route → `parsedPayload` envelope → client → `addRec` → `recommendations` insert → `ingestUrlCapture` → `rec_files` insert → `recommendations.rec_file_id` update.

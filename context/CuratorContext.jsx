@@ -295,6 +295,7 @@ export function CuratorProvider({ children }) {
       status: "approved",
       revision: 1,
       earnable_mode: "none",
+      created_via: item.createdVia || "unknown",
     }).select().single();
     if (error) {
       console.error("Failed to save rec:", error);
