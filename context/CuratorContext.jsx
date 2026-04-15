@@ -52,7 +52,6 @@ export function CuratorProvider({ children }) {
       setProfile({
         name: prof.name, handle: "@" + prof.handle,
         bio: prof.bio, location: prof.location || "",
-        styleSummary: prof.style_summary || null,
         invitedBy: prof.invited_by || null,
         aiEnabled: prof.ai_enabled,
         acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
@@ -227,8 +226,7 @@ export function CuratorProvider({ children }) {
         setProfile({
           name: prof.name, handle: "@" + prof.handle,
           bio: prof.bio, location: prof.location || "",
-          styleSummary: prof.style_summary || null,
-          invitedBy: prof.invited_by || null,
+            invitedBy: prof.invited_by || null,
           aiEnabled: prof.ai_enabled,
           acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
           showSubscriptions: prof.show_subscriptions || false,
@@ -257,8 +255,7 @@ export function CuratorProvider({ children }) {
         setProfile({
           name: prof.name, handle: "@" + prof.handle,
           bio: prof.bio, location: prof.location || "",
-          styleSummary: prof.style_summary || null,
-          invitedBy: prof.invited_by || null,
+            invitedBy: prof.invited_by || null,
           aiEnabled: prof.ai_enabled,
           acceptRequests: prof.accept_requests, showRecs: prof.show_recs,
           showSubscriptions: prof.show_subscriptions || false,

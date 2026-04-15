@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCurator } from '@/context/CuratorContext'
 import { supabase } from '@/lib/supabase'
 import { T, F, S, MN } from '@/lib/constants'
+import { extractPublicSections } from '@/lib/taste-profile/parse'
 
 function parseTasteProfile(markdown) {
   if (!markdown) return null
@@ -81,11 +82,7 @@ export default function TasteFileView() {
   const handleDownload = () => {
     if (!profileData?.content) return
     const handle = (profile?.handle || '').replace(/^@/, '') || 'mine'
-    const privateMarker = '## Curators They Subscribe To'
-    const cutIndex = profileData.content.indexOf(privateMarker)
-    const publicContent = cutIndex !== -1
-      ? profileData.content.slice(0, cutIndex).trimEnd()
-      : profileData.content
+    const publicContent = extractPublicSections(profileData.content) || profileData.content
     const blob = new Blob([publicContent], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

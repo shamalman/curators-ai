@@ -319,18 +319,7 @@ export default function ChatView({ variant }) {
         : topTags.length === 2 ? `${topTags[0]} and ${topTags[1]}`
         : `${topTags[0]}, ${topTags[1]}, and ${topTags[2]}`;
 
-      // Style-informed second sentence
-      const voice = (profile.styleSummary?.voice || "").toLowerCase();
-      let styleLine;
-      if (/precise|specific|detailed|exact/.test(voice)) {
-        styleLine = "Ask me about the exact spot, the right time to go, or what to order.";
-      } else if (/broad|experiential|expansive/.test(voice)) {
-        styleLine = "Ask me anything \u2014 places, music, things worth your time.";
-      } else if (/thoughtful|measured|reflective|considered/.test(voice)) {
-        styleLine = `I know what ${profile.name} recommends and why. Ask me anything.`;
-      } else {
-        styleLine = `Ask me anything about ${profile.name}'s taste.`;
-      }
+      const styleLine = `Ask me anything about ${profile.name}'s taste.`;
 
       setMessages([{ role: "ai", text: `I'm ${profile.name}'s taste AI, trained on recommendations across ${catStr}. ${styleLine}` }]);
     }

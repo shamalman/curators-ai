@@ -342,7 +342,7 @@ export default function SettingsView() {
                     // Clear context state
                     setTasteItems([]);
                     setMessages([]);
-                    setProfile(prev => prev ? { ...prev, bio: null, location: "", styleSummary: null } : prev);
+                    setProfile(prev => prev ? { ...prev, bio: null, location: "" } : prev);
                     setShowResetModal(false);
                     setResetInput("");
                     router.push("/myai");

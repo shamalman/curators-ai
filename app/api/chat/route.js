@@ -6,6 +6,7 @@ import { buildOnboardingPrompt } from "../../../lib/prompts/onboarding.js";
 import { buildStandardPrompt } from "../../../lib/prompts/standard.js";
 import { loadSkill } from "../../../lib/prompts/loader.js";
 import { buildVisitorPrompt } from "../../../lib/prompts/visitor.js";
+import { extractPublicSections, extractVoiceAndStyle } from "../../../lib/taste-profile/parse.js";
 import { extractRecCapture, validateRecContext } from "../../../lib/chat/rec-extraction.js";
 import { getSubscribedRecs } from "../../../lib/chat/network-context.js";
 import { getInviterContext } from "../../../lib/chat/inviter-context.js";
@@ -350,27 +351,28 @@ You could NOT access the full content of this link. Acknowledge only the title a
     let systemPrompt;
     let inviterCtx = { inviterName: null, inviterHandle: null, inviterNote: null };
     if (isVisitor) {
-      // Fetch curator's style summary for visitor AI personality
+      // Visitor AI personality is driven by the curator's taste profile markdown.
+      // Public sections ground the AI in the curator's taste; the Voice & Style
+      // section tells it how to speak. If no profile exists, fall back to a
+      // neutral default — do NOT fall back to deprecated style_summary.
       let styleBlock = "";
       if (profileId) {
         try {
-          const { data: curatorProfile } = await sb
-            .from("profiles")
-            .select("style_summary")
-            .eq("id", profileId)
+          const { data: tasteProfile } = await sb
+            .from("taste_profiles")
+            .select("content")
+            .eq("profile_id", profileId)
             .single();
-          if (curatorProfile?.style_summary) {
-            const s = curatorProfile.style_summary;
-            styleBlock = `\n\nCURATOR PERSONALITY (match this voice):
-Voice: ${s.voice || "warm and direct"}
-${s.voice_description || ""}
-Energy: ${s.energy || "confident"}
-Signature patterns: ${(s.signature_patterns || []).join(", ")}
-Aesthetic threads: ${(s.aesthetic_threads || []).join(", ")}
-${s.location ? `Location: ${s.location}` : ""}`;
+          const publicSections = extractPublicSections(tasteProfile?.content);
+          const voice = extractVoiceAndStyle(tasteProfile?.content);
+          if (publicSections) {
+            styleBlock += `\n\n=== CURATOR TASTE PROFILE ===\n${publicSections}\n=== END ===`;
+          }
+          if (voice) {
+            styleBlock += `\n\n=== VOICE & STYLE ===\nWhen responding, speak in the voice described below:\n${voice}\n=== END ===`;
           }
         } catch (err) {
-          console.error("Failed to fetch style summary:", err);
+          console.error("[VISITOR_TASTE_PROFILE_FETCH_ERROR]", err?.message || err);
         }
       }
       systemPrompt = buildVisitorPrompt({ curatorName, styleBlock, recsContext });

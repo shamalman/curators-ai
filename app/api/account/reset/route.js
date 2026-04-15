@@ -148,7 +148,6 @@ export async function POST(request) {
       .update({
         bio: null,
         location: null,
-        style_summary: null,
         onboarding_complete: false,
         last_seen_at: null,
         last_action: null,

@@ -22,7 +22,7 @@ Categories (recommendations + rec_files): watch | listen | read | visit | get | 
 | onboarding_complete | boolean | YES |
 | invited_by | uuid | YES |
 | location | text | YES |
-| style_summary | jsonb | YES |
+| style_summary | jsonb | YES | DEPRECATED — no longer read or written as of 2026-04-15. Scheduled for column drop (migrations/20260415_drop_style_summary_from_profiles.sql).
 | last_seen_at | timestamptz | YES |
 | last_action | text | YES |
 | last_action_at | timestamptz | YES |
@@ -34,7 +34,7 @@ Categories (recommendations + rec_files): watch | listen | read | visit | get | 
 | unlimited_invites | boolean | YES |
 | feature_flags | jsonb | NO |
 
-Notes: `invited_by` → `profiles.id`. `style_summary` = visitor-AI personality payload. `feature_flags` = JSONB flag map, no active callers as of 2026-04-11.
+Notes: `invited_by` → `profiles.id`. `feature_flags` = JSONB flag map, no active callers as of 2026-04-11.
 
 ## recommendations
 | Column | Type | Nullable |
