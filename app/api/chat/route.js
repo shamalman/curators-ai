@@ -301,8 +301,29 @@ You could NOT access the full content of this link. Acknowledge only the title a
               if (recFilesErr) {
                 console.error('[chat-route] rec_files re-injection fetch error:', recFilesErr.message);
               } else if (recFileRows?.length > 0) {
-                linkContextBlock += recFileRows.map(row => buildRecFileContextBlock(row)).join('\n\n');
-                console.log('[chat-route] re-injection via rec_refs:', idsToFetch);
+                const REC_FILES_CONTEXT_CAP = 40000;
+                let recFilesContextTotal = 0;
+                let injected = 0;
+                const injectedBlocks = [];
+                for (let i = 0; i < recFileRows.length; i++) {
+                  const row = recFileRows[i];
+                  const block = buildRecFileContextBlock(row, { bodyMdCap: 8000 });
+                  if (recFilesContextTotal + block.length > REC_FILES_CONTEXT_CAP) {
+                    console.log('[REC_FILES_REINJECTION] Global 40K cap hit, stopping at N blocks', {
+                      injected,
+                      skipped: recFileRows.length - injected,
+                      totalChars: recFilesContextTotal,
+                    });
+                    break;
+                  }
+                  injectedBlocks.push(block);
+                  recFilesContextTotal += block.length;
+                  injected += 1;
+                }
+                if (injectedBlocks.length > 0) {
+                  linkContextBlock += injectedBlocks.join('\n\n');
+                }
+                console.log('[chat-route] re-injection via rec_refs:', idsToFetch, { injected, totalChars: recFilesContextTotal });
               }
             }
           }
