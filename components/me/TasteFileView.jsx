@@ -73,10 +73,22 @@ function parseSubscriptions(subsText) {
 }
 
 export default function TasteFileView() {
-  const { profileId } = useCurator()
+  const { profileId, profile } = useCurator()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [profileData, setProfileData] = useState(null)
+
+  const handleDownload = () => {
+    if (!profileData?.content) return
+    const handle = (profile?.handle || '').replace(/^@/, '') || 'mine'
+    const blob = new Blob([profileData.content], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `taste-profile-${handle}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   useEffect(() => {
     if (!profileId) return
@@ -112,7 +124,7 @@ export default function TasteFileView() {
   if (!profileData) {
     return (
       <div style={{ textAlign: 'center', color: T.ink3, fontSize: 14, lineHeight: 1.7, padding: '80px 24px' }}>
-        <p>Your AI is still getting to know you. Keep capturing recs and your Taste File will take shape.</p>
+        <p>Your AI is still getting to know you. Make a few Recommendations or do some Taste Reads on what you've been reading, and your Taste File will take shape.</p>
         <p
           style={{ color: T.acc, fontWeight: 500, cursor: 'pointer', marginTop: 16 }}
           onClick={() => router.push('/myai')}
@@ -272,12 +284,20 @@ export default function TasteFileView() {
         </>
       )}
 
-      <a
-        href="/me/timeline"
-        style={{ fontSize: 14, color: T.ink2, textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
-      >
-        How this was built &rarr;
-      </a>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 8 }}>
+        <a
+          href="/me/timeline"
+          style={{ fontSize: 14, color: T.ink2, textDecoration: 'none' }}
+        >
+          How this was built &rarr;
+        </a>
+        <button
+          onClick={handleDownload}
+          style={{ fontSize: 14, color: T.ink2, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          Download .md
+        </button>
+      </div>
 
       {/* CTA */}
       <button
