@@ -112,7 +112,6 @@ export function CuratorProvider({ children }) {
             work: recFile?.work || null,
             curation_block: recFile?.curation || null,
             curator_is_author: recFile?.curator_is_author || false,
-            image_url: r.image_url || recFile?.work?.image_url || null,
           };
         }));
       }
@@ -707,7 +706,6 @@ export function CuratorProvider({ children }) {
       subscribe, unsubscribe, refreshSubscriptions,
       savedRecIds, saveRec, unsaveRec,
       isOwner: true,
-      viewerHandle: profile?.handle ? String(profile.handle).replace(/^@/, '').toLowerCase() : null,
     }}>
       {children}
     </CuratorContext.Provider>

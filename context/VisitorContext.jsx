@@ -12,7 +12,6 @@ export function VisitorProvider({ handle, children }) {
   const [messages, setMessages] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [viewerHandle, setViewerHandle] = useState(null);
   const prevMsgCount = useRef(0);
 
   const loadVisitorData = useCallback(async () => {
@@ -48,22 +47,6 @@ export function VisitorProvider({ handle, children }) {
         if (user && prof.auth_user_id === user.id) {
           setIsOwner(true);
         }
-        // Fetch viewer's own handle (for feature-flag gating). The viewed
-        // profile may or may not be the viewer — look up by auth_user_id.
-        if (user) {
-          try {
-            const { data: viewerProf } = await supabase
-              .from("profiles")
-              .select("handle")
-              .eq("auth_user_id", user.id)
-              .single();
-            if (viewerProf?.handle) {
-              setViewerHandle(String(viewerProf.handle).replace(/^@/, '').toLowerCase());
-            }
-          } catch (err) {
-            console.warn("[VISITOR_CONTEXT] viewer handle lookup failed:", err?.message || err);
-          }
-        }
 
         const recs = recsResult.data;
         if (recs && recs.length > 0) {
@@ -97,7 +80,6 @@ export function VisitorProvider({ handle, children }) {
               work: recFile?.work || null,
               curation_block: recFile?.curation || null,
               curator_is_author: recFile?.curator_is_author || false,
-              image_url: r.image_url || recFile?.work?.image_url || null,
             };
           }));
         }
@@ -149,7 +131,6 @@ export function VisitorProvider({ handle, children }) {
       undoArchive,
       toggleVisibility,
       isOwner,
-      viewerHandle,
       refresh: loadVisitorData,
     }}>
       {children}
