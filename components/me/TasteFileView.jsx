@@ -218,6 +218,19 @@ export default function TasteFileView() {
         </>
       )}
 
+      <button
+        onClick={handleDownload}
+        style={{ fontSize: 14, color: T.ink2, background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 1v8M4 6l3 3 3-3M2 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Download .md
+      </button>
+
+      <div style={{ fontSize: 11, color: T.ink3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginTop: 20 }}>Private to you</div>
+      <div style={{ borderTop: `0.5px solid ${T.bdr}`, margin: '0 0 4px' }} />
+
       {/* Curators They Subscribe To */}
       {sections['Curators They Subscribe To'] && (
         <>
@@ -284,20 +297,12 @@ export default function TasteFileView() {
         </>
       )}
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 8 }}>
-        <a
-          href="/me/timeline"
-          style={{ fontSize: 14, color: T.ink2, textDecoration: 'none' }}
-        >
-          How this was built &rarr;
-        </a>
-        <button
-          onClick={handleDownload}
-          style={{ fontSize: 14, color: T.ink2, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-        >
-          Download .md
-        </button>
-      </div>
+      <a
+        href="/me/timeline"
+        style={{ fontSize: 14, color: T.ink2, textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
+      >
+        How this was built &rarr;
+      </a>
 
       {/* CTA */}
       <button
