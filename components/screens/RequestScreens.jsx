@@ -70,7 +70,7 @@ export function RequestsPanel({ onClose, onOpenThread }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ padding: "52px 20px 14px", flexShrink: 0, borderBottom: `1px solid ${W.bdr}`, background: W.bg }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← My AI</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: T.acc, fontSize: 14, fontFamily: F, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Lens</button>
         </div>
         <h2 style={{ fontFamily: S, fontSize: 26, color: T.ink, fontWeight: 400, marginBottom: 4 }}>Requests</h2>
         <p style={{ fontSize: 13, color: T.ink3, fontFamily: F, marginBottom: 14 }}>People asking for your taste. AI drafts responses — you approve or edit.</p>

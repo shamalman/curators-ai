@@ -882,7 +882,7 @@ export default function ChatView({ variant }) {
               <span style={{ fontSize: isDesktop ? 13 : 11, fontWeight: 700, color: W.accent, fontFamily: F }}>C</span>
             </div>
             <div>
-              <div style={{ fontFamily: F, fontSize: isDesktop ? 16 : 14, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>My AI</div>
+              <div style={{ fontFamily: F, fontSize: isDesktop ? 16 : 14, color: T.ink, fontWeight: 700, lineHeight: 1, letterSpacing: "-.02em" }}>Lens</div>
               <div style={{ fontSize: 10, color: T.ink3, fontFamily: MN, fontWeight: 400, marginTop: 2 }}>{n} recs {"\u00B7"} {cats.length} categories</div>
             </div>
           </div>

@@ -144,11 +144,11 @@ export default function TasteManager({ embedded = false }) {
           <div style={{ textAlign: "center", padding: "60px 20px" }}>
             <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u25C6"}</div>
             <div style={{ fontFamily: S, fontSize: 20, color: T.ink, fontWeight: 400, marginBottom: 8 }}>No recommendations yet</div>
-            <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, lineHeight: 1.6, marginBottom: 20 }}>Head to My AI to start capturing your taste</p>
+            <p style={{ fontFamily: F, fontSize: 13, color: T.ink3, lineHeight: 1.6, marginBottom: 20 }}>Head to Lens to start capturing your taste</p>
             <button onClick={() => router.push("/myai")} style={{
               background: T.acc, border: "none", borderRadius: 8, padding: "10px 20px",
               cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
-            }}>Go to My AI →</button>
+            }}>Go to Lens →</button>
           </div>
         )}
         {filterCat === "archived" && (

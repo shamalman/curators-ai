@@ -1,5 +1,5 @@
 # CLAUDE.md — Curators.AI Engineering Guide
-## Last updated: April 16, 2026 (Personal Record UI rename)
+## Last updated: April 16, 2026 (Lens UI rename)
 
 ---
 
@@ -29,6 +29,7 @@ Preserve, access, and amplify human curation. Build equally for curators (captur
 - "taste" not "preferences"
 - "recommendations" or "recs" not "content" or "posts"
 - "Personal Record" is the user-facing label for the Taste File on /me. Internal references (DB, code, skill files, "taste" as a concept) stay as "taste."
+- "Lens" is the user-facing label for the MyAI tab and AI surface. Internal references (route /myai, component names, log markers, prompt content) stay unchanged. The AI does not yet refer to itself as "Lens."
 
 ---
 

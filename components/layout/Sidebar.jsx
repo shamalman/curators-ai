@@ -13,7 +13,7 @@ export default function Sidebar() {
   const handle = profile?.handle?.replace("@", "") || "";
 
   const nav = [
-    { id: "ask", icon: "\u25C8", label: "My AI", path: "/myai" },
+    { id: "ask", icon: "\u25C8", label: "Lens", path: "/myai" },
     { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations" },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
     { id: "me", icon: "\u25C7", label: "Me", path: "/me" },

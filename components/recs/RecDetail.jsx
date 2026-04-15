@@ -692,7 +692,7 @@ export function CuratorRecDetail({ slug }) {
                       <span style={{ fontFamily: F, fontSize: 12, color: T.ink3 }}>per use</span>
                     </div>
                     <p style={{ fontSize: 10, color: T.ink3, fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
-                      Brands request through your profile. Review in My AI → Requests.
+                      Brands request through your profile. Review in Lens → Requests.
                     </p>
                   </div>
                 )}
