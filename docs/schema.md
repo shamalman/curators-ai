@@ -1,5 +1,5 @@
 # Curators.AI — Database Schema
-Last full audit: 2026-04-10. taste_reads and taste_read_ignores added 2026-04-14. Source of truth: `information_schema.columns`.
+Last full audit: 2026-04-10. taste_reads and taste_read_ignores added 2026-04-14. Last column drop: 2026-04-15 (style_summary). Source of truth: `information_schema.columns`.
 To refresh: run `SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position;` in Supabase SQL Editor.
 
 Categories (recommendations + rec_files): watch | listen | read | visit | get | wear | play | other
@@ -22,7 +22,6 @@ Categories (recommendations + rec_files): watch | listen | read | visit | get | 
 | onboarding_complete | boolean | YES |
 | invited_by | uuid | YES |
 | location | text | YES |
-| style_summary | jsonb | YES | DEPRECATED — no longer read or written as of 2026-04-15. Scheduled for column drop (migrations/20260415_drop_style_summary_from_profiles.sql).
 | last_seen_at | timestamptz | YES |
 | last_action | text | YES |
 | last_action_at | timestamptz | YES |

@@ -354,7 +354,7 @@ You could NOT access the full content of this link. Acknowledge only the title a
       // Visitor AI personality is driven by the curator's taste profile markdown.
       // Public sections ground the AI in the curator's taste; the Voice & Style
       // section tells it how to speak. If no profile exists, fall back to a
-      // neutral default — do NOT fall back to deprecated style_summary.
+      // neutral default — style_summary column was dropped 2026-04-15.
       let styleBlock = "";
       if (profileId) {
         try {
