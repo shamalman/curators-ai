@@ -35,7 +35,7 @@ export default function MeSegmentedControl({ active }) {
           fontFamily: F, border: 'none', cursor: 'pointer',
         }}
       >
-        Taste File
+        Personal Record
       </button>
       <button
         onClick={goToProfile}
