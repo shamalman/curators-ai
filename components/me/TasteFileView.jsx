@@ -81,7 +81,12 @@ export default function TasteFileView() {
   const handleDownload = () => {
     if (!profileData?.content) return
     const handle = (profile?.handle || '').replace(/^@/, '') || 'mine'
-    const blob = new Blob([profileData.content], { type: 'text/markdown' })
+    const privateMarker = '## Curators They Subscribe To'
+    const cutIndex = profileData.content.indexOf(privateMarker)
+    const publicContent = cutIndex !== -1
+      ? profileData.content.slice(0, cutIndex).trimEnd()
+      : profileData.content
+    const blob = new Blob([publicContent], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
