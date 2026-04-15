@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { supabase } from "../lib/supabase";
 import { VisitorContext } from "./VisitorContext";
 import { ingestUrlCapture } from "../lib/rec-files/ingest.js";
+import { extractImageUrl } from "../lib/agent/parsers/extract-image.js";
 
 export const CuratorContext = createContext(null);
 
@@ -293,6 +294,7 @@ export function CuratorProvider({ children }) {
       revision: 1,
       earnable_mode: "none",
       created_via: item.createdVia || "unknown",
+      image_url: extractImageUrl(item.parsedPayload),
     }).select().single();
     if (error) {
       console.error("Failed to save rec:", error);
@@ -342,6 +344,7 @@ export function CuratorProvider({ children }) {
                 artifact_ref: reParseData.artifact_ref || null,
                 extraction_mode: reParseData.extraction_mode || "parsed",
                 extractor: reParseData.extractor || null,
+                image_url: reParseData.image_url || reParseData.thumbnail_url || null,
               },
             };
           }

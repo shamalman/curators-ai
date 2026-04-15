@@ -73,6 +73,7 @@ function buildUploadPayload({ sha256, ref, mimeType, title, why }) {
     extraction_mode: "uploaded",
     extractor: `upload@${mimeType.split("/")[1] || "unknown"}`,
     title: trimmedTitle,
+    image_url: `artifact://${sha256}`,
     curator_is_author: false,
     source_type: "firsthand",
   };

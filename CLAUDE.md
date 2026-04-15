@@ -56,6 +56,8 @@ Two tables — parent/child, both active:
 
 **`recommendations.created_via`** (analytics-only, not UI) tags each save with its origin — `quick_capture_url|paste|upload`, `chat_rec_block`, `chat_save_from_url|image|taste_read`, `backfill`, or `unknown`. Populated in `addRec` from `item.createdVia`; QCS reads `initialData.createdViaOverride` to distinguish chat-originated saves from direct QCS tab saves.
 
+**`recommendations.image_url` + `rec_files.work.image_url`** are populated on every new save (Deploy 1 of 3 for image_url feature, 2026-04-15). Source: parser's `metadata.thumbnailUrl` normalized onto the `parsedPayload.image_url` envelope at each of 6 constructors (parse-link / paste / upload / QCS / CuratorContext re-parse / ChatView chat-parse); upload mode writes `artifact://<sha256>`. Read via `extractImageUrl(parsedPayload)` in `lib/agent/parsers/extract-image.js`. No backfill; no UI consumer yet.
+
 **Dual-write is unconditional.** Every URL/paste/upload save writes to both tables. Gate: `if (item.parsedPayload)` in `addRec` (CuratorContext.jsx ~line 310). Failures logged, never thrown. All 30 production rows have `rec_file_id` populated as of 2026-04-11.
 
 **Capture flow:** `parse-link / paste / upload` route → `parsedPayload` envelope → client → `addRec` → `recommendations` insert → `ingestUrlCapture` → `rec_files` insert → `recommendations.rec_file_id` update.

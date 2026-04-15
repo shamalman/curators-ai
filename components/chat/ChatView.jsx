@@ -611,6 +611,7 @@ export default function ChatView({ variant }) {
           extraction_mode: "parsed",
           extractor: "chat-parse@v1",
           title: match.metadata?.title || "",
+          image_url: match.metadata?.thumbnailUrl || null,
         };
         title = match.metadata?.title || "";
         thumbnail_url = match.metadata?.thumbnailUrl || null;

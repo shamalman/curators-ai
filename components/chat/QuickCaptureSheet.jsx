@@ -259,6 +259,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           artifact_ref: data.artifact_ref || null,
           extraction_mode: data.extraction_mode || "parsed",
           extractor: data.extractor || null,
+          image_url: data.image_url || data.thumbnail_url || null,
         },
       } : l));
 

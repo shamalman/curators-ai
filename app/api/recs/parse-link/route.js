@@ -258,6 +258,7 @@ export async function POST(request) {
         artifact_ref: artifactRef?.ref || null,
         extraction_mode: "parsed",
         extractor: `${metadata.source || "unknown"}@registry`,
+        image_url: metadata.thumbnailUrl || null,
       };
     }
   }

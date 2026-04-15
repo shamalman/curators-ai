@@ -55,6 +55,7 @@ Notes: `invited_by` → `profiles.id`. `feature_flags` = JSONB flag map, no acti
 | depth_score | double precision | YES |
 | rec_file_id | text | YES |
 | created_via | text | YES |
+| image_url | text | YES |
 
 Notes: `rec_file_id` → `rec_files.id` (soft reference, no FK). All 30 production rows have non-null `rec_file_id` as of 2026-04-11. `saved_recs.recommendation_id` FK points here.
 
@@ -70,6 +71,8 @@ Notes: `rec_file_id` → `rec_files.id` (soft reference, no FK). All 30 producti
 - `unknown` — fallback when origin cannot be determined
 
 Indexed via partial index `idx_recommendations_created_via` (`WHERE created_via IS NOT NULL`). Pre-existing rows are `NULL`.
+
+`image_url` is populated on new saves going forward (Deploy 1 of 3 for the image_url feature, 2026-04-15). No backfill — pre-2026-04-15 rows are `NULL`. Not yet read by any UI. For URL parses, sourced from the parser's `metadata.thumbnailUrl`. For uploads, set to `artifact://<sha256>` as a durable pointer to the uploaded artifact. `null` for paste mode and for parsers that don't extract an image (Google Maps; Twitter returns a weak profile-avatar value).
 
 ## rec_files
 | Column | Type | Nullable |
@@ -99,7 +102,7 @@ Indexed via partial index `idx_recommendations_created_via` (`WHERE created_via 
 | affiliate | jsonb | YES |
 | claims | jsonb | YES |
 
-Notes: PK is `(id, version)` composite. `superseded_by` is soft TEXT reference (no FK — self-referencing FK dropped in Deploy 1). `signature/relationships/location/affiliate/claims` reserved for v2+.
+Notes: PK is `(id, version)` composite. `superseded_by` is soft TEXT reference (no FK — self-referencing FK dropped in Deploy 1). `signature/relationships/location/affiliate/claims` reserved for v2+. `work.image_url` is written on new saves (Deploy 1 of 3 for the image_url feature, 2026-04-15) — same semantics as `recommendations.image_url`. Null values are stripped from the `work` object before insert.
 
 ## rec_blocks
 | Column | Type | Nullable |

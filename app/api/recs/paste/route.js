@@ -182,6 +182,7 @@ export async function POST(request) {
       extraction_mode: "pasted",
       extractor: "paste@v1",
       title: finalTitle,
+      image_url: null,  // paste mode has no image
       // Overrides for buildRecFileRow (picked up via parsedPayload fallback)
       curator_is_author: true,
       source_type: "firsthand",
