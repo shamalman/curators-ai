@@ -9,6 +9,9 @@ import { T, F, S, MN, CAT, DEFAULT_TIERS, DEFAULT_BUNDLES, LICENSE_TYPES } from 
 import { useCurator } from "@/context/CuratorContext";
 import { fetchLinkMetadata } from "@/lib/links/fetchLinkMetadata";
 import LinkDisplay from "@/components/shared/LinkDisplay";
+import RecThumbnail from "./RecThumbnail";
+import { canSeeThumbnails } from "@/lib/feature-flags";
+import { useViewerHandle } from "@/lib/hooks/useViewerHandle";
 
 // Source types whose body_md is just metadata restated, not substantive prose.
 // For these, the Archived Source section adds no information beyond what's
@@ -131,6 +134,8 @@ const fmtDateFull = (d) => {
 export function CuratorRecDetail({ slug }) {
   const router = useRouter();
   const { profile, tasteItems, updateRec, archived, removeItem, restoreItem, toggleVisibility } = useCurator();
+  const viewerHandle = useViewerHandle();
+  const curatorShowThumbnails = canSeeThumbnails(viewerHandle);
 
   const selectedItem = tasteItems.find(i => i.slug === slug || i.id === slug);
 
@@ -287,7 +292,17 @@ export function CuratorRecDetail({ slug }) {
 
           {/* Category + visibility badge */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{c.emoji}</div>
+            {curatorShowThumbnails ? (
+              <RecThumbnail
+                imageUrl={selectedItem.image_url || selectedItem.work?.image_url || null}
+                sourceType={selectedItem.extraction?.extractor?.split("@")[0] || null}
+                size="md"
+                altText={selectedItem.title}
+                profileId={selectedItem.profile_id}
+              />
+            ) : (
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{c.emoji}</div>
+            )}
             <span style={{ fontSize: 12, fontWeight: 600, color: c.color, fontFamily: F }}>{c.label}</span>
             <span style={{ fontSize: 10, fontWeight: 600, color: isPublic ? "#6BAA8E" : T.ink3, background: isPublic ? "#6BAA8E15" : T.s2, padding: "3px 10px", borderRadius: 6, fontFamily: F }}>
               {isPublic ? "\u25CF Public" : "\u25CB Private"}
@@ -767,6 +782,8 @@ export function CuratorRecDetail({ slug }) {
 export function VisitorRecDetail({ slug }) {
   const router = useRouter();
   const { profile, tasteItems } = useCurator();
+  const viewerHandle = useViewerHandle();
+  const visitorShowThumbnails = canSeeThumbnails(viewerHandle);
 
   const selectedItem = tasteItems.find(i => i.slug === slug);
 
@@ -826,11 +843,21 @@ export function VisitorRecDetail({ slug }) {
 
           {/* Category + date */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 16, background: c.bg,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
-              border: `1px solid ${c.color}20`,
-            }}>{c.emoji}</div>
+            {visitorShowThumbnails ? (
+              <RecThumbnail
+                imageUrl={selectedItem.image_url || selectedItem.work?.image_url || null}
+                sourceType={selectedItem.extraction?.extractor?.split("@")[0] || null}
+                size="md"
+                altText={selectedItem.title}
+                profileId={selectedItem.profile_id}
+              />
+            ) : (
+              <div style={{
+                width: 56, height: 56, borderRadius: 16, background: c.bg,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
+                border: `1px solid ${c.color}20`,
+              }}>{c.emoji}</div>
+            )}
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: c.color, fontFamily: F }}>{c.label}</div>
               <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 2 }}>Recommended {fmtDateFull(selectedItem.date)}</div>
@@ -1062,6 +1089,8 @@ export function VisitorRecDetail({ slug }) {
 export function NetworkRecDetail({ slug }) {
   const router = useRouter();
   const { profileId, savedRecIds, saveRec, unsaveRec, mySubscriptionIds, subscribe } = useCurator();
+  const viewerHandle = useViewerHandle();
+  const networkShowThumbnails = canSeeThumbnails(viewerHandle);
   const [rec, setRec] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -1210,11 +1239,21 @@ export function NetworkRecDetail({ slug }) {
 
             {/* Category + date */}
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 16, background: c.bg,
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
-                border: `1px solid ${c.color}20`,
-              }}>{c.emoji}</div>
+              {networkShowThumbnails ? (
+                <RecThumbnail
+                  imageUrl={rec.image_url || rec.work?.image_url || null}
+                  sourceType={rec.extraction?.extractor?.split("@")[0] || null}
+                  size="md"
+                  altText={rec.title}
+                  profileId={rec.profile_id}
+                />
+              ) : (
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16, background: c.bg,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26,
+                  border: `1px solid ${c.color}20`,
+                }}>{c.emoji}</div>
+              )}
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: c.color, fontFamily: F }}>{c.label}</div>
                 <div style={{ fontSize: 11, color: T.ink3, fontFamily: F, marginTop: 2 }}>Recommended {fmtDateFull(item.date)}</div>

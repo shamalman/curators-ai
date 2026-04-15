@@ -6,10 +6,15 @@ import { T, F, S, MN, CAT, EARNINGS } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import CategoryPill from "@/components/shared/CategoryPill";
 import Toast from "@/components/shared/Toast";
+import RecCardWithThumbnail from "@/components/recs/RecCardWithThumbnail";
+import { canSeeThumbnails } from "@/lib/feature-flags";
+import { useViewerHandle } from "@/lib/hooks/useViewerHandle";
 
 export default function TasteManager({ embedded = false }) {
   const router = useRouter();
   const { tasteItems: items, archived, filterCat, setFilterCat, removing, removeItem, restoreItem, undoItem, undoArchive } = useCurator();
+  const viewerHandle = useViewerHandle();
+  const showThumbnails = canSeeThumbnails(viewerHandle);
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earningsDrill, setEarningsDrill] = useState(null);
 
@@ -162,7 +167,22 @@ export default function TasteManager({ embedded = false }) {
             <div style={{ fontSize: 13, fontFamily: F }}>No archived recs</div>
           </div>
         )}
-        {filtered.map(function(item, i) { var ct = CAT[item.category] || CAT.other; var isArch = !!archived[item.id]; return (
+        {filtered.map(function(item, i) { var ct = CAT[item.category] || CAT.other; var isArch = !!archived[item.id];
+          // Gated viewers see RecCardWithThumbnail for active recs. Archived
+          // recs keep the inline layout in all cases because the Restore
+          // button is archive-only and not yet supported by the shared card.
+          if (showThumbnails && !isArch) {
+            return (
+              <div key={item.id} className={removing === item.id ? "rm" : "fu"} style={{ animationDelay: removing === item.id ? "0s" : (i * .03) + "s" }}>
+                <RecCardWithThumbnail
+                  item={item}
+                  onClick={function() { router.push('/recommendations/' + (item.slug || item.id)); }}
+                  showCurator={false}
+                />
+              </div>
+            );
+          }
+          return (
           <div key={item.id} className={removing === item.id ? "rm" : "fu"} style={{ animationDelay: removing === item.id ? "0s" : (i * .03) + "s" }}>
             <div onClick={function() { if (!isArch) router.push('/recommendations/' + (item.slug || item.id)); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 4px", borderBottom: "1px solid " + T.bdr, opacity: isArch ? 0.6 : 1, cursor: isArch ? "default" : "pointer" }}>
               <div style={{ width: 38, height: 38, borderRadius: 10, background: ct.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{ct.emoji}</div>

@@ -6,6 +6,9 @@ import { supabase } from "@/lib/supabase";
 import { T, F, S, CAT, FEATURES } from "@/lib/constants";
 import { useCurator, CuratorContext } from "@/context/CuratorContext";
 import RecCard from "@/components/recs/RecCard";
+import RecCardWithThumbnail from "@/components/recs/RecCardWithThumbnail";
+import { canSeeThumbnails } from "@/lib/feature-flags";
+import { useViewerHandle } from "@/lib/hooks/useViewerHandle";
 
 const CAT_COLORS = {
   watch: "#8E80B5", listen: "#4B92CC", read: "#CC6658", visit: "#5E9E82",
@@ -55,6 +58,9 @@ export default function VisitorProfile({ mode }) {
   const savedRecIds = curatorCtx?.savedRecIds;
   const saveRec = curatorCtx?.saveRec;
   const unsaveRec = curatorCtx?.unsaveRec;
+  const viewerHandle = useViewerHandle();
+  const showThumbnails = canSeeThumbnails(viewerHandle);
+  const Card = showThumbnails ? RecCardWithThumbnail : RecCard;
   const [subToggling, setSubToggling] = useState(false);
   const [localSubbed, setLocalSubbed] = useState(false);
   const [myProfileId, setMyProfileId] = useState(null);
@@ -497,7 +503,7 @@ export default function VisitorProfile({ mode }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {filteredItems.map((rec, i) => (
               <div key={rec.id} className="fu" style={{ animationDelay: `${i * .05}s` }}>
-                <RecCard
+                <Card
                   item={{ ...rec, date: rec.created_at?.split("T")[0] || rec.date }}
                   onClick={() => onSelectItem(rec)}
                   showCurator={false}

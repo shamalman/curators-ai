@@ -7,10 +7,16 @@ import { T, F, S, CAT } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
 import CategoryPill from "@/components/shared/CategoryPill";
 import RecCard from "./RecCard";
+import RecCardWithThumbnail from "./RecCardWithThumbnail";
+import { canSeeThumbnails } from "@/lib/feature-flags";
+import { useViewerHandle } from "@/lib/hooks/useViewerHandle";
 
 export default function NetworkView() {
   const router = useRouter();
   const { savedRecIds, saveRec, unsaveRec } = useCurator();
+  const viewerHandle = useViewerHandle();
+  const showThumbnails = canSeeThumbnails(viewerHandle);
+  const Card = showThumbnails ? RecCardWithThumbnail : RecCard;
   const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -114,7 +120,7 @@ export default function NetworkView() {
 
       {filtered.map((rec, i) => (
         <div key={rec.id} className="fu" style={{ animationDelay: (i * .03) + "s" }}>
-          <RecCard
+          <Card
             item={{ ...rec, date: rec.created_at?.split("T")[0] }}
             onClick={() => router.push(`/recommendations/${rec.slug || rec.id}`)}
             showCurator
