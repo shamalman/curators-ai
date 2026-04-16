@@ -24,6 +24,58 @@ function isValidHttpUrl(s) {
   }
 }
 
+function TagsInput({ tags, setTags, tagInput, setTagInput, saving }) {
+  const handleTagKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const val = tagInput.replace(/,/g, "").trim();
+      if (val && !tags.includes(val)) {
+        setTags([...tags, val]);
+      }
+      setTagInput("");
+    }
+  };
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Tags</div>
+      <input
+        value={tagInput}
+        onChange={(e) => setTagInput(e.target.value)}
+        onKeyDown={handleTagKeyDown}
+        placeholder="Add a tag..."
+        disabled={saving}
+        style={{
+          width: "100%", padding: "12px 14px", borderRadius: 10,
+          border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+          background: T.bg, color: T.ink, outline: "none", boxSizing: "border-box",
+        }}
+      />
+      {tags.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {tags.map((tag, i) => (
+            <span key={i} style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 16, padding: "4px 10px", fontSize: 13, color: "rgba(255,255,255,0.8)", fontFamily: F,
+            }}>
+              {tag}
+              <button
+                type="button"
+                onClick={() => setTags(tags.filter((_, j) => j !== i))}
+                disabled={saving}
+                style={{
+                  background: "none", border: "none", color: "rgba(255,255,255,0.4)",
+                  cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1, fontFamily: F,
+                }}
+              >×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LinkRow({ link, onUrlChange, onParse, onRemove }) {
   // Parsed-display state
   if (link.parsed) {
@@ -75,7 +127,7 @@ function LinkRow({ link, onUrlChange, onParse, onRemove }) {
             onParse(trimmed);
           }
         }}
-        placeholder="Paste a link"
+        placeholder="Paste a URL"
         style={{
           flex: 1, padding: "10px 12px", borderRadius: 10,
           border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
@@ -105,6 +157,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   const [visibility, setVisibility] = useState(defaultVisibility || "public");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState("");
   const titleInputRef = useRef(null);
 
   // Deploy 3: multi-mode capture
@@ -131,6 +185,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       setTitle(initialData?.title || "");
       setContext(initialData?.context || "");
       setCategory(initialData?.category || null);
+      setTags(initialData?.tags || []);
+      setTagInput("");
       setVisibility(defaultVisibility || "public");
       setSaving(false);
       setError(null);
@@ -181,7 +237,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
           parsedPayload: initialData.parsedPayload,
         }]);
       } else {
-        setLinks([]);
+        setLinks([{ id: makeLinkId(), url: "", parsing: false, parsed: false, title: null, thumbnail_url: null, provider: null }]);
       }
 
       // Autofocus title after a tick
@@ -315,7 +371,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         title: title.trim(),
         category: category || "other",
         context: context.trim(),
-        tags: [],
+        tags,
         links: linksForDb,
         visibility,
         date: new Date().toISOString().split("T")[0],
@@ -391,7 +447,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         title: data.title,
         category: data.category,
         context: finalWhy,
-        tags: data.tags || [],
+        tags: tags.length > 0 ? tags : (data.tags || []),
         links: [], // paste has no links
         visibility: visibility || defaultVisibility || "public",
         date: todayYmd,
@@ -444,7 +500,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
             title: uploadTitle.trim(),
             category: uploadCategory,
             why: uploadWhy || "",
-            tags: [],
+            tags,
           }),
         });
       } else {
@@ -476,7 +532,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         title: data.title,
         category: data.category,
         context: uploadWhy || "",
-        tags: data.tags || [],
+        tags: tags.length > 0 ? tags : (data.tags || []),
         links: [],
         visibility: visibility || defaultVisibility || "public",
         date: todayYmd,
@@ -611,6 +667,20 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         {/* ── URL MODE ── */}
         {captureMode === "url" && (
           <>
+            {/* Link (primary) */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Link</div>
+              {links[0] && (
+                <LinkRow
+                  key={links[0].id}
+                  link={links[0]}
+                  onUrlChange={(url) => updateLinkUrl(links[0].id, url)}
+                  onParse={(url) => parseLink(links[0].id, url)}
+                  onRemove={() => removeLink(links[0].id)}
+                />
+              )}
+            </div>
+
             {/* Title */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Title</div>
@@ -644,40 +714,30 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
               />
             </div>
 
-            {/* Links */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Links</div>
-              {links.length === 0 ? (
-                <button onClick={ensureFirstLinkRow} style={{
-                  width: "100%", padding: "10px 12px", borderRadius: 10,
-                  border: `1px dashed ${T.bdr}`, background: "transparent",
-                  color: T.ink3, fontSize: 13, fontFamily: F, cursor: "pointer", textAlign: "left",
-                }}>
-                  + Add a link
-                </button>
-              ) : (
-                <>
-                  {links.map((link) => (
-                    <LinkRow
-                      key={link.id}
-                      link={link}
-                      onUrlChange={(url) => updateLinkUrl(link.id, url)}
-                      onParse={(url) => parseLink(link.id, url)}
-                      onRemove={() => removeLink(link.id)}
-                    />
-                  ))}
-                  {firstLinkAddedOrParsed && !hasAnyEmptyLinkInput && (
-                    <button onClick={handleAddAnotherLink} style={{
-                      width: "100%", padding: "8px 12px", borderRadius: 10,
-                      border: `1px dashed ${T.bdr}`, background: "transparent",
-                      color: T.ink3, fontSize: 12, fontFamily: F, cursor: "pointer",
-                    }}>
-                      + Add another link
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+            {/* Additional Links */}
+            {links.length > 1 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Additional links</div>
+                {links.slice(1).map((link) => (
+                  <LinkRow
+                    key={link.id}
+                    link={link}
+                    onUrlChange={(url) => updateLinkUrl(link.id, url)}
+                    onParse={(url) => parseLink(link.id, url)}
+                    onRemove={() => removeLink(link.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {firstLinkAddedOrParsed && !hasAnyEmptyLinkInput && (
+              <button onClick={handleAddAnotherLink} style={{
+                width: "100%", padding: "8px 12px", borderRadius: 10, marginBottom: 14,
+                border: `1px dashed ${T.bdr}`, background: "transparent",
+                color: T.ink3, fontSize: 12, fontFamily: F, cursor: "pointer",
+              }}>
+                + Add another link
+              </button>
+            )}
 
             {/* Category */}
             <div style={{ marginBottom: 14 }}>
@@ -705,6 +765,9 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                 })}
               </div>
             </div>
+
+            {/* Tags */}
+            <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} saving={saving} />
 
             {/* Visibility */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
@@ -810,6 +873,9 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                 })}
               </div>
             </div>
+
+            {/* Tags */}
+            <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} saving={saving} />
 
             {/* Why (optional — falls back to AI inference or text preview) */}
             <div style={{ marginBottom: 14 }}>
@@ -976,6 +1042,9 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                 })}
               </div>
             </div>
+
+            {/* Tags */}
+            <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} saving={saving} />
 
             {/* Upload why */}
             <div style={{ marginBottom: 14 }}>
