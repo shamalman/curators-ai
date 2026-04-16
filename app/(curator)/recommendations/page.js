@@ -7,13 +7,13 @@ import NetworkView from "@/components/recs/NetworkView";
 import SavedView from "@/components/recs/SavedView";
 
 const TABS = [
-  { key: "network", label: "Network" },
+  { key: "yours", label: "My Recs" },
   { key: "saved", label: "Saved" },
-  { key: "yours", label: "Your Recs" },
+  { key: "network", label: "Curator Network" },
 ];
 
 export default function RecommendationsPage() {
-  const [tab, setTab] = useState("network");
+  const [tab, setTab] = useState("yours");
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
