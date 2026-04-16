@@ -467,7 +467,7 @@ The curator will choose what to do with it via the action buttons.
         const name = curatorName?.split(' ')[0] || curatorName || 'there';
         const fallbackMessage = inviterCtx.inviterName
           ? `Hi — ${inviterCtx.inviterName} brought you into Curators. What kinds of things do you love recommending?`
-          : `Hey ${name}! I'm your Record. I'm here to learn what you're into and help you capture it.\n\nWhat's something you've been recommending to everyone lately?`;
+          : `Hey ${name}! I'm your Lens. I'm here to learn what you're into and help you capture it.\n\nWhat's something you've been recommending to everyone lately?`;
         return NextResponse.json({ message: fallbackMessage });
       }
     }
