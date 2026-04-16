@@ -189,7 +189,7 @@ export function CuratorRecDetail({ slug }) {
   const c = CAT[selectedItem.category] || CAT.other;
   const isPublic = selectedItem.visibility === "public";
   const itemSlug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const url = `curators.com/${profile.handle.replace("@", "")}/${itemSlug}`;
+  const url = `https://curators.ai/${profile.handle.replace("@", "")}/${itemSlug}`;
   const isSubOnly = !!itemSubOnly[selectedItem.id];
   const isInBundle = !!itemInBundle[selectedItem.id];
   const isLicensable = !!itemLicensable[selectedItem.id];
@@ -214,7 +214,7 @@ export function CuratorRecDetail({ slug }) {
   };
 
   const copyLink = (s) => {
-    const copyUrl = `curators.com/${profile.handle.replace("@", "")}/${s}`;
+    const copyUrl = `https://curators.ai/${profile.handle.replace("@", "")}/${s}`;
     if (navigator.clipboard) navigator.clipboard.writeText(copyUrl);
     setItemCopied(true);
     setTimeout(() => setItemCopied(false), 2000);
@@ -778,6 +778,7 @@ export function VisitorRecDetail({ slug }) {
 
   const selectedItem = tasteItems.find(i => i.slug === slug);
 
+  const [linkCopied, setLinkCopied] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(false);
   const [tipAmount, setTipAmount] = useState(null);
   const [tipSent, setTipSent] = useState(false);
@@ -795,7 +796,7 @@ export function VisitorRecDetail({ slug }) {
 
   const c = CAT[selectedItem.category] || CAT.other;
   const itemSlug = selectedItem.slug || selectedItem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const url = `curators.com/${profile.handle.replace("@", "")}/${itemSlug}`;
+  const url = `https://curators.ai/${profile.handle.replace("@", "")}/${itemSlug}`;
   const bndls = itemBundlesMap[selectedItem.id] || [];
   const recBundles = bundles.filter(b => bndls.includes(b.id));
   const fmtPhone = (p) => p ? p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3") : "";
@@ -809,8 +810,8 @@ export function VisitorRecDetail({ slug }) {
             <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
           </svg>
         </button>
-        <button onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(url); }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: T.ink3 }}>
-          Copy link
+        <button onClick={() => { if (navigator.clipboard) { navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); } }} style={{ background: T.s, border: "1px solid " + T.bdr, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontFamily: MN, fontSize: 10, color: linkCopied ? "#6BAA8E" : T.ink3 }}>
+          {linkCopied ? "\u2713 Copied" : "Copy link"}
         </button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 40px", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", minHeight: 0 }}>
