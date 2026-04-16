@@ -36,6 +36,27 @@ function getSupabaseAdmin() {
   );
 }
 
+// ── Global system prompt ceiling ──
+// Final safety net against compounded injection: linkContextBlock (40K),
+// rec_files re-injection (40K), taste-read re-injection (40K), plus base
+// prompt + recs list + taste profile. Any single path is capped, but their
+// sum can overflow. Cap the total before sending to Anthropic.
+// Claude Sonnet 4 accepts ~200K tokens (~800K chars) but we leave ample
+// headroom for messages + response.
+const SYSTEM_PROMPT_HARD_CAP = 180000;
+
+function enforceSystemPromptCap(systemPrompt, context) {
+  if (systemPrompt.length <= SYSTEM_PROMPT_HARD_CAP) {
+    return systemPrompt;
+  }
+  const overflow = systemPrompt.length - SYSTEM_PROMPT_HARD_CAP;
+  console.error(`[SYSTEM_PROMPT_OVERFLOW] length=${systemPrompt.length} cap=${SYSTEM_PROMPT_HARD_CAP} overflow=${overflow} profileId=${context?.profileId || 'unknown'} tasteReadUrl=${context?.tasteReadUrl || 'none'} parsedBlocks=${context?.parsedBlocksCount || 0}`);
+  // Truncate from the END (most recent injections are appended last — these
+  // are the taste-read re-injection and per-turn link content).
+  const truncated = systemPrompt.slice(0, SYSTEM_PROMPT_HARD_CAP);
+  return truncated + '\n\n[SYSTEM PROMPT TRUNCATED DUE TO LENGTH — some context was dropped. Acknowledge what you have and be honest if you cannot answer fully.]';
+}
+
 export async function POST(request) {
   try {
     const {
@@ -453,6 +474,7 @@ The curator will choose what to do with it via the action buttons.
       ];
 
       try {
+        systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
         const response = await anthropic.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 400,
@@ -601,6 +623,7 @@ ${tasteReadContent}
     let response;
     const apiStart = Date.now();
     try {
+      systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
       response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: maxTokens,
@@ -630,6 +653,7 @@ ${tasteReadContent}
             },
           ];
 
+          systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
           response = await anthropic.messages.create({
             model: "claude-sonnet-4-20250514",
             max_tokens: maxTokens,
@@ -646,7 +670,7 @@ ${tasteReadContent}
       if (isTimeout) {
         console.error(`[CHAT_API_TIMEOUT] duration_ms=${durationMs} profileId=${profileId} mode=${isVisitor ? 'visitor' : isOnboarding ? 'onboarding' : 'standard'}`);
       }
-      console.error(`[CHAT_API_ERROR] status=${apiError.status || 'unknown'} type=${apiError.error?.type || 'unknown'} message=${apiError.message} duration_ms=${durationMs} profileId=${profileId} systemPromptLength=${systemPrompt.length} messagesCount=${cleanedMessages.length} parsedContentOriginalLength=${originalParsedContentLength} capFired=${linkContextCapped}`);
+      console.error(`[CHAT_API_ERROR] status=${apiError.status || 'unknown'} type=${apiError.error?.type || 'unknown'} message=${apiError.message} duration_ms=${durationMs} profileId=${profileId} systemPromptLength=${systemPrompt.length} messagesCount=${cleanedMessages.length} parsedContentOriginalLength=${originalParsedContentLength} capFired=${linkContextCapped} systemPromptCapFired=${systemPrompt.includes('[SYSTEM PROMPT TRUNCATED DUE TO LENGTH')}`);
 
       const friendlyMessage = "I'm having trouble thinking right now. Give me a moment and try again.";
       return NextResponse.json({
