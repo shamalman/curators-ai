@@ -100,6 +100,8 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 **REC_LINK sentinel:** Rec lines in network context carry `[REC_LINK: /<handle>/<slug>]`. Prompt instructs AI to render as markdown links. Canonical rec URL: `/{handle}/{slug}`.
 
+**Tool use (Anthropic):** `get_curator_stats` registers only when `!isVisitor && !isOnboarding && !!profileId` via a one-hop loop around the primary `messages.create`. Definition + handler: `lib/chat/stats-tool.js`. Compute + per-lambda 10-min cache: `lib/chat/curator-stats.js`. Skill: `lib/prompts/skills/curator-stats.md`. Text extraction uses `response.content.find(b => b.type === 'text')?.text` — do NOT revert to `content[0].text`; on tool-use turns the first block is `tool_use` and that path silently drops the reply. Sets the convention for future Anthropic tools in this route: curator-only gate, one-hop loop, handler returns `{success, stats}` or `{success, error}`.
+
 ### AI Skills System
 
 15 skill files in `lib/prompts/skills/`. Build functions: `buildOnboardingPrompt` and `buildStandardPrompt` in `lib/prompts/`. Both append `SUBSCRIPTION_GROUNDING_RULE` (must stay in sync between the two files).
