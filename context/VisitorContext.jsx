@@ -55,7 +55,7 @@ export function VisitorProvider({ handle, children }) {
           if (recFileIds.length > 0) {
             const { data: recFilesData, error: recFilesErr } = await supabase
               .from("rec_files")
-              .select("id, body_md, extraction, work, curation, curator_is_author")
+              .select("id, body_md, extraction, work, curation, curator_is_author, source")
               .in("id", recFileIds);
             if (recFilesErr) {
               console.warn("[VISITOR_CONTEXT_LOAD] rec_files secondary load failed:", recFilesErr.message);
@@ -80,6 +80,7 @@ export function VisitorProvider({ handle, children }) {
               work: recFile?.work || null,
               curation_block: recFile?.curation || null,
               curator_is_author: recFile?.curator_is_author || false,
+              source_block: recFile?.source || null,
             };
           }));
         }

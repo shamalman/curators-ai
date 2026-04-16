@@ -81,7 +81,7 @@ export function CuratorProvider({ children }) {
       // Fire rec_files + chat_messages in parallel
       const [recFilesResult, msgsResult] = await Promise.all([
         recFileIds.length > 0
-          ? supabase.from('rec_files').select('id, body_md, extraction, work, curation, curator_is_author').in('id', recFileIds)
+          ? supabase.from('rec_files').select('id, body_md, extraction, work, curation, curator_is_author, source').in('id', recFileIds)
           : Promise.resolve({ data: [], error: null }),
         supabase.from('chat_messages').select('*').eq('profile_id', prof.id).order('created_at', { ascending: false }).limit(50)
       ]);
@@ -112,6 +112,7 @@ export function CuratorProvider({ children }) {
             work: recFile?.work || null,
             curation_block: recFile?.curation || null,
             curator_is_author: recFile?.curator_is_author || false,
+            source_block: recFile?.source || null,
           };
         }));
       }

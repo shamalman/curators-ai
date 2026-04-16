@@ -330,7 +330,7 @@ export function CuratorRecDetail({ slug }) {
           {!isEditing && (
             <MediaEmbed
               extractor={selectedItem.extraction?.extractor}
-              sourceUrl={selectedItem.links?.[0]?.url}
+              sourceUrl={selectedItem.links?.[0]?.url || selectedItem.source_block?.url}
             />
           )}
 
@@ -862,7 +862,7 @@ export function VisitorRecDetail({ slug }) {
 
           <MediaEmbed
             extractor={selectedItem.extraction?.extractor}
-            sourceUrl={selectedItem.links?.[0]?.url}
+            sourceUrl={selectedItem.links?.[0]?.url || selectedItem.source_block?.url}
           />
 
           {/* Links */}
@@ -1125,7 +1125,7 @@ export function NetworkRecDetail({ slug }) {
       if (data.rec_file_id) {
         const recFileRes = await supabase
           .from("rec_files")
-          .select("id, body_md, extraction, work, curation, curator_is_author")
+          .select("id, body_md, extraction, work, curation, curator_is_author, source")
           .eq("id", data.rec_file_id)
           .maybeSingle();
         if (recFileRes.error) {
@@ -1136,6 +1136,7 @@ export function NetworkRecDetail({ slug }) {
           data.work = recFileRes.data.work || null;
           data.curation_block = recFileRes.data.curation || null;
           data.curator_is_author = recFileRes.data.curator_is_author || false;
+          data.source_block = recFileRes.data.source || null;
         }
       }
 
@@ -1255,7 +1256,7 @@ export function NetworkRecDetail({ slug }) {
 
             <MediaEmbed
               extractor={rec.extraction?.extractor}
-              sourceUrl={rec.links?.[0]?.url}
+              sourceUrl={rec.links?.[0]?.url || rec.source_block?.url}
             />
 
             {/* Links */}
