@@ -846,6 +846,24 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
               />
             </div>
 
+            {/* Why (optional — falls back to AI inference or text preview) */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional — AI will fill if blank)</span></div>
+              <textarea
+                value={pasteWhy}
+                onChange={(e) => setPasteWhy(e.target.value)}
+                placeholder="A line or two in your words..."
+                rows={3}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.4,
+                }}
+              />
+            </div>
+
             {/* Optional category */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
@@ -876,24 +894,6 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
             {/* Tags */}
             <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} saving={saving} />
-
-            {/* Why (optional — falls back to AI inference or text preview) */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional — AI will fill if blank)</span></div>
-              <textarea
-                value={pasteWhy}
-                onChange={(e) => setPasteWhy(e.target.value)}
-                placeholder="A line or two in your words..."
-                rows={3}
-                disabled={saving}
-                style={{
-                  width: "100%", padding: "12px 14px", borderRadius: 10,
-                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
-                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
-                  boxSizing: "border-box", lineHeight: 1.4,
-                }}
-              />
-            </div>
 
             {/* Visibility */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
@@ -1015,6 +1015,24 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
               />
             </div>
 
+            {/* Upload why */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
+              <textarea
+                value={uploadWhy}
+                onChange={(e) => setUploadWhy(e.target.value)}
+                placeholder="What makes this special?"
+                rows={3}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
+                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
+                  boxSizing: "border-box", lineHeight: 1.4,
+                }}
+              />
+            </div>
+
             {/* Upload category */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8, fontFamily: F }}>Category *</div>
@@ -1045,24 +1063,6 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
             {/* Tags */}
             <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} saving={saving} />
-
-            {/* Upload why */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.ink3, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, fontFamily: F }}>Why <span style={{ color: T.ink3, fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
-              <textarea
-                value={uploadWhy}
-                onChange={(e) => setUploadWhy(e.target.value)}
-                placeholder="What makes this special?"
-                rows={3}
-                disabled={saving}
-                style={{
-                  width: "100%", padding: "12px 14px", borderRadius: 10,
-                  border: `1px solid ${T.bdr}`, fontSize: 14, fontFamily: F,
-                  background: T.bg, color: T.ink, outline: "none", resize: "vertical",
-                  boxSizing: "border-box", lineHeight: 1.4,
-                }}
-              />
-            </div>
 
             {/* Visibility */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: T.s, border: `1px solid ${T.bdr}`, marginBottom: 18 }}>
