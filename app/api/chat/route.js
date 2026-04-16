@@ -14,6 +14,7 @@ import { URL_REGEX, normalizeUrls, findRecentUrl, isTasteReadIntent, parseConten
 import { buildMediaEmbedBlocks } from "../../../lib/chat/media-embeds.js";
 import { uploadArtifact } from "../../../lib/rec-files/artifact.js";
 import { ingestChatParsedBlocks } from "../../../lib/chat/chat-parse-ingest.js";
+import { CURATOR_STATS_TOOL, handleCuratorStatsTool } from "../../../lib/chat/stats-tool.js";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -594,6 +595,8 @@ ${tasteReadContent}
     }
 
     const maxTokens = hasLinkContent ? 1000 : 600;
+    const isCuratorStandardMode = !isVisitor && !isOnboarding && !!profileId;
+    const toolsParam = isCuratorStandardMode ? { tools: [CURATOR_STATS_TOOL] } : {};
 
     let response;
     const apiStart = Date.now();
@@ -603,7 +606,39 @@ ${tasteReadContent}
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: cleanedMessages,
+        ...toolsParam,
       });
+
+      // Tool-use loop: curator-only, one hop. If the AI called get_curator_stats,
+      // run the handler, feed the tool_result back, and get the final text response.
+      if (response.stop_reason === 'tool_use' && isCuratorStandardMode) {
+        const toolUseBlock = response.content.find(b => b.type === 'tool_use');
+        if (toolUseBlock && toolUseBlock.name === 'get_curator_stats') {
+          console.log(`[CURATOR_STATS] tool invoked profileId=${profileId}`);
+          const toolResult = await handleCuratorStatsTool(sb, profileId);
+
+          const toolLoopMessages = [
+            ...cleanedMessages,
+            { role: "assistant", content: response.content },
+            {
+              role: "user",
+              content: [{
+                type: "tool_result",
+                tool_use_id: toolUseBlock.id,
+                content: JSON.stringify(toolResult),
+              }],
+            },
+          ];
+
+          response = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            messages: toolLoopMessages,
+            tools: [CURATOR_STATS_TOOL],
+          });
+        }
+      }
     } catch (apiError) {
       const durationMs = Date.now() - apiStart;
       const isTimeout = apiError.status === 408 || apiError.error?.type === 'timeout' || /timeout/i.test(apiError.message);
@@ -620,7 +655,8 @@ ${tasteReadContent}
       });
     }
 
-    let aiMessage = response.content[0]?.text || "Sorry, I couldn't generate a response.";
+    // After tool-use, response.content may have non-text blocks first. Find the text block.
+    let aiMessage = (response.content.find(b => b.type === 'text')?.text) || "Sorry, I couldn't generate a response.";
 
     // ── Extract and process feedback if present ──
     const feedbackMatch = aiMessage.match(/\[FEEDBACK\]([\s\S]*?)\[\/FEEDBACK\]/);
