@@ -99,10 +99,10 @@ export default function SubsView() {
                 <div style={{ padding: "48px 20px" }}>
                   <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
                     You haven't subscribed to any curators yet. Browse the{" "}
-                    <span onClick={() => router.push("/recommendations")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>
+                    <span onClick={() => router.push("/find")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>
                     {" "}to find curators you trust.
                   </p>
-                  <button onClick={() => router.push("/recommendations")} style={{
+                  <button onClick={() => router.push("/find")} style={{
                     background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
                     cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
                   }}>Browse recommendations</button>
@@ -237,7 +237,7 @@ export default function SubsView() {
                 <div style={{ padding: "48px 20px" }}>
                   <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
                     No subscribers yet. Make recommendations, and people will discover you in the{" "}
-                    <span onClick={() => router.push("/recommendations")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>.
+                    <span onClick={() => router.push("/find")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>.
                   </p>
                   <button onClick={() => router.push("/myai")} style={{
                     background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",

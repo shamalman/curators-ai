@@ -10,10 +10,20 @@ export default function MeSegmentedControl({ active }) {
 
   const handle = profile?.handle?.replace('@', '') || ''
 
+  const goToRecs = () => router.push('/me/recs')
   const goToTaste = () => router.push('/me')
   const goToProfile = () => {
     if (handle) router.push('/' + handle)
   }
+
+  const btnStyle = (isActive) => ({
+    flex: 1, textAlign: 'center',
+    background: isActive ? T.s : 'transparent',
+    color: isActive ? T.ink : T.ink3,
+    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+    borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 500,
+    fontFamily: F, border: 'none', cursor: 'pointer',
+  })
 
   return (
     <div style={{
@@ -24,30 +34,13 @@ export default function MeSegmentedControl({ active }) {
       border: '1px solid ' + T.s,
       marginBottom: 24,
     }}>
-      <button
-        onClick={goToTaste}
-        style={{
-          flex: 1, textAlign: 'center',
-          background: active === 'taste' ? T.s : 'transparent',
-          color: active === 'taste' ? T.ink : T.ink3,
-          boxShadow: active === 'taste' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-          borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 500,
-          fontFamily: F, border: 'none', cursor: 'pointer',
-        }}
-      >
+      <button onClick={goToRecs} style={btnStyle(active === 'recs')}>
+        My Recs
+      </button>
+      <button onClick={goToTaste} style={btnStyle(active === 'taste')}>
         Personal Record
       </button>
-      <button
-        onClick={goToProfile}
-        style={{
-          flex: 1, textAlign: 'center',
-          background: active === 'profile' ? T.s : 'transparent',
-          color: active === 'profile' ? T.ink : T.ink3,
-          boxShadow: active === 'profile' ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-          borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 500,
-          fontFamily: F, border: 'none', cursor: 'pointer',
-        }}
-      >
+      <button onClick={goToProfile} style={btnStyle(active === 'profile')}>
         Public Profile
       </button>
     </div>

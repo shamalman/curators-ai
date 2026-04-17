@@ -14,13 +14,13 @@ export default function Sidebar() {
 
   const nav = [
     { id: "ask", icon: "\u25C8", label: "Lens", path: "/myai" },
-    { id: "recs", icon: "\u25C6", label: "Recommendations", path: "/recommendations" },
-    { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
     { id: "me", icon: "\u25C7", label: "Me", path: "/me" },
+    { id: "find", icon: "\u25CE", label: "Find", path: "/find" },
+    { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
   ];
 
   const isActive = (item) => {
-    if (item.id === "recs") return pathname.startsWith("/recommendations");
+    if (item.id === "find") return pathname.startsWith("/find");
     if (item.id === "ask") return pathname.startsWith("/myai");
     if (item.id === "subs") return pathname.startsWith("/subs");
     if (item.id === "me") return pathname.startsWith("/me") || (handle && pathname === "/" + handle);

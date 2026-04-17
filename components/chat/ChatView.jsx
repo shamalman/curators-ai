@@ -898,7 +898,7 @@ export default function ChatView({ variant }) {
               if (msg.type === "requestAlert") {
                 return (
                   <div key={i} className="fu" style={{ marginBottom: 12, animationDelay: `${i * .03}s` }}>
-                    <button onClick={() => router.push('/recommendations/review')} style={{
+                    <button onClick={() => router.push('/find/review')} style={{
                       width: "100%", padding: "16px", borderRadius: 16, border: `1px solid ${W.bdr}`,
                       background: W.s, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
                     }}>

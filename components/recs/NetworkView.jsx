@@ -116,7 +116,7 @@ export default function NetworkView() {
         <div key={rec.id} className="fu" style={{ animationDelay: (i * .03) + "s" }}>
           <RecCard
             item={{ ...rec, date: rec.created_at?.split("T")[0] }}
-            onClick={() => router.push(`/recommendations/${rec.slug || rec.id}`)}
+            onClick={() => router.push(`/find/${rec.slug || rec.id}`)}
             showCurator
             curatorName={rec.profiles?.name}
             curatorHandle={rec.profiles?.handle}

@@ -131,7 +131,7 @@ export default function VisitorProfile({ mode }) {
 
   const onSelectItem = (item) => {
     if (mode === "curator") {
-      router.push(`/recommendations/${item.slug}`);
+      router.push(`/find/${item.slug}`);
     } else {
       router.push(`/${handle}/${item.slug}`);
     }

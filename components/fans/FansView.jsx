@@ -75,7 +75,7 @@ export default function FansView() {
               {/* Primary section */}
               <p style={{ fontFamily: F, fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 16 }}>
                 No subscribers yet. Make recommendations, and people will discover you in the{" "}
-                <span onClick={() => router.push("/recommendations")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>.
+                <span onClick={() => router.push("/find")} style={{ color: T.acc, cursor: "pointer", fontWeight: 600 }}>Network tab</span>.
               </p>
               <button onClick={() => router.push("/myai")} style={{
                 background: T.acc, border: "none", borderRadius: 10, padding: "12px 20px",
