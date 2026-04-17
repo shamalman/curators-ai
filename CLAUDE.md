@@ -1,5 +1,5 @@
 # CLAUDE.md — Curators.AI Engineering Guide
-## Last updated: April 16, 2026 (Lens UI rename)
+## Last updated: April 17, 2026 (nav rework: Find tab, Me default → My Recs)
 
 ---
 
@@ -49,6 +49,29 @@ Preserve, access, and amplify human curation. Build equally for curators (captur
 ---
 
 ## Architecture
+
+### App Shell / Navigation
+
+Four main tabs, left to right: Lens (/myai), Me (/me), Find (/find), Subs (/subs).
+Shamal-only: Feedback (/admin/feedback) appended.
+
+Nav components:
+- `components/layout/BottomTabs.jsx` — mobile bottom bar
+- `components/layout/Sidebar.jsx` — desktop sidebar
+- Icons are Unicode glyphs (◈ Lens, ▢ Me, ⌖ Find, ♡ Subs)
+
+Me tab structure (3-button segmented control in `components/me/MeSegmentedControl.jsx`):
+- `/me` → My Recs (default, renders `TasteManager embedded`)
+- `/me/taste` → Personal Record (renders `TasteFileView`)
+- `/{handle}` → Public Profile (renders `VisitorProfile` for owner)
+
+`/me/timeline` falls through the layout pathname check and keeps the Personal Record segment active — the "How this was built →" link lives inside Personal Record.
+
+Find tab structure (segmented control in `app/(curator)/find/page.js`):
+- Curators Network (default) — `NetworkView`
+- Saved — `SavedView`
+
+Route history: `/recommendations` was renamed to `/find` on 2026-04-17. Permanent redirect in `next.config.js`. Middleware retains `/recommendations` in `curatorOnlyPaths` as belt-and-suspenders (redirect fires before middleware; the entry is defensive). All internal `router.push('/recommendations/...')` and `router.push('/recommendations/<slug>')` calls were updated to `/find/...` in the same commit.
 
 ### Rec Storage
 
@@ -207,6 +230,12 @@ Each area has a matching `_ERROR` / `_FAILED` / `_UNDO` variant — grep the cod
 
 Non-obvious load-bearing files. Everything else is findable by Glob.
 
+components/layout/BottomTabs.jsx           -- mobile nav, 4 main tabs + shamal-only feedback
+components/layout/Sidebar.jsx              -- desktop nav, mirrors BottomTabs
+components/me/MeSegmentedControl.jsx       -- 3-button Me tab nav (My Recs / Personal Record / Public Profile)
+app/(curator)/find/page.js                 -- Find tab root, Curators Network + Saved segmented control
+app/(curator)/me/page.js                   -- Me default, renders TasteManager embedded (My Recs)
+app/(curator)/me/taste/page.js             -- Personal Record (TasteFileView)
 app/api/chat/route.js                      -- mode detection, link handling, rec extraction
 lib/prompts/onboarding.js, standard.js     -- system prompt builders (both carry SUBSCRIPTION_GROUNDING_RULE)
 lib/prompts/loader.js                      -- skill loader with cache
