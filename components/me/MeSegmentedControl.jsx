@@ -10,8 +10,8 @@ export default function MeSegmentedControl({ active }) {
 
   const handle = profile?.handle?.replace('@', '') || ''
 
-  const goToRecs = () => router.push('/me/recs')
-  const goToTaste = () => router.push('/me')
+  const goToRecs = () => router.push('/me')
+  const goToTaste = () => router.push('/me/taste')
   const goToProfile = () => {
     if (handle) router.push('/' + handle)
   }

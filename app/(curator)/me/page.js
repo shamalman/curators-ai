@@ -1,5 +1,7 @@
-import TasteFileView from '@/components/me/TasteFileView'
+'use client'
+
+import TasteManager from '@/components/taste/TasteManager'
 
 export default function MePage() {
-  return <TasteFileView />
+  return <TasteManager embedded />
 }

@@ -17,8 +17,8 @@ export default function BottomTabs() {
 
   const tabs = [
     { id: "ask", icon: "\u25C8", label: "Lens", path: "/myai", active: pathname.startsWith("/myai"), activeColor: W.accent },
-    { id: "me", icon: "\u25C7", label: "Me", path: "/me", active: pathname.startsWith("/me") || (handle && pathname === "/" + handle), activeColor: T.acc },
-    { id: "find", icon: "\u25CE", label: "Find", path: "/find", active: pathname.startsWith("/find"), activeColor: T.acc },
+    { id: "me", icon: "\u25A2", label: "Me", path: "/me", active: pathname.startsWith("/me") || (handle && pathname === "/" + handle), activeColor: T.acc },
+    { id: "find", icon: "\u2316", label: "Find", path: "/find", active: pathname.startsWith("/find"), activeColor: T.acc },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs", active: pathname.startsWith("/subs"), activeColor: T.acc },
     ...(isShamal ? [{ id: "feedback", icon: "\u25CB", label: "Feedback", path: "/admin/feedback", active: pathname.startsWith("/admin/feedback"), activeColor: T.acc }] : []),
   ];

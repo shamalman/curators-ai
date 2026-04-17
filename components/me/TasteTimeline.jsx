@@ -320,7 +320,7 @@ export default function TasteTimeline({ handle }) {
       zIndex: 10,
     }}>
       <a
-        href="/me"
+        href="/me/taste"
         style={{
           fontSize: 18,
           color: T.ink2,

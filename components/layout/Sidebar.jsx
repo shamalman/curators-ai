@@ -14,8 +14,8 @@ export default function Sidebar() {
 
   const nav = [
     { id: "ask", icon: "\u25C8", label: "Lens", path: "/myai" },
-    { id: "me", icon: "\u25C7", label: "Me", path: "/me" },
-    { id: "find", icon: "\u25CE", label: "Find", path: "/find" },
+    { id: "me", icon: "\u25A2", label: "Me", path: "/me" },
+    { id: "find", icon: "\u2316", label: "Find", path: "/find" },
     { id: "subs", icon: "\u2661", label: "Subs", path: "/subs" },
   ];
 

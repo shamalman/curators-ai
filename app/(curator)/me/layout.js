@@ -5,7 +5,7 @@ import MeSegmentedControl from '@/components/me/MeSegmentedControl'
 
 export default function MeLayout({ children }) {
   const pathname = usePathname()
-  const active = pathname === '/me/recs' ? 'recs' : 'taste'
+  const active = pathname === '/me' ? 'recs' : 'taste'
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 20px 0' }}>
