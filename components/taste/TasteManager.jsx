@@ -12,6 +12,7 @@ export default function TasteManager({ embedded = false }) {
   const { tasteItems: items, archived, filterCat, setFilterCat, removing, removeItem, restoreItem, undoItem, undoArchive } = useCurator();
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earningsDrill, setEarningsDrill] = useState(null);
+  const [search, setSearch] = useState("");
 
   const activeItems = items.filter(i => !archived[i.id]);
   const archivedItems = items.filter(i => !!archived[i.id]);
@@ -28,7 +29,22 @@ export default function TasteManager({ embedded = false }) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const filtered = filterCat === "archived" ? archivedItems : filterCat ? activeItems.filter(i => i.category === filterCat) : activeItems;
+  const q = search.trim().toLowerCase();
+  const qAlt = q.endsWith("s") ? q.slice(0, -1) : q + "s";
+  const searchMatches = (item) => {
+    if (!q) return true;
+    const haystacks = [
+      item.title || "",
+      item.context || "",
+      item.why || "",
+      ...(Array.isArray(item.tags) ? item.tags : []),
+      item.category || "",
+      (CAT[item.category]?.label || ""),
+    ].map(s => String(s).toLowerCase());
+    return haystacks.some(h => h.includes(q) || (qAlt !== q && h.includes(qAlt)));
+  };
+  const baseList = filterCat === "archived" ? archivedItems : filterCat ? activeItems.filter(i => i.category === filterCat) : activeItems;
+  const filtered = baseList.filter(searchMatches);
   const fmtDate = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
   return (
@@ -45,13 +61,6 @@ export default function TasteManager({ embedded = false }) {
           <p style={{ fontSize: isDesktop ? 13 : 12, color: T.ink3, fontFamily: F }}>Everything your AI knows. Remove to update instantly.</p>
         </div>
       )}
-      <div style={{ padding: isDesktop ? "0 20px 12px" : "0 20px 8px", display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, maxWidth: "100%" }}>
-        <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />
-        {archivedItems.length > 0 && (
-          <button onClick={() => setFilterCat(filterCat === "archived" ? null : "archived")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === "archived" ? T.ink3 : T.s, color: filterCat === "archived" ? "#fff" : T.ink3, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{"\uD83D\uDDC4"} ({archivedItems.length})</button>
-        )}
-      </div>
-
       {/* TODO: Unhide when earnings are real */}
       {false && !earningsDrill && (
         <div style={{ padding: "0 20px 12px", flexShrink: 0 }}>
@@ -140,6 +149,31 @@ export default function TasteManager({ embedded = false }) {
 
       {/* Timeline list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 16px", WebkitOverflowScrolling: "touch" }}>
+        {/* Search */}
+        {items.length > 0 && (
+          <div style={{ padding: "8px 0 12px" }}>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search your recs..."
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 10,
+                border: "1px solid " + T.bdr, background: T.s, color: T.ink,
+                fontSize: 13, fontFamily: F, outline: "none", boxSizing: "border-box",
+              }}
+            />
+          </div>
+        )}
+        {/* Category pills + archived pill */}
+        {items.length > 0 && (
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 12 }}>
+            <CategoryPill categories={cats} counts={cc} activeCategory={filterCat} onSelect={setFilterCat} activeCount={activeN} />
+            {archivedItems.length > 0 && (
+              <button onClick={() => setFilterCat(filterCat === "archived" ? null : "archived")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", background: filterCat === "archived" ? T.ink3 : T.s, color: filterCat === "archived" ? "#fff" : T.ink3, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: F, whiteSpace: "nowrap" }}>{"\uD83D\uDDC4"} ({archivedItems.length})</button>
+            )}
+          </div>
+        )}
         {items.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 20px" }}>
             <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.3 }}>{"\u25C6"}</div>
@@ -160,6 +194,11 @@ export default function TasteManager({ embedded = false }) {
           <div style={{ textAlign: "center", padding: "40px 20px", color: T.ink3 }}>
             <div style={{ fontSize: 28, marginBottom: 8, opacity: .3 }}>{"\uD83D\uDDC4"}</div>
             <div style={{ fontSize: 13, fontFamily: F }}>No archived recs</div>
+          </div>
+        )}
+        {filtered.length === 0 && q && filterCat !== "archived" && items.length > 0 && (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: T.ink3 }}>
+            <div style={{ fontSize: 13, fontFamily: F }}>No recs match your search.</div>
           </div>
         )}
         {filtered.map(function(item, i) { var ct = CAT[item.category] || CAT.other; var isArch = !!archived[item.id]; return (
