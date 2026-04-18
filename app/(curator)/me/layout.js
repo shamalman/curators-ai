@@ -6,11 +6,32 @@ import MeSegmentedControl from '@/components/me/MeSegmentedControl'
 export default function MeLayout({ children }) {
   const pathname = usePathname()
   const active = pathname === '/me' ? 'recs' : 'taste'
+  const needsInternalScroll = pathname === '/me'
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 20px 0' }}>
-      <MeSegmentedControl active={active} />
-      {children}
+    <div style={{
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      minHeight: 0,
+      maxWidth: 700,
+      margin: '0 auto',
+      width: '100%',
+      padding: '16px 20px 0',
+    }}>
+      <div style={{ flexShrink: 0 }}>
+        <MeSegmentedControl active={active} />
+      </div>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: needsInternalScroll ? 'hidden' : 'auto',
+        minHeight: 0,
+      }}>
+        {children}
+      </div>
     </div>
   )
 }

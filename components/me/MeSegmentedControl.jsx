@@ -17,12 +17,22 @@ export default function MeSegmentedControl({ active }) {
   }
 
   const btnStyle = (isActive) => ({
-    flex: 1, textAlign: 'center',
+    flex: 1,
+    textAlign: 'center',
     background: isActive ? T.s : 'transparent',
     color: isActive ? T.ink : T.ink3,
     boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
-    borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 500,
-    fontFamily: F, border: 'none', cursor: 'pointer',
+    borderRadius: 8,
+    padding: '8px 4px',
+    fontSize: 13,
+    fontWeight: 500,
+    fontFamily: F,
+    border: 'none',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    minWidth: 0,
   })
 
   return (

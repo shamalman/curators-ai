@@ -27,15 +27,15 @@ export default function CuratorShell({ children }) {
   const isProfilePage = handle && pathname === `/${handle}`;
   const isHandleRoute = handle && pathname.startsWith(`/${handle}`);
   const isHandleAsk = handle && pathname === `/${handle}/ask`;
-  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/find") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite") || isHandleRoute;
-  const isMainTab = pathname === "/myai" || pathname === "/find" || pathname === "/subs" || isProfilePage;
+  const shouldShowTabs = pathname.startsWith("/myai") || pathname.startsWith("/me") || pathname.startsWith("/find") || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite") || isHandleRoute;
+  const isMainTab = pathname === "/myai" || pathname === "/find" || pathname === "/subs" || pathname === "/me" || pathname === "/me/taste" || isProfilePage;
   const isDeepPage = !isMainTab;
 
   // Desktop layout: fixed sidebar + natural document scroll
   // Exception: chat (/ask, /[handle]/ask) keeps its own scroll container
   if (isDesktop) {
     const isChat = pathname.startsWith("/myai") || isHandleAsk;
-    const needsFlexLayout = isChat || pathname.startsWith("/find/") || pathname === "/find" || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite");
+    const needsFlexLayout = isChat || pathname.startsWith("/find/") || pathname === "/find" || pathname === "/me" || pathname === "/me/taste" || pathname.startsWith("/subs") || pathname.startsWith("/settings") || pathname.startsWith("/invite");
     return (
       <>
         <Sidebar />
