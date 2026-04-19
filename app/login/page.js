@@ -37,14 +37,26 @@ export default function LoginPage() {
 
       if (!profile || !profile.onboarding_complete) {
         window.location.href = "/onboarding"
-      } else {
-        window.location.href = "/myai"
+        return
       }
+
+      window.location.href = safeRedirectTarget() || "/myai"
     } catch (err) {
       console.error("Login failed:", err)
       setError(err.message || "Login failed")
       setLoading(false)
     }
+  }
+
+  const safeRedirectTarget = () => {
+    if (typeof window === "undefined") return null
+    const params = new URLSearchParams(window.location.search)
+    const raw = params.get("redirectTo")
+    if (!raw || typeof raw !== "string") return null
+    if (!raw.startsWith("/")) return null
+    if (raw.startsWith("//") || raw.startsWith("/\\")) return null
+    if (raw === "/login" || raw === "/signup") return null
+    return raw
   }
 
   return (

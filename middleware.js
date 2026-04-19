@@ -1,6 +1,20 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 
+const PUBLIC_ROUTES = new Set([
+  '/login',
+  '/signup',
+  '/onboarding',
+  '/onboarding/welcome',
+  '/forgot-password',
+  '/reset-password',
+  '/email/saved',
+  '/email/unsubscribed',
+]);
+
+// Unauthenticated /api/* allowlist (enforced by route handlers, not middleware):
+//   /api/auth/callback, /api/auth/signup, /api/waitlist, /api/email-action
+// All other /api/* routes must perform their own session check.
 export async function middleware(req) {
   try {
     const res = NextResponse.next();
@@ -26,38 +40,36 @@ export async function middleware(req) {
     const { data: { session } } = await supabase.auth.getSession();
 
     const path = req.nextUrl.pathname;
-
-    // Public routes — no auth required
-    const publicRoutes = ['/login', '/signup', '/onboarding', '/onboarding/welcome', '/forgot-password', '/reset-password'];
-    const isPublicRoute = publicRoutes.includes(path);
     const isApiRoute = path.startsWith('/api');
 
-    // Visitor routes — always public (e.g. /shamal, /shamal/ask, /shamal/some-rec)
-    // These are any /[handle] paths that aren't known curator-only routes
-    const curatorOnlyPaths = ['/myai', '/profile', '/find', '/recommendations', '/settings', '/subs', '/invite', '/admin'];
-    const isVisitorRoute = !curatorOnlyPaths.some(p => path === p || path.startsWith(p + '/'))
-      && !isPublicRoute && !isApiRoute && path !== '/';
-
-    // Root path: splash for unauthed, redirect for authed
+    // Root: authed → /myai, unauthed → /login
     if (path === '/') {
       if (session) {
         return NextResponse.redirect(new URL('/myai', req.url));
       }
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
+    // API routes: public API allowlist short-circuits; everything else passes
+    // through middleware and is enforced by the route handler itself.
+    if (isApiRoute) {
       return res;
     }
 
-    // Allow public routes, API routes, and visitor routes
-    if (isPublicRoute || isApiRoute || isVisitorRoute) {
-      // If logged in and visiting /login or /signup, redirect to /myai
+    // Public (non-API) pages: allowed; bounce authed users away from /login & /signup
+    if (PUBLIC_ROUTES.has(path)) {
       if (session && (path === '/login' || path === '/signup')) {
         return NextResponse.redirect(new URL('/myai', req.url));
       }
       return res;
     }
 
-    // Protected routes — require auth
+    // Everything else requires a session
     if (!session) {
-      return NextResponse.redirect(new URL('/login', req.url));
+      const loginUrl = new URL('/login', req.url);
+      const redirectTo = path + (req.nextUrl.search || '');
+      loginUrl.searchParams.set('redirectTo', redirectTo);
+      return NextResponse.redirect(loginUrl);
     }
 
     return res;

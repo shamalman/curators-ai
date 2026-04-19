@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { resend } from '@/lib/resend';
 import { generateEmailToken } from '@/lib/email-tokens';
 import { newRecEmail } from '@/lib/email-templates';
@@ -10,10 +12,37 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
+    // Session check — this endpoint is only callable by an authed curator
+    const cookieStore = cookies();
+    const authedSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll() { /* no-op: route handler, response cookies unused */ },
+        },
+      }
+    );
+    const { data: { session } } = await authedSupabase.auth.getSession();
+    if (!session) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { recId, curatorId } = await request.json();
 
     if (!recId || !curatorId) {
       return Response.json({ error: 'recId and curatorId required' }, { status: 400 });
+    }
+
+    // Ownership check — caller must be the curator whose save this notifies for
+    const { data: callerProfile, error: callerErr } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', session.user.id)
+      .single();
+    if (callerErr || !callerProfile || callerProfile.id !== curatorId) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Fetch the rec

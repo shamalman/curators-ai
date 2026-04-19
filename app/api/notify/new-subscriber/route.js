@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { resend } from '@/lib/resend';
 import { generateEmailToken } from '@/lib/email-tokens';
 import { newSubscriberEmail } from '@/lib/email-templates';
@@ -12,12 +14,39 @@ function getServiceClient() {
 
 export async function POST(request) {
   try {
+    // Session check — this endpoint is only callable by the authed subscriber
+    const cookieStore = cookies();
+    const authedSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll() { /* no-op: route handler, response cookies unused */ },
+        },
+      }
+    );
+    const { data: { session } } = await authedSupabase.auth.getSession();
+    if (!session) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
+
     const { curatorId, subscriberId } = await request.json();
     if (!curatorId || !subscriberId) {
       return new Response(JSON.stringify({ error: 'Missing curatorId or subscriberId' }), { status: 400 });
     }
 
     const supabase = getServiceClient();
+
+    // Ownership check — caller must be the subscriber initiating the subscribe action
+    const { data: callerProfile, error: callerErr } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', session.user.id)
+      .single();
+    if (callerErr || !callerProfile || callerProfile.id !== subscriberId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    }
 
     // Get curator profile
     const { data: curator, error: curatorErr } = await supabase
