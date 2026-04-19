@@ -41,11 +41,21 @@ export async function POST(request) {
     // Ownership check — caller must be the subscriber initiating the subscribe action
     const { data: callerProfile, error: callerErr } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, handle')
       .eq('auth_user_id', session.user.id)
       .single();
     if (callerErr || !callerProfile || callerProfile.id !== subscriberId) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    }
+
+    // Dev/founder skip list — suppress notifications when the subscriber's handle matches
+    const skipHandles = (process.env.NOTIFICATION_SKIP_HANDLES || '')
+      .split(',')
+      .map(h => h.trim().toLowerCase())
+      .filter(Boolean);
+    if (callerProfile.handle && skipHandles.includes(callerProfile.handle.toLowerCase())) {
+      console.log('[NOTIFY_SKIPPED]', { handle: callerProfile.handle, route: 'new-subscriber' });
+      return new Response(JSON.stringify({ skipped: true, reason: 'handle_in_skip_list' }), { status: 200 });
     }
 
     // Get curator profile

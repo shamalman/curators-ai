@@ -42,12 +42,12 @@ export async function middleware(req) {
     const path = req.nextUrl.pathname;
     const isApiRoute = path.startsWith('/api');
 
-    // Root: authed → /myai, unauthed → /login
+    // Root: authed → /myai, unauthed → splash page
     if (path === '/') {
       if (session) {
         return NextResponse.redirect(new URL('/myai', req.url));
       }
-      return NextResponse.redirect(new URL('/login', req.url));
+      return res;
     }
 
     // API routes: public API allowlist short-circuits; everything else passes

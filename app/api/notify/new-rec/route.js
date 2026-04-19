@@ -38,11 +38,21 @@ export async function POST(request) {
     // Ownership check — caller must be the curator whose save this notifies for
     const { data: callerProfile, error: callerErr } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, handle')
       .eq('auth_user_id', session.user.id)
       .single();
     if (callerErr || !callerProfile || callerProfile.id !== curatorId) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Dev/founder skip list — suppress notifications for specific curator handles
+    const skipHandles = (process.env.NOTIFICATION_SKIP_HANDLES || '')
+      .split(',')
+      .map(h => h.trim().toLowerCase())
+      .filter(Boolean);
+    if (callerProfile.handle && skipHandles.includes(callerProfile.handle.toLowerCase())) {
+      console.log('[NOTIFY_SKIPPED]', { handle: callerProfile.handle, route: 'new-rec' });
+      return Response.json({ skipped: true, reason: 'handle_in_skip_list' }, { status: 200 });
     }
 
     // Fetch the rec
