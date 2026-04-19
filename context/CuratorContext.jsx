@@ -432,7 +432,7 @@ export function CuratorProvider({ children }) {
       fetch('/api/notify/new-rec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recId: data.id, curatorId: profileId }),
+        body: JSON.stringify({ recId: data.id, curatorId: profileId, silent: item.silent === true }),
       }).catch(err => console.error('[new-rec trigger] failed:', err));
     }
 

@@ -48,16 +48,6 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
     }
 
-    // Dev/founder skip list — suppress notifications when the subscriber's handle matches
-    const skipHandles = (process.env.NOTIFICATION_SKIP_HANDLES || '')
-      .split(',')
-      .map(h => h.trim().toLowerCase())
-      .filter(Boolean);
-    if (callerProfile.handle && skipHandles.includes(callerProfile.handle.toLowerCase())) {
-      console.log('[NOTIFY_SKIPPED]', { handle: callerProfile.handle, route: 'new-subscriber' });
-      return new Response(JSON.stringify({ skipped: true, reason: 'handle_in_skip_list' }), { status: 200 });
-    }
-
     // Get curator profile
     const { data: curator, error: curatorErr } = await supabase
       .from('profiles')

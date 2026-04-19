@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { T, F, CAT, CATEGORIES } from "@/lib/constants";
+import { useCurator } from "@/context/CuratorContext";
 
 function makeLinkId() {
   return `lnk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -179,6 +180,12 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   // Feature B: pre-uploaded artifact state (from chat image save)
   const [preUploadedArtifact, setPreUploadedArtifact] = useState(null); // { sha256, ref, mimeType, sizeBytes }
 
+  // Per-save silent flag — power-user escape hatch to skip subscriber emails.
+  // Resets on every sheet open (see useEffect below). Never persists.
+  const [silentSave, setSilentSave] = useState(false);
+  const { profile } = useCurator();
+  const showSilentToggle = profile?.handle === 'shamal';
+
   // Reset state when sheet opens, OR prefill from initialData if provided
   useEffect(() => {
     if (isOpen) {
@@ -190,6 +197,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
       setVisibility(defaultVisibility || "public");
       setSaving(false);
       setError(null);
+      setSilentSave(false); // always reset — sticky silent would be a footgun
 
       // Deploy 3: reset multi-mode capture state — honor initialData.mode
       setCaptureMode(initialData?.mode || "url");
@@ -379,6 +387,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revisions: [{ rev: 1, date: new Date().toISOString().split("T")[0], change: "Created" }],
         parsedPayload: firstParsedLink?.parsedPayload || null,
         createdVia: initialData?.createdViaOverride || "quick_capture_url",
+        silent: silentSave,
       };
 
       const saved = await onSaved(newItem);
@@ -455,6 +464,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
         createdVia: initialData?.createdViaOverride || "quick_capture_paste",
+        silent: silentSave,
       };
 
       const saved = await onSaved(newItem);
@@ -540,6 +550,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
         revisions: [{ rev: 1, date: todayYmd, change: "Created" }],
         parsedPayload: data.parsedPayload,
         createdVia: initialData?.createdViaOverride || "quick_capture_upload",
+        silent: silentSave,
       };
 
       const saved = await onSaved(newItem);
@@ -571,6 +582,28 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
 
   const firstLinkAddedOrParsed = links.some(l => l.parsed);
   const hasAnyEmptyLinkInput = links.some(l => !l.parsed);
+
+  const silentToggleJsx = showSilentToggle ? (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{
+        display: "flex", alignItems: "flex-start", gap: 10, cursor: saving ? "default" : "pointer",
+      }}>
+        <input
+          type="checkbox"
+          checked={silentSave}
+          onChange={(e) => setSilentSave(e.target.checked)}
+          disabled={saving}
+          style={{ marginTop: 2, accentColor: T.ink3, cursor: saving ? "default" : "pointer" }}
+        />
+        <span>
+          <span style={{ fontFamily: F, fontSize: 13, color: T.ink2 }}>Save silently (don't notify subscribers)</span>
+          <span style={{ display: "block", fontFamily: F, fontSize: 11, color: T.ink3, marginTop: 2, lineHeight: 1.4 }}>
+            Rec still saves and appears in subscriber feeds — only suppresses the email alert.
+          </span>
+        </span>
+      </label>
+    </div>
+  ) : null;
 
   // Sheet positioning: bottom sheet on mobile, centered on desktop
   const sheetStyle = isDesktop
@@ -790,6 +823,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
               </div>
             )}
 
+            {silentToggleJsx}
+
             <button
               onClick={handleSave}
               disabled={!title.trim() || saving}
@@ -915,6 +950,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                 {error}
               </div>
             )}
+
+            {silentToggleJsx}
 
             <button
               onClick={handlePasteSave}
@@ -1084,6 +1121,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
                 {error}
               </div>
             )}
+
+            {silentToggleJsx}
 
             <button
               onClick={handleUploadSave}

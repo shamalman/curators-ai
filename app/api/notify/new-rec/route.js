@@ -29,7 +29,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { recId, curatorId } = await request.json();
+    const { recId, curatorId, silent } = await request.json();
 
     if (!recId || !curatorId) {
       return Response.json({ error: 'recId and curatorId required' }, { status: 400 });
@@ -45,14 +45,10 @@ export async function POST(request) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Dev/founder skip list — suppress notifications for specific curator handles
-    const skipHandles = (process.env.NOTIFICATION_SKIP_HANDLES || '')
-      .split(',')
-      .map(h => h.trim().toLowerCase())
-      .filter(Boolean);
-    if (callerProfile.handle && skipHandles.includes(callerProfile.handle.toLowerCase())) {
-      console.log('[NOTIFY_SKIPPED]', { handle: callerProfile.handle, route: 'new-rec' });
-      return Response.json({ skipped: true, reason: 'handle_in_skip_list' }, { status: 200 });
+    // Per-save silent flag — curator opted out of subscriber notifications for this rec
+    if (silent === true) {
+      console.log('[NOTIFY_SKIPPED]', { recId, curatorId, reason: 'silent_flag' });
+      return Response.json({ skipped: true, reason: 'silent' }, { status: 200 });
     }
 
     // Fetch the rec
