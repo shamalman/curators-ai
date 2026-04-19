@@ -50,12 +50,16 @@ Preserve, access, and amplify human curation. Build equally for curators (captur
 
 ## Data patterns
 
-**Handle storage format:** `profiles.handle` values are stored with a leading `@` prefix (e.g. `@shamal`, not `shamal`). NEVER compare handles directly — always use the `normalizeHandle()` helper from `lib/handles.js`. It strips the `@` and lowercases:
+**Handle comparison — always normalize:** `profiles.handle` values are stored in the DB without a `@` prefix (e.g. `shamal`, not `@shamal`). However, the client-side `profile.handle` value consumed via `useCurator()` may appear with a `@` prefix due to display-layer formatting somewhere in the profile load path. You cannot trust which form you're holding without inspecting the source.
+
+Because of this ambiguity, NEVER compare handles directly. Always use `normalizeHandle()` from `lib/handles.js`, which strips any leading `@` and lowercases:
 
     import { normalizeHandle } from '@/lib/handles';
     if (normalizeHandle(profile.handle) === 'shamal') { ... }
 
 This rule applies to ALL handle comparisons — client code, server routes, DB filters, and allowlists. Failing to normalize caused the silent-toggle bug (fixed 2026-04-19) and a broken admin-transcripts allowlist (fixed 2026-04-19).
+
+**TODO (deferred):** audit where the client prepends `@` to profile handles and decide whether to normalize at the source. Tracked for post-alpha cleanup.
 
 ---
 
