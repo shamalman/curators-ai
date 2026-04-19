@@ -184,8 +184,8 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   // Resets on every sheet open (see useEffect below). Never persists.
   const [silentSave, setSilentSave] = useState(false);
   const { profile } = useCurator();
-  const showSilentToggle = profile?.handle === 'shamal';
-  console.log('[SILENT_TOGGLE_DEBUG]', { handle: profile?.handle, profileExists: !!profile, showSilentToggle });
+  const normalizedHandle = profile?.handle?.replace(/^@/, '').toLowerCase();
+  const showSilentToggle = normalizedHandle === 'shamal';
 
   // Reset state when sheet opens, OR prefill from initialData if provided
   useEffect(() => {

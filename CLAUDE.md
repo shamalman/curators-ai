@@ -48,6 +48,12 @@ Preserve, access, and amplify human curation. Build equally for curators (captur
 
 ---
 
+## Data patterns
+
+**Handle storage format:** `profiles.handle` values are stored with a leading `@` prefix (e.g. `@shamal`, not `shamal`). When comparing handles in code, strip the `@` first: `handle.replace(/^@/, '').toLowerCase()`. Applies to all profile handle comparisons across the codebase.
+
+---
+
 ## Architecture
 
 ### App Shell / Navigation
