@@ -50,7 +50,12 @@ Preserve, access, and amplify human curation. Build equally for curators (captur
 
 ## Data patterns
 
-**Handle storage format:** `profiles.handle` values are stored with a leading `@` prefix (e.g. `@shamal`, not `shamal`). When comparing handles in code, strip the `@` first: `handle.replace(/^@/, '').toLowerCase()`. Applies to all profile handle comparisons across the codebase.
+**Handle storage format:** `profiles.handle` values are stored with a leading `@` prefix (e.g. `@shamal`, not `shamal`). NEVER compare handles directly — always use the `normalizeHandle()` helper from `lib/handles.js`. It strips the `@` and lowercases:
+
+    import { normalizeHandle } from '@/lib/handles';
+    if (normalizeHandle(profile.handle) === 'shamal') { ... }
+
+This rule applies to ALL handle comparisons — client code, server routes, DB filters, and allowlists. Failing to normalize caused the silent-toggle bug (fixed 2026-04-19) and a broken admin-transcripts allowlist (fixed 2026-04-19).
 
 ---
 

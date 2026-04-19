@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { normalizeHandle } from "@/lib/handles";
 
 function getSupabaseAdmin() {
   return createClient(
@@ -11,7 +12,7 @@ function getSupabaseAdmin() {
 
 export async function POST(request) {
   try {
-    const { authToken, filterDays, restrictToProfileId } = await request.json();
+    const { authToken, filterDays } = await request.json();
 
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,13 +32,19 @@ export async function POST(request) {
 
     const { data: prof } = await sb
       .from('profiles')
-      .select('handle')
+      .select('id, handle')
       .eq('auth_user_id', user.id)
       .single();
 
-    if (!prof || !['shamal', 'chris'].includes(prof.handle)) {
+    if (!prof || !['shamal', 'chris'].includes(normalizeHandle(prof.handle))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    console.log('[ADMIN_TRANSCRIPTS_ACCESS]', {
+      caller_profile_id: prof.id,
+      caller_handle: normalizeHandle(prof.handle),
+      filterDays,
+    });
 
     // Fetch all profiles
     const { data: profiles, error: profErr } = await sb
@@ -48,18 +55,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "Failed to load profiles" }, { status: 500 });
     }
 
-    // Fetch chat messages with optional date filter
+    // Fetch chat messages with optional date filter. No per-caller scoping —
+    // both shamal and chris have full admin access.
     let query = sb
       .from('chat_messages')
       .select('id, profile_id, role, text, created_at')
       .order('created_at', { ascending: false })
       .limit(10000);
 
-    if (restrictToProfileId) {
-        query = query.eq('profile_id', restrictToProfileId);
-      }
-
-      if (filterDays) {
+    if (filterDays) {
       const d = new Date();
       d.setDate(d.getDate() - filterDays);
       query = query.gte('created_at', d.toISOString());

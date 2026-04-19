@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { T, F, CAT, CATEGORIES } from "@/lib/constants";
 import { useCurator } from "@/context/CuratorContext";
+import { normalizeHandle } from "@/lib/handles";
 
 function makeLinkId() {
   return `lnk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -184,8 +185,7 @@ export default function QuickCaptureSheet({ isOpen, onClose, onSaved, defaultVis
   // Resets on every sheet open (see useEffect below). Never persists.
   const [silentSave, setSilentSave] = useState(false);
   const { profile } = useCurator();
-  const normalizedHandle = profile?.handle?.replace(/^@/, '').toLowerCase();
-  const showSilentToggle = normalizedHandle === 'shamal';
+  const showSilentToggle = normalizeHandle(profile?.handle) === 'shamal';
 
   // Reset state when sheet opens, OR prefill from initialData if provided
   useEffect(() => {

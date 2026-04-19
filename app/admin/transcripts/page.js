@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { normalizeHandle } from '@/lib/handles';
 import { T, F, S } from '@/lib/constants';
 
 const DATE_FILTERS = [
@@ -45,22 +46,20 @@ export default function TranscriptsAdmin() {
         .eq('auth_user_id', session.user.id)
         .single();
 
-      if (!prof || !['shamal', 'chris'].includes(prof.handle)) {
+      if (!prof || !['shamal', 'chris'].includes(normalizeHandle(prof.handle))) {
         router.push('/myai');
         return;
       }
 
-      // If chris, restrict to own transcripts only
-      const isRestrictedAdmin = prof.handle === 'chris';
-
       setAuthorized(true);
       setLoading(true);
 
-      // Fetch all transcripts via server route (service role, no RLS)
+      // Fetch all transcripts via server route (service role, no RLS).
+      // Both admins (shamal, chris) get unrestricted access.
       const res = await fetch('/api/admin/transcripts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authToken: session.access_token, filterDays, restrictToProfileId: isRestrictedAdmin ? prof.id : null }),
+        body: JSON.stringify({ authToken: session.access_token, filterDays }),
       });
 
       const body = await res.json();
