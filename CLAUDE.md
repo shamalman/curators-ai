@@ -341,3 +341,22 @@ scripts/backfill-rec-files.mjs             -- backfill: --curator <handle> | --a
 
 Full schema with column types: `docs/schema.md`
 Rec files migration history and architecture decisions: `docs/rec-files-migration.md`
+
+---
+
+## Tooling
+
+### Supabase MCP (Claude Code only)
+
+Supabase MCP is configured for this project in read-only mode, scoped to the curators-ai project.
+
+- Available in Claude Code sessions only. Not available in claude.ai threads.
+- Read-only: all queries execute as a read-only Postgres user. Writes are not possible through MCP.
+- Use for pre-implementation recon: confirm column names, function signatures via schema inspection, row counts, and data shapes before writing handoffs.
+- Do NOT paste untrusted content (scraped URLs, email bodies, user-submitted text) into sessions with MCP active — prompt injection risk.
+- For writes (migrations, backfills, manual fixes): continue using Supabase SQL Editor with explicit statement review. Never relax MCP to read-write.
+
+Example recon queries the MCP can answer directly:
+- "List columns on rec_files"
+- "Count recs grouped by created_via in the last 30 days"
+- "Show me the 5 most recent rows in chat_messages"
