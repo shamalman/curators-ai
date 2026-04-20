@@ -16,10 +16,15 @@ export default function MediaEmbed({ extractor, sourceUrl, mediaId }) {
   const isVideo = embed.type === 'video';
   const isSoundCloud = embed.src.includes('w.soundcloud.com');
   const isAppleMusic = embed.src.includes('embed.music.apple.com');
+  const isTidal = embed.src.includes('embed.tidal.com');
 
   let height = 152;
   if (embed.type === 'audio_album' || embed.type === 'audio_playlist') {
-    height = isAppleMusic ? 450 : 352;
+    if (isAppleMusic) height = 450;
+    else if (isTidal) height = 400;
+    else height = 352;
+  } else if (isTidal && embed.type === 'audio_track') {
+    height = 96;
   } else if (isAppleMusic) {
     height = 175;
   } else if (isSoundCloud) {
