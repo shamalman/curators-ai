@@ -43,3 +43,15 @@ This file tracks parser-layer issues only — URL detection, oEmbed/HTML scrapin
 ## Resolved
 
 _None yet._
+
+---
+
+## Mixcloud parser — shipped 2026-04-20
+
+- **Source:** `https://api.mixcloud.com/{key}/` (undocumented but stable public JSON API; no auth).
+- **Fallback:** `https://app.mixcloud.com/oembed/?url=...` (sparse — title, image, author_name only).
+- **No HTML scraping** — Mixcloud pages are JS-rendered SPAs (raw HTML has no og: tags).
+- **Known limitations:**
+  - `hidden_stats: true` on many shows zeros out `play_count` / `listener_count` in the API response. Not currently surfaced anyway.
+  - Profile parse uses two API calls (`/{user}/` + `/{user}/cloudcasts/?limit=25`); failure of the cloudcasts call still returns valid profile metadata with empty `items`.
+  - The www.mixcloud.com/oembed/ endpoint 301-redirects to app.mixcloud.com/oembed/ — we hit app.mixcloud.com directly to skip the hop.

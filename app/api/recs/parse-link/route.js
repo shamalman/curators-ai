@@ -13,6 +13,7 @@ const SOURCE_TO_CATEGORY = {
   "apple-music": "listen",
   apple_music: "listen",
   soundcloud: "listen",
+  mixcloud: "listen",
   youtube: "watch",
   letterboxd: "watch",
   goodreads: "read",
