@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { T, F, S } from "@/lib/constants";
 import NetworkView from "@/components/recs/NetworkView";
+import SubscribedView from "@/components/recs/SubscribedView";
 import SavedView from "@/components/recs/SavedView";
 
 const TABS = [
-  { key: "network", label: "Curators Network" },
+  { key: "network", label: "Network" },
+  { key: "subscribed", label: "Subscribed" },
   { key: "saved", label: "Saved" },
 ];
 
@@ -28,6 +30,7 @@ export default function FindPage() {
                 background: tab === t.key ? T.s2 : "transparent",
                 color: tab === t.key ? T.ink : T.ink3,
                 fontSize: 12, fontWeight: 600, fontFamily: F,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 transition: "background .15s, color .15s",
               }}>{t.label}</button>
             ))}
@@ -36,6 +39,7 @@ export default function FindPage() {
 
         {/* Tab content */}
         {tab === "network" && <NetworkView />}
+        {tab === "subscribed" && <SubscribedView onSwitchToNetwork={() => setTab("network")} />}
         {tab === "saved" && <SavedView onSwitchToNetwork={() => setTab("network")} />}
       </div>
     </div>

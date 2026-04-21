@@ -83,8 +83,11 @@ Me tab structure (3-button segmented control in `components/me/MeSegmentedContro
 `/me/timeline` falls through the layout pathname check and keeps the Personal Record segment active — the "How this was built →" link lives inside Personal Record.
 
 Find tab structure (segmented control in `app/(curator)/find/page.js`):
-- Curators Network (default) — `NetworkView`
+- Network (default) — `NetworkView` (the full curator network)
+- Subscribed — `SubscribedView` (recs from curators the viewer subscribes to; two-step query via `mySubscriptionIds` from `useCurator()`)
 - Saved — `SavedView`
+
+The segmented control uses "Network" as shorthand for "Curators Network" — the full term is still used everywhere else (vocabulary, prose, internal references). Shortened label is mobile-fit-driven (3 segments on a 375px viewport).
 
 Route history: `/recommendations` was renamed to `/find` on 2026-04-17. The `/recommendations` → `/find` redirect is handled solely by `next.config.js` as a permanent redirect. Middleware no longer references any `curatorOnlyPaths` array — that logic was removed in the April 19, 2026 auth lockdown (see Auth Model section). All internal `router.push('/recommendations/...')` and `router.push('/recommendations/<slug>')` calls were updated to `/find/...` in the rename commit.
 
@@ -307,8 +310,8 @@ Non-obvious load-bearing files. Everything else is findable by Glob.
 
 components/layout/BottomTabs.jsx           -- mobile nav, 4 main tabs + shamal-only feedback
 components/layout/Sidebar.jsx              -- desktop nav, mirrors BottomTabs
-components/me/MeSegmentedControl.jsx       -- 3-button Me tab nav (My Recs / Personal Record / Public Profile)
-app/(curator)/find/page.js                 -- Find tab root, Curators Network + Saved segmented control
+components/me/MeSegmentedControl.jsx       -- 3-button Me tab nav (My Recs / Record / Public Profile)
+app/(curator)/find/page.js                 -- Find tab root, Network + Subscribed + Saved segmented control
 app/(curator)/me/page.js                   -- Me default, renders TasteManager embedded (My Recs)
 app/(curator)/me/taste/page.js             -- Personal Record (TasteFileView)
 app/api/chat/route.js                      -- mode detection, link handling, rec extraction
