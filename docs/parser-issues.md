@@ -40,6 +40,22 @@ This file tracks parser-layer issues only — URL detection, oEmbed/HTML scrapin
 
 ---
 
+### PARSER-002 | P2 | Spotify track parser returns title without artist metadata in some cases
+
+- **Status:** Open
+- **Severity:** P2
+- **Discovered:** 2026-04-21
+
+**What happens:** Spotify track parser returns a title without artist metadata in some cases. Observed on a "Woman" track save — AI saw only the title, had to guess the neighborhood for its post-save question.
+
+**Fix direction:** Investigate whether the Spotify parser's oEmbed fallback path drops artist when the primary Spotify API path fails.
+
+**Impact:** Post-save reflection questions are guessing in the dark when artist is missing.
+
+**Skill change candidate:** Add a fallback rule to `lib/prompts/skills/taste-reflection.md`: if artist is null after parse, the AI should fall back to pattern 2 (sideways open) rather than pattern 1 (adjacent artist).
+
+---
+
 ## Resolved
 
 _None yet._
