@@ -126,7 +126,7 @@ export default function TasteFileView() {
   if (!profileData) {
     return (
       <div style={{ textAlign: 'center', color: T.ink3, fontSize: 14, lineHeight: 1.7, padding: '80px 24px' }}>
-        <p>Your AI is still getting to know you. Make a few Recommendations, or do some Taste Reads on what you've been reading, and your Personal Record will take shape.</p>
+        <p>Your AI is still getting to know you. Make a few Recommendations, or do some Taste Reads on what you've been reading, and your Record will take shape.</p>
         <p
           style={{ color: T.acc, fontWeight: 500, cursor: 'pointer', marginTop: 16 }}
           onClick={() => router.push('/myai')}
@@ -148,7 +148,7 @@ export default function TasteFileView() {
     <div style={{ paddingBottom: 40 }}>
       {/* Title */}
       <div style={{ fontFamily: S, fontSize: 22, fontWeight: 500, color: T.ink, marginBottom: 4 }}>
-        Personal Record: @{(profile?.handle || '').replace(/^@/, '')}
+        Record: @{(profile?.handle || '').replace(/^@/, '')}
       </div>
 
       {/* Meta */}

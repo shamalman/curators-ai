@@ -48,7 +48,7 @@ export default function MeSegmentedControl({ active }) {
         My Recs
       </button>
       <button onClick={goToTaste} style={btnStyle(active === 'taste')}>
-        Personal Record
+        Record
       </button>
       <button onClick={goToProfile} style={btnStyle(active === 'profile')}>
         Public Profile
