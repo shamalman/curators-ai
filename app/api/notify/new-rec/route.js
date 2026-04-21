@@ -117,18 +117,6 @@ export async function POST(request) {
     const cleanHandle = (curator.handle || '').replace(/^@/, '');
     const recUrl = `https://curators.ai/${cleanHandle}/${rec.slug}`;
 
-    // Build why excerpt (140 chars, word-boundary truncated)
-    let whyExcerpt = '';
-    if (rec.context) {
-      if (rec.context.length <= 140) {
-        whyExcerpt = rec.context;
-      } else {
-        const cut = rec.context.slice(0, 140);
-        const lastSpace = cut.lastIndexOf(' ');
-        whyExcerpt = (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + '...';
-      }
-    }
-
     // Map category to label
     const categoryLabels = {
       music: 'Listen',
@@ -165,12 +153,12 @@ export async function POST(request) {
         const unsubUrl = `https://curators.ai/api/email-action?token=${token}`;
 
         // Build email
-        const { subject, html } = newRecEmail({
-          curatorName: curator.name || curator.handle,
+        const { subject, html, text } = newRecEmail({
+          curatorDisplayName: curator.name || null,
           curatorHandle: cleanHandle,
           recTitle: rec.title,
           category: categoryLabel,
-          whyExcerpt,
+          why: rec.context || '',
           recUrl,
           unsubUrl,
         });
@@ -181,6 +169,7 @@ export async function POST(request) {
           to: recipientEmail,
           subject,
           html,
+          text,
           headers: {
             'List-Unsubscribe': `<${unsubUrl}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
