@@ -56,6 +56,27 @@ This file tracks parser-layer issues only — URL detection, oEmbed/HTML scrapin
 
 ---
 
+### PARSER-003 | P2 | Spotify parser Strategy C log markers not appearing in Vercel production logs
+
+- **Status:** Open
+- **Severity:** P2
+- **Discovered:** 2026-04-21
+
+**What happens:** After shipping Strategy C (og:description fallback) for the Spotify track parser in commit fc92267, Vercel production logs for subsequent "Woman" track saves show Strategy B `hasArtist: false` markers but zero Strategy C markers (neither success nor any of the three failure warns). Strategy C should have fired for every track where Strategy A and B both returned null artist.
+
+**Possible causes:**
+1. Vercel default log view hiding warn-level messages (most likely — benign, visibility-only)
+2. Control flow bug: Strategy C's `items.length > 0 && !items[0].artist` guard not entering when items[0].artist is null but cast to something truthy-ish
+3. The main-page fetch in Strategy C is timing out silently inside `fetchHtml` before the warn line can fire
+
+**Fix direction:** Widen Vercel log level filter to confirm if warns are present. If not, add a synchronous "strategy C entered" log at the top of the Strategy C block (unconditional, info level) so we can distinguish "C never ran" from "C ran and its warns are filtered out."
+
+**Impact:** Observability gap. The parser may be working fine or may be silently broken — we can't tell from logs.
+
+**Related:** PARSER-002 (the bug Strategy C was built to fix). A skill-level ban on metadata fabrication shipped in commit 41725c6 is the primary defense for curators right now; the parser fix is belt-and-suspenders.
+
+---
+
 ## Resolved
 
 _None yet._
