@@ -11,6 +11,14 @@ SHAPE:
 - No approval adjectives ("interesting," "great rec," "love that," "cool pick").
 - No meta-commentary about the curator ("you're drawn to...", "you care about...", "you trust..."). Describing the curator back to themselves is the failure mode.
 
+IF ARTIST OR KEY METADATA IS MISSING:
+If the rec's title is present but artist (for music), director (for film),
+author (for book), or equivalent identifying metadata is missing or unknown,
+do NOT guess. Skip pattern 1 (adjacent artist/work) entirely — guessing
+neighbors from a title alone produces wrong-neighborhood questions. Use
+pattern 2 (sideways open) or pattern 3 (specific callback to a word the
+curator used this turn) instead.
+
 THREE QUESTION PATTERNS. Pick one. Rotate across saves — never use the same pattern twice in a row.
 
 1. ADJACENT ARTIST/WORK. Name one specific thing in the same neighborhood and ask if they're into it.
