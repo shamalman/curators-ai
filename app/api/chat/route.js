@@ -475,6 +475,21 @@ The curator will choose what to do with it via the action buttons.
 
       try {
         systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+        if (process.env.DEBUG_CHAT_PROMPT === '1') {
+          const _debugTurnId = Math.random().toString(36).slice(2, 10);
+          const _debugPrompt = systemPrompt || '';
+          const _debugSite = 'opening';
+          const _debugMsgs = openingMessages;
+          console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] system prompt length: ${_debugPrompt.length}`);
+          console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] messages count: ${_debugMsgs?.length || 0}`);
+          console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] last 2 messages: ${JSON.stringify(_debugMsgs?.slice(-2) || [], null, 2)}`);
+          const _chunkSize = 3000;
+          const _totalChunks = Math.ceil(_debugPrompt.length / _chunkSize) || 1;
+          for (let i = 0; i < _totalChunks; i++) {
+            const _chunk = _debugPrompt.slice(i * _chunkSize, (i + 1) * _chunkSize);
+            console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] prompt chunk ${i + 1}/${_totalChunks}:\n${_chunk}`);
+          }
+        }
         const response = await anthropic.messages.create({
           model: "claude-sonnet-4-20250514",
           max_tokens: 400,
@@ -624,6 +639,21 @@ ${tasteReadContent}
     const apiStart = Date.now();
     try {
       systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+      if (process.env.DEBUG_CHAT_PROMPT === '1') {
+        const _debugTurnId = Math.random().toString(36).slice(2, 10);
+        const _debugPrompt = systemPrompt || '';
+        const _debugSite = 'main';
+        const _debugMsgs = cleanedMessages;
+        console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] system prompt length: ${_debugPrompt.length}`);
+        console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] messages count: ${_debugMsgs?.length || 0}`);
+        console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] last 2 messages: ${JSON.stringify(_debugMsgs?.slice(-2) || [], null, 2)}`);
+        const _chunkSize = 3000;
+        const _totalChunks = Math.ceil(_debugPrompt.length / _chunkSize) || 1;
+        for (let i = 0; i < _totalChunks; i++) {
+          const _chunk = _debugPrompt.slice(i * _chunkSize, (i + 1) * _chunkSize);
+          console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] prompt chunk ${i + 1}/${_totalChunks}:\n${_chunk}`);
+        }
+      }
       response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: maxTokens,
@@ -654,6 +684,21 @@ ${tasteReadContent}
           ];
 
           systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+          if (process.env.DEBUG_CHAT_PROMPT === '1') {
+            const _debugTurnId = Math.random().toString(36).slice(2, 10);
+            const _debugPrompt = systemPrompt || '';
+            const _debugSite = 'tool_loop';
+            const _debugMsgs = toolLoopMessages;
+            console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] system prompt length: ${_debugPrompt.length}`);
+            console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] messages count: ${_debugMsgs?.length || 0}`);
+            console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] last 2 messages: ${JSON.stringify(_debugMsgs?.slice(-2) || [], null, 2)}`);
+            const _chunkSize = 3000;
+            const _totalChunks = Math.ceil(_debugPrompt.length / _chunkSize) || 1;
+            for (let i = 0; i < _totalChunks; i++) {
+              const _chunk = _debugPrompt.slice(i * _chunkSize, (i + 1) * _chunkSize);
+              console.log(`[CHAT_PROMPT_DEBUG turn=${_debugTurnId} site=${_debugSite}] prompt chunk ${i + 1}/${_totalChunks}:\n${_chunk}`);
+            }
+          }
           response = await anthropic.messages.create({
             model: "claude-sonnet-4-20250514",
             max_tokens: maxTokens,
