@@ -475,6 +475,7 @@ The curator will choose what to do with it via the action buttons.
 
       try {
         systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+        console.log('[CHAT_PROMPT_DEBUG_SENTINEL] site=opening reached pre-claude-call, env.DEBUG_CHAT_PROMPT=' + String(process.env.DEBUG_CHAT_PROMPT));
         if (process.env.DEBUG_CHAT_PROMPT === '1') {
           const _debugTurnId = Math.random().toString(36).slice(2, 10);
           const _debugPrompt = systemPrompt || '';
@@ -639,6 +640,7 @@ ${tasteReadContent}
     const apiStart = Date.now();
     try {
       systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+      console.log('[CHAT_PROMPT_DEBUG_SENTINEL] site=main reached pre-claude-call, env.DEBUG_CHAT_PROMPT=' + String(process.env.DEBUG_CHAT_PROMPT));
       if (process.env.DEBUG_CHAT_PROMPT === '1') {
         const _debugTurnId = Math.random().toString(36).slice(2, 10);
         const _debugPrompt = systemPrompt || '';
@@ -684,6 +686,7 @@ ${tasteReadContent}
           ];
 
           systemPrompt = enforceSystemPromptCap(systemPrompt, { profileId, tasteReadUrl, parsedBlocksCount: parsedLinkBlocks.length });
+          console.log('[CHAT_PROMPT_DEBUG_SENTINEL] site=tool_loop reached pre-claude-call, env.DEBUG_CHAT_PROMPT=' + String(process.env.DEBUG_CHAT_PROMPT));
           if (process.env.DEBUG_CHAT_PROMPT === '1') {
             const _debugTurnId = Math.random().toString(36).slice(2, 10);
             const _debugPrompt = systemPrompt || '';
