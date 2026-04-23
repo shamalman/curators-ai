@@ -94,7 +94,7 @@ export async function POST(request) {
     const unsubscribeUrl = `https://curators.ai/api/email-action?token=${unsubToken}`;
 
     // Build email
-    const html = newSubscriberEmail({
+    const { subject, html, text } = newSubscriberEmail({
       subscriberName,
       subscriberHandle,
       subscriberCount: subscriberCount || 0,
@@ -105,8 +105,9 @@ export async function POST(request) {
     const { error: sendErr } = await resend.emails.send({
       from: 'Curators.AI <notifications@curators.ai>',
       to: user.email,
-      subject: `${subscriberName} subscribed to your taste`,
+      subject,
       html,
+      text,
       headers: {
         'List-Unsubscribe': `<${unsubscribeUrl}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

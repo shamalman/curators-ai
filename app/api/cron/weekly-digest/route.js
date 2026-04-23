@@ -130,7 +130,7 @@ export async function GET(request) {
         }));
 
         // Build email
-        const html = weeklyDigestEmail({
+        const { subject, html, text } = weeklyDigestEmail({
           recs: recsWithUrls,
           subscribedCount: subs.length,
           unsubscribeUrl,
@@ -159,8 +159,9 @@ export async function GET(request) {
         const { error: sendErr } = await resend.emails.send({
           from: 'Curators.AI <notifications@curators.ai>',
           to: user.email,
-          subject: `Your week in taste — ${recs.length} new rec${recs.length === 1 ? '' : 's'}`,
+          subject,
           html,
+          text,
           headers: {
             'List-Unsubscribe': `<${unsubscribeUrl}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
