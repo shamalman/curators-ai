@@ -9,6 +9,10 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
   const textareaRef = useRef(null);
+  // Day 3: optional screenshot attachment
+  const [screenshot, setScreenshot] = useState(null);
+  const [screenshotError, setScreenshotError] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -24,7 +28,70 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
     setText('');
     setError(null);
     setDone(false);
+    setScreenshot(null);
+    setScreenshotError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     onClose();
+  }
+
+  async function handleScreenshotFile(file) {
+    setScreenshotError(null);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setScreenshotError('Must be an image.');
+      return;
+    }
+
+    const MAX_EDGE = 1600;
+    const JPEG_QUALITY = 0.85;
+    const MAX_BASE64_SIZE = 5.5 * 1024 * 1024; // ~4MB of bytes after base64 overhead
+
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('image decode failed'));
+        el.src = objectUrl;
+      });
+
+      let { width, height } = img;
+      if (width > MAX_EDGE || height > MAX_EDGE) {
+        if (width >= height) {
+          height = Math.round(height * (MAX_EDGE / width));
+          width = MAX_EDGE;
+        } else {
+          width = Math.round(width * (MAX_EDGE / height));
+          height = MAX_EDGE;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+
+      const base64 = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+
+      if (base64.length > MAX_BASE64_SIZE) {
+        setScreenshotError('Image too large even after resize. Try a smaller screenshot.');
+        return;
+      }
+
+      setScreenshot({ base64, mimeType: 'image/jpeg' });
+    } catch (err) {
+      console.error('[FEEDBACK_SCREENSHOT_RESIZE_ERROR]', err?.message || err);
+      const isHeic = /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+      setScreenshotError(isHeic ? 'HEIC/HEIF not supported. Try JPG or PNG.' : 'Could not process image.');
+    }
+  }
+
+  function handleRemoveScreenshot() {
+    setScreenshot(null);
+    setScreenshotError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   async function handleSubmit() {
@@ -32,21 +99,29 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
     setSaving(true);
     setError(null);
     try {
+      const body = {
+        profileId,
+        handle,
+        originalMessage: text.trim(),
+        elaboration: null,
+        summary: null,
+      };
+      if (screenshot) {
+        body.screenshot_base64 = screenshot.base64.replace(/^data:image\/jpeg;base64,/, '');
+        body.screenshot_mime_type = screenshot.mimeType;
+      }
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profileId,
-          handle,
-          originalMessage: text.trim(),
-          elaboration: null,
-          summary: null,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('Failed to send');
       setDone(true);
       setTimeout(() => {
         setText('');
+        setScreenshot(null);
+        setScreenshotError(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         setDone(false);
         onClose();
       }, 1200);
@@ -126,6 +201,70 @@ export default function FeedbackSheet({ isOpen, onClose, profileId, handle, isDe
                 boxSizing: 'border-box',
               }}
             />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => { handleScreenshotFile(e.target.files?.[0]); }}
+            />
+            {!screenshot ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${T.bdr}`,
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  color: T.ink3,
+                  fontSize: 12,
+                  fontFamily: F,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="6" width="20" height="14" rx="2"/>
+                  <circle cx="12" cy="13" r="4"/>
+                  <path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/>
+                </svg>
+                Attach screenshot (optional)
+              </button>
+            ) : (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: T.s2,
+                alignSelf: 'flex-start',
+                fontSize: 12, fontFamily: F, color: T.ink,
+              }}>
+                <span>Screenshot attached {"✓"}</span>
+                <button
+                  type="button"
+                  onClick={handleRemoveScreenshot}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: T.ink3,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontFamily: F,
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+            {screenshotError && (
+              <div style={{ color: '#e05c5c', fontSize: 12 }}>{screenshotError}</div>
+            )}
             {error && (
               <div style={{ color: '#e05c5c', fontSize: 12 }}>{error}</div>
             )}
