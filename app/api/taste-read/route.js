@@ -143,6 +143,22 @@ export async function POST(request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
+    let aiProfile = 'stable';
+    try {
+      const { data: profileRow } = await admin
+        .from('profiles')
+        .select('ai_profile')
+        .eq('id', profileId)
+        .single();
+      if (profileRow?.ai_profile === 'staging') {
+        aiProfile = 'staging';
+      }
+    } catch (err) {
+      console.error('[AI_PROFILE_FETCH_ERROR]', err?.message || err);
+      // Fall through with default 'stable'
+    }
+    console.log(`[AI_PROFILE] route=taste-read profileId=${profileId} aiProfile=${aiProfile}`);
+
     // Check for an existing row first. If found, return it without hitting Claude.
     {
       let query = admin
@@ -178,7 +194,7 @@ export async function POST(request) {
       .map(r => `- ${r.title} (${r.category || "other"}): ${r.context || ""}`)
       .join("\n");
 
-    const skill = loadSkill("taste-read");
+    const skill = loadSkill("taste-read", aiProfile);
     const systemPrompt =
       skill +
       "\n\nCURATOR TASTE PROFILE:\n" +

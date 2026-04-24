@@ -81,6 +81,24 @@ export async function POST(request) {
 
     const sb = getSupabaseAdmin();
 
+    let aiProfile = 'stable';
+    if (profileId) {
+      try {
+        const { data: profileRow } = await sb
+          .from('profiles')
+          .select('ai_profile')
+          .eq('id', profileId)
+          .single();
+        if (profileRow?.ai_profile === 'staging') {
+          aiProfile = 'staging';
+        }
+      } catch (err) {
+        console.error('[AI_PROFILE_FETCH_ERROR]', err?.message || err);
+        // Fall through with default 'stable'
+      }
+    }
+    console.log(`[AI_PROFILE] route=chat profileId=${profileId} aiProfile=${aiProfile}`);
+
     // ── Link parsing (curator modes only, not visitor, not opening generation) ──
     let linkContextBlock = "";
     let agentNotes = [];
@@ -397,7 +415,7 @@ You could NOT access the full content of this link. Acknowledge only the title a
           console.error("[VISITOR_TASTE_PROFILE_FETCH_ERROR]", err?.message || err);
         }
       }
-      systemPrompt = buildVisitorPrompt({ curatorName, styleBlock, recsContext });
+      systemPrompt = buildVisitorPrompt({ curatorName, styleBlock, recsContext, aiProfile });
     } else if (isOnboarding && profileId) {
       // Fetch taste profile for injection
       let tasteProfileBlock = '';
@@ -424,6 +442,7 @@ You could NOT access the full content of this link. Acknowledge only the title a
         inviterNote: inviterCtx.inviterNote,
         tasteProfileBlock,
         networkContext: onboardingNetworkContext,
+        aiProfile,
       }) + recsContext + linkContextBlock;
     } else {
       // Fetch taste profile for injection
@@ -449,6 +468,7 @@ You could NOT access the full content of this link. Acknowledge only the title a
         curatorProfile: { bio: curatorBio, location: '' },
         networkContext,
         tasteProfileBlock,
+        aiProfile,
       }) + recsContext + linkContextBlock;
     }
 
