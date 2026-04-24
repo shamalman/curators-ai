@@ -9,7 +9,8 @@ import { T } from "@/lib/constants";
 // Props:
 //   messageId: string (UUID of the chat_messages row)
 //   initialRating: 'up' | 'down' | null
-export default function AIResponseThumbs({ messageId, initialRating = null }) {
+//   onRatingChange: (messageId, newRating) => void  // called after successful write
+export default function AIResponseThumbs({ messageId, initialRating = null, onRatingChange }) {
   const [rating, setRating] = useState(initialRating);
   const [pending, setPending] = useState(false);
   // Tracks the last prop value we synced from. Lets us ignore hydration
@@ -55,7 +56,12 @@ export default function AIResponseThumbs({ messageId, initialRating = null }) {
       setRating(previous);
     } finally {
       setPending(false);
-      if (succeeded) lastSyncedRef.current = toggled;
+      if (succeeded) {
+        lastSyncedRef.current = toggled;
+        if (typeof onRatingChange === "function") {
+          onRatingChange(messageId, toggled);
+        }
+      }
     }
   }
 

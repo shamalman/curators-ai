@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { T, W, V, F, S, MN, CAT } from "@/lib/constants";
@@ -103,6 +103,9 @@ export default function ChatView({ variant }) {
   const [sheetPrefillData, setSheetPrefillData] = useState(null);
   // Day 2: AI response ratings (staging users only)
   const [ratingsByMessageId, setRatingsByMessageId] = useState({});
+  const handleRatingChange = useCallback((msgId, newRating) => {
+    setRatingsByMessageId(prev => ({ ...prev, [msgId]: newRating }));
+  }, []);
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -1062,6 +1065,7 @@ export default function ChatView({ variant }) {
                       <AIResponseThumbs
                         messageId={msg.id}
                         initialRating={ratingsByMessageId[msg.id] || null}
+                        onRatingChange={handleRatingChange}
                       />
                     )}
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
@@ -1154,6 +1158,7 @@ export default function ChatView({ variant }) {
                       <AIResponseThumbs
                         messageId={msg.id}
                         initialRating={ratingsByMessageId[msg.id] || null}
+                        onRatingChange={handleRatingChange}
                       />
                     )}
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
