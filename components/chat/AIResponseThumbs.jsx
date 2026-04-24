@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T } from "@/lib/constants";
 
 // Renders up/down rating buttons for a single AI message. Staging-only —
@@ -12,6 +12,17 @@ import { T } from "@/lib/constants";
 export default function AIResponseThumbs({ messageId, initialRating = null }) {
   const [rating, setRating] = useState(initialRating);
   const [pending, setPending] = useState(false);
+  // Tracks the last prop value we synced from. Lets us ignore hydration
+  // updates while a click is in flight, and ignore redundant re-renders
+  // where the prop didn't actually change.
+  const lastSyncedRef = useRef(initialRating);
+
+  useEffect(() => {
+    if (!pending && initialRating !== lastSyncedRef.current) {
+      setRating(initialRating);
+      lastSyncedRef.current = initialRating;
+    }
+  }, [initialRating, pending]);
 
   async function handleClick(next) {
     if (pending) return;
@@ -19,6 +30,7 @@ export default function AIResponseThumbs({ messageId, initialRating = null }) {
     const toggled = rating === next ? null : next;
     setRating(toggled);
     setPending(true);
+    let succeeded = false;
 
     try {
       if (toggled === null) {
@@ -28,6 +40,7 @@ export default function AIResponseThumbs({ messageId, initialRating = null }) {
           body: JSON.stringify({ message_id: messageId }),
         });
         if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+        succeeded = true;
       } else {
         const res = await fetch("/api/ai-response-ratings", {
           method: "POST",
@@ -35,12 +48,14 @@ export default function AIResponseThumbs({ messageId, initialRating = null }) {
           body: JSON.stringify({ message_id: messageId, rating: toggled }),
         });
         if (!res.ok) throw new Error(`Write failed: ${res.status}`);
+        succeeded = true;
       }
     } catch (err) {
       console.error("[AI_THUMBS_CLICK_ERROR]", err?.message || err);
       setRating(previous);
     } finally {
       setPending(false);
+      if (succeeded) lastSyncedRef.current = toggled;
     }
   }
 
