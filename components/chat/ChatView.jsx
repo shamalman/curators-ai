@@ -12,6 +12,7 @@ import QuickCaptureChip from "./QuickCaptureChip";
 import QuickCaptureSheet from "./QuickCaptureSheet";
 import FeedbackChip from "./FeedbackChip";
 import FeedbackSheet from "./FeedbackSheet";
+import AIResponseThumbs from "./AIResponseThumbs";
 import ErrorBoundary from "../shared/ErrorBoundary";
 import FeedUserBubble from "../feed/FeedUserBubble";
 import FeedBlockGroup from "../feed/FeedBlockGroup";
@@ -100,6 +101,8 @@ export default function ChatView({ variant }) {
   const [lastRecVisibility, setLastRecVisibility] = useState('public');
   // Feature C: prefill data for QuickCaptureSheet when opened from a chat action button
   const [sheetPrefillData, setSheetPrefillData] = useState(null);
+  // Day 2: AI response ratings (staging users only)
+  const [ratingsByMessageId, setRatingsByMessageId] = useState({});
 
   const isCurator = variant === "curator";
   const items = tasteItems;
@@ -115,6 +118,34 @@ export default function ChatView({ variant }) {
       sessionStartCapturedRef.current = true;
     }
   }, [dbLoaded, messages.length]);
+
+  // Day 2: hydrate AI response ratings for staging users. Fetch unseen AI-message
+  // IDs; store null markers for unrated messages so we don't refetch them.
+  useEffect(() => {
+    if (profile?.aiProfile !== 'staging') return;
+    const aiMsgIds = messages
+      .filter(m => m.role === 'ai' && m.id)
+      .map(m => m.id);
+    const newIds = aiMsgIds.filter(id => !(id in ratingsByMessageId));
+    if (newIds.length === 0) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/ai-response-ratings?message_ids=${newIds.join(',')}`);
+        if (!res.ok) return;
+        const { ratings } = await res.json();
+        setRatingsByMessageId(prev => {
+          const next = { ...prev, ...(ratings || {}) };
+          for (const id of newIds) {
+            if (!(id in next)) next[id] = null;
+          }
+          return next;
+        });
+      } catch (err) {
+        console.error('[AI_THUMBS_LOAD_ERROR]', err?.message || err);
+      }
+    })();
+  }, [profile?.aiProfile, messages, ratingsByMessageId]);
 
   // Fetch curator's last rec visibility to default the quick capture sheet
   useEffect(() => {
@@ -1027,6 +1058,12 @@ export default function ChatView({ variant }) {
                         handleInteraction(msgId, blockIdx, act);
                       }}
                     />
+                    {profile?.aiProfile === "staging" && msg.id && (
+                      <AIResponseThumbs
+                        messageId={msg.id}
+                        initialRating={ratingsByMessageId[msg.id] || null}
+                      />
+                    )}
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8, padding: 12, borderRadius: 12, border: "1px solid " + T.bdr, background: T.s }}>
                         <div style={{ fontSize: 11, fontFamily: F, fontWeight: 600, color: CAT[msg.capturedRec.category]?.color || T.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
@@ -1113,6 +1150,12 @@ export default function ChatView({ variant }) {
                 return (
                   <div key={i} className="fu" style={{ animationDelay: `${i * .03}s` }}>
                     <FeedLegacyBubble text={msg.text} imagePreview={msg.imagePreview} />
+                    {profile?.aiProfile === "staging" && msg.id && (
+                      <AIResponseThumbs
+                        messageId={msg.id}
+                        initialRating={ratingsByMessageId[msg.id] || null}
+                      />
+                    )}
                     {msg.capturedRec && !msg.saved && !items.some(r => r.title?.toLowerCase() === msg.capturedRec.title?.toLowerCase()) && !editingCapture && (
                       <div style={{ marginTop: 8, padding: 12, borderRadius: 12, border: "1px solid " + T.bdr, background: T.s }}>
                         <div style={{ fontSize: 11, fontFamily: F, fontWeight: 600, color: CAT[msg.capturedRec.category]?.color || T.ink3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
