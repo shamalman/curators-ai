@@ -103,10 +103,6 @@ export default function SavedView({ onSwitchToNetwork }) {
             cursor: "pointer", fontFamily: F, fontSize: 13, fontWeight: 600, color: T.accText,
             marginBottom: 28,
           }}>Browse Network</button>
-
-          <p style={{ fontFamily: F, fontSize: 12, color: T.ink3, lineHeight: 1.6 }}>
-            Everything you save helps your AI understand your taste and make better recommendations for you.
-          </p>
         </div>
       )}
 
