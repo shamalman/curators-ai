@@ -1,5 +1,5 @@
 # CLAUDE.md — Curators.AI Engineering Guide
-## Last updated: April 17, 2026 (nav rework: Find tab, Me default → My Recs)
+## Last updated: April 24, 2026 (staging AI lane + thumbs eval + feedback screenshots)
 
 ---
 
@@ -125,6 +125,8 @@ Two tables — parent/child, both active:
 
 Both onboarding and standard inject `getSubscribedRecs(profileId)` network context into the system prompt.
 
+**aiProfile threading.** Route fetches `profiles.ai_profile` early and threads it to every prompt builder. See Staging AI Profile Lane section.
+
 **Link handling:** Synchronous. Up to 3 URLs parsed concurrently (15s timeout) before Claude responds. Quality signals (FULL/PARTIAL/FAILED) injected as `=== PARSED LINK CONTENT ===` blocks. Parsed content persisted on `chat_messages.parsed_content` and re-injected within a 5-message window via `distillForReinjection` (~800 chars/block, capped at 2 blocks). **Re-injection path:** Checks `rec_refs` on recent messages -- if present, fetches `rec_files` rows and injects structured blocks via `buildRecFileContextBlock` (`lib/chat/link-parsing.js`). No fallback to `parsed_content` -- if `rec_refs` is empty, re-injection is skipped. The `parsed_content` fallback was removed April 13 2026.
 
 **Taste-read re-injection cap:** `parsed.content` capped at 40K chars before injection into systemPrompt (matches primary parse path). Uses `truncateOnBoundary` (`lib/chat/link-parsing.js`) for paragraph/sentence/line-aware cutting; emits `[TASTE_READ_REINJECTION] Capped content from <original> to <capped> chars` when truncation fires. 40K retained as-is — taste-read is the deep-reading moment and a smaller cap would truncate substantive article content mid-piece. Boundary-aware upgrade and log marker added April 15 2026.
@@ -156,9 +158,25 @@ Both onboarding and standard inject `getSubscribedRecs(profileId)` network conte
 
 ### AI Skills System
 
-15 skill files in `lib/prompts/skills/`. Build functions: `buildOnboardingPrompt` and `buildStandardPrompt` in `lib/prompts/`. Both append `SUBSCRIPTION_GROUNDING_RULE` (must stay in sync between the two files).
+17 skill files in `lib/prompts/skills/`, mirrored to `lib/prompts/skills/staging/` for the staging AI lane (see Staging AI Profile Lane section). Build functions: `buildOnboardingPrompt` and `buildStandardPrompt` in `lib/prompts/`. Both append `SUBSCRIPTION_GROUNDING_RULE` (must stay in sync between the two files). Both also accept an `aiProfile` arg threaded through to every `loadSkill` call.
 
 **rec-capture.md skill:** Save threshold evaluation is cumulative across the conversation. Once a descriptor is given in any message, threshold is met -- no further clarifying questions permitted. AI-005 (`docs/ai-behavior-issues.md`) tracks the multi-question drilling failure mode.
+
+### Staging AI Profile Lane (shipped April 22-24, 2026)
+
+Opt-in lane for evaluating AI personality changes without affecting alpha users. Gated by `profiles.ai_profile` ('stable' | 'staging', default 'stable'). Currently scoped to @shamal and @chris.
+
+**Skill routing.** `loadSkill(name, aiProfile = 'stable')` in `lib/prompts/loader.js` reads from `lib/prompts/skills/<name>.md` for stable, `lib/prompts/skills/staging/<name>.md` for staging. The staging folder is a byte-identical copy of stable until charter work begins. `[SKILL_LOAD]` logs fire on staging reads only.
+
+**Threading.** `buildOnboardingPrompt` and `buildStandardPrompt` accept an `aiProfile` arg and pass it to every `loadSkill` call. `buildVisitorPrompt` accepts the param as a no-op (visitor prompt isn't skill-based yet). The chat route (`app/api/chat/route.js`) and taste-read route (`app/api/taste-read/route.js`) both fetch the caller's `ai_profile` early via `profiles.ai_profile` and thread it through. Logged as `[AI_PROFILE] route=<chat|taste-read> profileId=... aiProfile=...`. Fetch failures fall through to 'stable' under `[AI_PROFILE_FETCH_ERROR]`.
+
+**Charter placeholders.** `lib/prompts/charter.md` and `lib/prompts/skills/staging/charter.md` are HTML-comment placeholders awaiting charter draft. Empty until charter approval.
+
+**Eval signal: thumbs.** `components/chat/AIResponseThumbs.jsx` renders ▲/▼ buttons below every AI message for staging users. Wired into `ChatView.jsx` at both AI message render branches (FeedBlockGroup variant and FeedLegacyBubble variant). Visitor chat is NOT wired. Optimistic UI with revert-on-failure; initial ratings hydrated via batched GET. Component uses a `lastSyncedRef` plus an `onRatingChange` callback so the parent's `ratingsByMessageId` cache stays in sync after each successful write — don't simplify to plain mount-time `useState(initialRating)`, that ignores async hydration and causes persistence bugs.
+
+**Ratings storage.** `ai_response_ratings` table with `UNIQUE (message_id, profile_id)` constraint. Endpoints: `app/api/ai-response-ratings/route.js` (POST/DELETE/GET) using the dominant codebase auth pattern (`createServerClient` + `getAll/setAll` cookies + `getUser()`, then `auth_user_id → profiles.id` lookup). The `ai_profile` column on each row is **snapshotted at first-rating time (insert)** — subsequent flips update only `rating`, leaving `ai_profile` frozen. POST does insert-or-update via existence check (NOT upsert) to preserve this invariant. Logged as `[AI_RATING] op=insert|update`; clears as `[AI_RATING_CLEARED]`.
+
+**`profile.aiProfile` exposure.** `useCurator()` exposes `profile.aiProfile` (camelCase). Surfaced from `prof.ai_profile` (snake_case DB column) in three `setProfile({...})` call sites in `context/CuratorContext.jsx`. Defaults to 'stable' on null.
 
 ### Taste Profile Pipeline
 
@@ -265,6 +283,7 @@ Both admin pages perform handle normalization via `lib/handles.js` — do not ad
 - Taste Read v2: QuickCaptureSheet integration deferred (Option Y, portal/modal at page level after QCS closes)
 - Taste Timeline: ignored events stored in DB but not shown in UI — future consideration
 - Taste Timeline: Saved Recommendation type (rec_is_own: false) — deferred until saved_recs table is wired into timeline API
+- Charter draft: placeholder files exist at `lib/prompts/charter.md` and `lib/prompts/skills/staging/charter.md` — content awaits charter approval
 
 ---
 
@@ -285,9 +304,23 @@ Key files: `app/api/notify/new-rec/route.js`, `lib/email-templates.js` (`newRecE
 
 ---
 
+## Feedback System
+
+Testers submit feedback via `components/chat/FeedbackSheet.jsx` (text + optional screenshot). Submit posts to `app/api/feedback/route.js`.
+
+**Flow.** Insert `feedback` row with `.select('id').single()` to retrieve `feedback_id` → if `screenshot_base64` present, decode + SHA-256 hash + upload to `artifacts/feedback/<feedback_id>/<sha>.jpg` via `supabase.storage.from('artifacts').upload()` (direct call, NOT `uploadArtifact` — feedback screenshots have no value in dedup-by-curator) → on upload success, update row with `screenshot_path` → generate 7-day signed URL → send email via Resend with screenshot line inline.
+
+**Client-side image handling.** No pre-resize size gate (would reject normal iPhone screenshots needlessly). Screenshot resized to 1600px long-edge JPEG 0.85 quality (same pattern as Feature B chat-image upload, inlined into FeedbackSheet — no shared helper). Post-resize safety check: reject if base64 > 5.5MB (~4MB raw bytes after base64 overhead). HEIC/HEIF rejected with explicit message — Chrome/Firefox can't decode them.
+
+**Failure handling.** Screenshot upload failures (`[FEEDBACK_SCREENSHOT_UPLOAD_ERROR]`) and signed URL generation failures (`[FEEDBACK_SIGNED_URL_ERROR]`) NEVER block feedback submission — text feedback persists and email sends, just without the screenshot link. If upload succeeds but row update fails, the orphaned storage object stays; logged for manual cleanup.
+
+**Email body.** Inline plain-text in the route. Screenshot line appears immediately after `Handle:` when `screenshotSignedUrl` is set; omitted entirely otherwise. No HTML body. No template extraction (`lib/email-templates.js` not involved).
+
+---
+
 ## Key Log Markers
 
-Primary filters (grep on these when debugging end-to-end flows): `[TASTE_READ_V2]`, `[TIMELINE]`, `[rec-files]`, `[chat-parse-ingest]`, `[taste-profile]`, `[NOTIFY_NEW_REC]`, `[INVITER_CONTEXT]`, `[AUTO_SUBSCRIBE]`, `[UPDATE_REC_FILE]`.
+Primary filters (grep on these when debugging end-to-end flows): `[TASTE_READ_V2]`, `[TIMELINE]`, `[rec-files]`, `[chat-parse-ingest]`, `[taste-profile]`, `[NOTIFY_NEW_REC]`, `[INVITER_CONTEXT]`, `[AUTO_SUBSCRIBE]`, `[UPDATE_REC_FILE]`, `[AI_PROFILE]`, `[AI_RATING]`, `[FEEDBACK_SCREENSHOT_UPLOADED]`.
 
 Each area has a matching `_ERROR` / `_FAILED` / `_UNDO` variant — grep the code for the full set when you need it.
 
@@ -295,6 +328,9 @@ Additional markers with specific payloads worth documenting:
 
 - `[NOTIFY_SKIPPED]` — Logged by `/api/notify/new-rec` when `silent: true` is set in body or (historical) when handle was in NOTIFICATION_SKIP_HANDLES (that env var was removed). Payload: `{ recId, curatorId, reason }`.
 - `[ADMIN_TRANSCRIPTS_ACCESS]` — Logged by `/api/admin/transcripts` on every authed call. Payload: `{ caller_profile_id, caller_handle, filterDays }`. Use for auditing admin data access.
+- `[AI_PROFILE]` — Chat and taste-read routes log every authed request: `route=<chat|taste-read> profileId=... aiProfile=<stable|staging>`. Confirms a tester is being routed to the staging skills.
+- `[SKILL_LOAD]` — `lib/prompts/loader.js` logs `profile=staging skill=<name>` on every staging-folder read. Stable reads are silent. Confirms which skills got loaded for a given turn.
+- `[AI_RATING]` — `app/api/ai-response-ratings/route.js` POST logs `profileId=... messageId=... rating=<up|down> aiProfile=<snapshot> op=<insert|update>`. The `aiProfile` value is the SNAPSHOT (frozen at first-rating time), not the caller's current value.
 
 ---
 
@@ -316,7 +352,9 @@ app/(curator)/me/page.js                   -- Me default, renders TasteManager e
 app/(curator)/me/taste/page.js             -- Personal Record (TasteFileView)
 app/api/chat/route.js                      -- mode detection, link handling, rec extraction
 lib/prompts/onboarding.js, standard.js     -- system prompt builders (both carry SUBSCRIPTION_GROUNDING_RULE)
-lib/prompts/loader.js                      -- skill loader with cache
+lib/prompts/loader.js                      -- loadSkill(name, aiProfile = 'stable'). No cache (removed 2026-04-21)
+lib/prompts/charter.md                     -- root charter placeholder (HTML comment, awaits charter approval)
+lib/prompts/skills/staging/                -- mirror of skills/, byte-identical until charter work begins
 lib/chat/inviter-context.js                -- getInviterContext
 lib/chat/network-context.js                -- getSubscribedRecs + REC_LINK sentinel
 lib/chat/link-parsing.js                   -- distillForReinjection
@@ -337,6 +375,10 @@ app/api/email-action/route.js              -- token-based dispatch (unsubscribe,
 components/taste-read/TasteReadCard.jsx    -- hydrate, render, confirm/refine/ignore/undo, done/dismiss
 components/me/TasteTimeline.jsx            -- timeline UI (grouped by local date)
 scripts/backfill-rec-files.mjs             -- backfill: --curator <handle> | --all --live
+app/api/ai-response-ratings/route.js       -- staging eval thumbs (POST/DELETE/GET; ai_profile snapshotted at insert)
+components/chat/AIResponseThumbs.jsx       -- staging-only ▲/▼ buttons; lastSyncedRef + onRatingChange pattern
+app/api/feedback/route.js                  -- feedback insert + optional screenshot upload + Resend email
+components/chat/FeedbackSheet.jsx          -- feedback modal with optional screenshot file input
 
 ---
 
