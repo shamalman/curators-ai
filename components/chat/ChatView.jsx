@@ -224,7 +224,16 @@ export default function ChatView({ variant }) {
         if (typedSinceSave.current) return;
         setTyping(true);
         try {
-          const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation via quick capture: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile. Connect it to patterns you see. Be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
+          const reflectionMsg = `[SYSTEM: The curator just saved "${savedRec.title}" via quick capture. Their note: "${savedRec.context}". They now have ${recCount} total recs.
+
+Your task: a short post-save acknowledgment. Follow these rules strictly:
+- Max 2 sentences total, including the question. Exactly one question mark.
+- No verdicts about the curator. Do not say "you're drawn to," "you value," "you appreciate," "you curate for," "this shows," or any sentence that ends as a declaration about who they are.
+- No synthesis across multiple recs. Do not connect this rec to other recs in their Record. Do not weave a thesis. Do not say "from X to Y" or "this connects to your love for..."
+- No padding with examples that aren't in this saved rec's content. If you reference an artist, song, scene, or item, it must be from the saved rec itself or from the curator's own words this turn.
+- Pick one of three question patterns from the POST-SAVE MOMENT skill: adjacent artist/work, sideways open, or specific callback to a word the curator used this turn.
+
+Acknowledge the save briefly, then ask one curious question.]`;
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -838,7 +847,16 @@ export default function ChatView({ variant }) {
       if (typedSinceSave.current) return;
       setTyping(true);
       try {
-        const reflectionMsg = `[SYSTEM: The curator just saved a new recommendation: "${savedRec.title}" (${savedRec.category}). Their context: "${savedRec.context}". They now have ${recCount} total recs. Reflect on what this rec adds to their taste profile. Connect it to patterns you see. Be specific and insightful. Then naturally ask what's next. Keep it to 2-3 sentences.]`;
+        const reflectionMsg = `[SYSTEM: The curator just saved "${savedRec.title}". Their note: "${savedRec.context}". They now have ${recCount} total recs.
+
+Your task: a short post-save acknowledgment. Follow these rules strictly:
+- Max 2 sentences total, including the question. Exactly one question mark.
+- No verdicts about the curator. Do not say "you're drawn to," "you value," "you appreciate," "you curate for," "this shows," or any sentence that ends as a declaration about who they are.
+- No synthesis across multiple recs. Do not connect this rec to other recs in their Record. Do not weave a thesis. Do not say "from X to Y" or "this connects to your love for..."
+- No padding with examples that aren't in this saved rec's content. If you reference an artist, song, scene, or item, it must be from the saved rec itself or from the curator's own words this turn.
+- Pick one of three question patterns from the POST-SAVE MOMENT skill: adjacent artist/work, sideways open, or specific callback to a word the curator used this turn.
+
+Acknowledge the save briefly, then ask one curious question.]`;
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
